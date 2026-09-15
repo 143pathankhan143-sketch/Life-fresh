@@ -280,23 +280,12 @@ val generateRingtones = tasks.register<GenerateRingtonesTask>("generateRingtones
   outputDir.set(project.layout.projectDirectory.dir("src/main/assets/sounds"))
 }
 
+// Planned (uncompiled) test suites live in `app/src/testPlanned/` — a directory
+// that is intentionally NOT a Gradle source set. See app/src/testPlanned/README.md
+// for what each suite targets and how to activate it once the production class
+// exists. No KotlinCompile exclusions are needed anymore.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
   dependsOn(generateRingtones)
-  if (name.contains("Test", ignoreCase = true)) {
-    exclude("**/VoiceIntelligenceTest.kt")
-    exclude("**/BulkIntelligenceTest.kt")
-    exclude("**/AIReminderIntelligenceTest.kt")
-    exclude("**/AIConversationEngineTest.kt")
-    exclude("**/AISchedulerEngineTest.kt")
-    exclude("**/DocumentIntelligenceTest.kt")
-    exclude("**/AIAnalyticsEngineTest.kt")
-    exclude("**/OcrIntelligenceTest.kt")
-    exclude("**/HybridRuntimeTest.kt")
-    exclude("**/AIKnowledgeCacheEngineTest.kt")
-    exclude("**/AIAuditEngineTest.kt")
-    exclude("**/AIWorkflowEngineTest.kt")
-    exclude("**/LLMIntegrationFrameworkTest.kt")
-  }
 }
 
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {

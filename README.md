@@ -75,10 +75,11 @@ Or just let Android Studio manage the build.
 ./gradlew connectedCheck  # instrumented (needs a device/emulator)
 ```
 
-> ⚠️ Known gap: `app/build.gradle.kts` currently `exclude`s 12 AI test classes from
-> `KotlinCompile` (`VoiceIntelligenceTest`, `BulkIntelligenceTest`, `OcrIntelligenceTest`,
-> `HybridRuntimeTest`, `LLMIntegrationFrameworkTest`, `AIWorkflowEngineTest`,
-> `AIAuditEngineTest`, …). Those tests exist but never run. Tracked as a follow-up.
+> ℹ️ Planned test suites: 13 advanced AI test classes (e.g. `VoiceIntelligenceTest`,
+> `LLMIntegrationFrameworkTest`, `AIAuditEngineTest`) target production classes that
+> do not exist yet. They now live in `app/src/testPlanned/` (not a Gradle source set,
+> so not compiled) instead of being `exclude`d from `KotlinCompile`. See
+> `app/src/testPlanned/README.md` for the mapping and activation steps.
 
 ## Project layout
 
@@ -92,7 +93,8 @@ app/                     Android module (111 Kotlin sources, ~35k LOC)
     sync/                outbox, conflicts, checkpoints, Firestore data source
     data/                Room DB, repositories, language packs, AI quota
     ui/                  screens (Compose), theme, viewmodels
-  src/test/java/         45 test classes
+  src/test/java/         32 active test classes
+  src/testPlanned/       13 planned test suites (not compiled; see its README)
 docs2/                   68 AI/engineering specification docs + sprints/
 gradle/libs.versions.toml  version catalog
 ```
