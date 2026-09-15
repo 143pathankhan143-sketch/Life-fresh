@@ -1,0 +1,34 @@
+# --- IDE / editors ---
+*.iml
+.idea/
+.vscode/
+.DS_Store
+
+# --- Gradle / Kotlin build output ---
+.gradle/
+.kotlin/
+build/
+**/build/
+out/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- Local machine config ---
+local.properties
+/local.properties
+
+# --- Secrets & signing (never commit) ---
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+debug.keystore
+*.base64
+*.pem
+*.p12
+
+# --- Logs / crash dumps ---
+*.log
+*.hprof
