@@ -2,9 +2,13 @@ package com.example.ai.chat.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.chat.model.ChatMessage
+import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.model.ChatUiState
 import com.example.ai.chat.repository.AIChatRepository
 import com.example.ai.chat.repository.DefaultAIChatRepository
+import com.example.ui.screens.MockMessage
+import com.example.ui.screens.Sender
 import com.example.ui.viewmodel.CRMViewModel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
@@ -21,9 +25,55 @@ class AIChatViewModel(
     val inputText: StateFlow<String> = _inputText.asStateFlow()
     private var activeRequestJob: Job? = null
     private var crmViewModel: CRMViewModel? = null
+    private var persistenceStarted = false
+    private var persistedMessageIds: Set<String> = emptySet()
+    private var lastPersistedTimestamp = 0L
 
+    /**
+     * Binds the CRM view model for:
+     *  - one-time restore of the last persisted conversation (survives
+     *    screen exit, configuration change and process death), and
+     *  - mirroring every new message into Room so the conversation is
+     *    durable and can be restored on the next app launch.
+     */
     fun attachCrmViewModel(viewModel: CRMViewModel?) {
+        if (crmViewModel === viewModel) return
         crmViewModel = viewModel
+        if (viewModel != null && !persistenceStarted) {
+            persistenceStarted = true
+            viewModelScope.launch { startPersistence(viewModel) }
+        }
+    }
+
+    private suspend fun startPersistence(crm: CRMViewModel) {
+        // 1) Restore the previous conversation. Only when the UI is empty, so a
+        //    live conversation is never clobbered by stale rows.
+        if (repository.uiState.value.messages.isEmpty()) {
+            val restored = crm.loadActiveSessionMessagesOnce()
+            if (restored.isNotEmpty()) {
+                repository.restoreMessages(restored.map { it.toChatMessage() })
+                val state = repository.uiState.value
+                persistedMessageIds = state.messages.map { it.id }.toSet()
+                lastPersistedTimestamp = state.messages.map { it.timestamp }.maxOrNull() ?: 0L
+            }
+        }
+
+        // 2) Mirror every new message into Room (fire-and-forget; CRMViewModel
+        //    owns its own IO scope and guards on signed-in uid).
+        repository.uiState.collect { state ->
+            val newOnes = state.messages.filter { it.id !in persistedMessageIds }
+            if (newOnes.isEmpty()) return@collect
+            val sessionId = crm.ensureActiveSession(
+                titleHint = newOnes.firstOrNull { it.role == ChatRole.USER }?.content
+            ) ?: return@collect
+            var ts = System.currentTimeMillis()
+            newOnes.forEach { msg ->
+                ts = if (ts > lastPersistedTimestamp) ts + 1 else lastPersistedTimestamp + 1
+                lastPersistedTimestamp = ts
+                crm.saveMessage(sessionId, msg.toMockMessage(timestamp = ts))
+            }
+            persistedMessageIds = state.messages.map { it.id }.toSet()
+        }
     }
 
     fun onInputChanged(text: String) {
@@ -60,10 +110,34 @@ class AIChatViewModel(
         job.invokeOnCompletion { if (activeRequestJob === job) activeRequestJob = null }
     }
 
+    /**
+     * Starts a fresh conversation. The previous conversation stays in Room as
+     * history (never deleted); the next message is stored in a new session.
+     */
     fun clearConversation() {
         activeRequestJob?.cancel()
         activeRequestJob = null
         _inputText.value = ""
+        persistedMessageIds = emptySet()
+        crmViewModel?.setActiveSession(null)
         repository.clearConversation()
     }
+
+    private fun MockMessage.toChatMessage(): ChatMessage = ChatMessage(
+        id = id,
+        role = if (sender == Sender.USER) ChatRole.USER else ChatRole.ASSISTANT,
+        content = text,
+        timestamp = timestamp,
+        isError = isError
+    )
+
+    private fun ChatMessage.toMockMessage(timestamp: Long = this.timestamp): MockMessage = MockMessage(
+        id = id,
+        text = content,
+        sender = if (role == ChatRole.USER) Sender.USER else Sender.AI,
+        timestamp = timestamp,
+        isError = isError,
+        isConfirmation = false,
+        actionCardType = null
+    )
 }

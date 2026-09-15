@@ -20,6 +20,12 @@ interface AIChatRepository {
     suspend fun retry()
     fun appendExternalResult(userText: String, responseText: String, responseId: String, isError: Boolean, providerName: String)
     fun clearConversation()
+    /**
+     * Loads a previously persisted conversation into the in-memory UI state.
+     * Only applies when the current conversation is empty, so a live
+     * conversation is never clobbered by a restore.
+     */
+    fun restoreMessages(messages: List<ChatMessage>)
     suspend fun executeServiceQuery(context: Context, prompt: String): Result<String> = Result.success("")
 }
 
@@ -92,6 +98,16 @@ class DefaultAIChatRepository(
             conversationGeneration++
             activeRequestId = null
             _uiState.value = ChatUiState()
+        }
+    }
+
+    override fun restoreMessages(messages: List<ChatMessage>) {
+        if (messages.isEmpty()) return
+        synchronized(stateLock) {
+            if (_uiState.value.messages.isNotEmpty()) return
+            conversationGeneration++
+            activeRequestId = null
+            _uiState.value = ChatUiState(messages = messages)
         }
     }
 

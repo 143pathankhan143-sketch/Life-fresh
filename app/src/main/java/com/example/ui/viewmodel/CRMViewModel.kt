@@ -96,25 +96,18 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
             val result = actionDispatcher.executeAction(pending.request, allLeadsList.value)
 
-            val messages = activeSessionMessages.value
-            val currentMessage = messages.find { it.id == messageId }
-            if (currentMessage != null) {
-                val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                if (uid.isNotBlank()) {
-                    val updatedEntity = AIChatMessageEntity(
-                        ownerUid = uid,
-                        id = currentMessage.id,
-                        sessionId = activeSessionId.value ?: "",
-                        text = if (result.success) result.message else "Error: ${result.message}",
-                        sender = "AI",
-                        timestamp = currentMessage.timestamp,
-                        isError = !result.success,
-                        isOfflineWarning = false,
-                        isConfirmation = false,
-                        actionCardType = "confirmation"
-                    )
-                    aiChatRepository.insertMessage(updatedEntity)
-                }
+            persistChatMessageUpdate(
+                messageId = messageId,
+                uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid,
+                sessionId = activeSessionId.value
+            ) { base ->
+                base.copy(
+                    text = if (result.success) result.message else "Error: ${result.message}",
+                    sender = "AI",
+                    isError = !result.success,
+                    isConfirmation = false,
+                    actionCardType = "confirmation"
+                )
             }
 
             if (result.success) {
@@ -150,25 +143,18 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             val pending = _pendingConfirmations.value[messageId] ?: return@launch
             if (pending.status == com.example.ai.action.ConfirmationStatus.EXECUTING) return@launch
 
-            val messages = activeSessionMessages.value
-            val currentMessage = messages.find { it.id == messageId }
-            if (currentMessage != null) {
-                val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                if (uid.isNotBlank()) {
-                    val updatedEntity = AIChatMessageEntity(
-                        ownerUid = uid,
-                        id = currentMessage.id,
-                        sessionId = activeSessionId.value ?: "",
-                        text = "Action cancelled.",
-                        sender = "AI",
-                        timestamp = currentMessage.timestamp,
-                        isError = false,
-                        isOfflineWarning = false,
-                        isConfirmation = false,
-                        actionCardType = "confirmation"
-                    )
-                    aiChatRepository.insertMessage(updatedEntity)
-                }
+            persistChatMessageUpdate(
+                messageId = messageId,
+                uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid,
+                sessionId = activeSessionId.value
+            ) { base ->
+                base.copy(
+                    text = "Action cancelled.",
+                    sender = "AI",
+                    isError = false,
+                    isConfirmation = false,
+                    actionCardType = "confirmation"
+                )
             }
 
             _pendingConfirmations.update { map ->
@@ -183,11 +169,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         messageId: String,
         result: com.example.leads.ai.LeadAIChatResult
     ) {
-        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
-        if (uid.isBlank()) return
-        val currentMessage = activeSessionMessages.value
-            .firstOrNull { it.id == messageId }
-            ?: return
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid
+        val sessionId = activeSessionId.value
+        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) return
 
         val remainsInteractive = when (result.status) {
             com.example.leads.ai.LeadAIChatStatus.EXECUTION_FAILED,
@@ -197,32 +181,64 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             else -> false
         }
 
-        val updatedEntity = AIChatMessageEntity(
-            ownerUid = uid,
-            id = currentMessage.id,
-            sessionId = activeSessionId.value ?: return,
-            text = result.text,
-            sender = "AI",
-            timestamp = System.currentTimeMillis(),
-            isError = result.isError,
-            isOfflineWarning = false,
-            isConfirmation = remainsInteractive,
-            actionCardType = if (remainsInteractive) {
-                "lead_ai_confirmation"
-            } else {
-                null
-            }
-        )
-
-        aiChatRepository.insertMessage(updatedEntity)
-        aiChatRepository.updateSessionTimestamp(uid, updatedEntity.sessionId)
+        val persisted = persistChatMessageUpdate(
+            messageId = messageId,
+            uid = uid,
+            sessionId = sessionId
+        ) { base ->
+            base.copy(
+                text = result.text,
+                sender = "AI",
+                isError = result.isError,
+                isConfirmation = remainsInteractive,
+                actionCardType = if (remainsInteractive) "lead_ai_confirmation" else null
+            )
+        }
+        if (persisted) {
+            aiChatRepository.updateSessionTimestamp(uid, sessionId)
+        }
     }
 
-    private fun latestActionableLeadAIConfirmation():
+    /**
+     * Deterministically updates one persisted chat message: loads the base row
+     * straight from Room (avoiding shared-flow `.value` staleness right after
+     * process death) and re-inserts the copy produced by [buildUpdated].
+     *
+     * Returns true when a row was found and updated, false when the message or
+     * session does not exist (nothing to update).
+     */
+    private suspend fun persistChatMessageUpdate(
+        messageId: String,
+        uid: String?,
+        sessionId: String?,
+        buildUpdated: (AIChatMessageEntity) -> AIChatMessageEntity
+    ): Boolean {
+        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) return false
+        val base = withContext(Dispatchers.IO) {
+            aiChatRepository.getMessagesForSessionList(uid, sessionId)
+        }.firstOrNull { it.id == messageId } ?: return false
+        aiChatRepository.insertMessage(buildUpdated(base))
+        return true
+    }
+
+    /**
+     * Finds the newest actionable lead-AI confirmation in the active session.
+     * Reads the session rows directly from Room (deterministic) instead of the
+     * shared [activeSessionMessages] flow, whose `.value` is stale whenever the
+     * flow has no subscriber (e.g. right after process death or with voice off).
+     */
+    private suspend fun latestActionableLeadAIConfirmation():
         Pair<String, com.example.leads.ai.LeadAIChatConfirmationState>? {
         val states = leadAIConfirmationStates.value
+        if (states.isEmpty()) return null
+        val uid = _currentUidFlow.value ?: return null
+        val sessionId = activeSessionId.value ?: return null
+        if (uid.isBlank() || sessionId.isBlank()) return null
+        val messages = withContext(Dispatchers.IO) {
+            aiChatRepository.getMessagesForSessionList(uid, sessionId)
+        }.sortedByDescending { it.timestamp }
 
-        for (message in activeSessionMessages.value.asReversed()) {
+        for (message in messages) {
             val state = states[message.id] ?: continue
             if (state.canConfirm || state.canCancel) {
                 return message.id to state
@@ -955,6 +971,72 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     fun setActiveSession(sessionId: String?) {
         savedStateHandle["active_session_id"] = sessionId
+    }
+
+    /**
+     * One-shot, deterministic read of the active session's messages from Room.
+     *
+     * Unlike [activeSessionMessages] (a shared flow with WhileSubscribed
+     * semantics, whose .value may be stale right after process death), this
+     * goes straight to the database and always returns the current rows.
+     * Used by the AI chat view model to restore the last conversation.
+     */
+    suspend fun loadActiveSessionMessagesOnce(): List<MockMessage> {
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid
+        val sessionId = activeSessionId.value
+        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) return emptyList()
+        return withContext(Dispatchers.IO) {
+            aiChatRepository.getMessagesForSessionList(uid, sessionId)
+        }.map { msg ->
+            MockMessage(
+                id = msg.id,
+                text = msg.text,
+                sender = if (msg.sender == "USER") Sender.USER else Sender.AI,
+                timestamp = msg.timestamp,
+                isError = msg.isError,
+                isOfflineWarning = msg.isOfflineWarning,
+                isConfirmation = msg.isConfirmation,
+                actionCardType = msg.actionCardType
+            )
+        }.sortedBy { it.timestamp }
+    }
+
+    /**
+     * Returns the active chat session id, creating a new Room session first if
+     * none is active. Safe to call on every message; returns null when the user
+     * is not signed in or AI features are disabled (nothing is persisted then).
+     *
+     * The session insert happens synchronously (on IO) before the id is
+     * returned, so callers can immediately write messages without a foreign-key
+     * race against the sessions table.
+     */
+    suspend fun ensureActiveSession(titleHint: String? = null): String? {
+        if (!BuildConfig.AI_FEATURES_ENABLED) return null
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid
+        if (uid.isNullOrBlank()) return null
+        val existing = activeSessionId.value
+        if (!existing.isNullOrBlank()) return existing
+        val newId = "session_${System.currentTimeMillis()}"
+        val hint = titleHint?.trim()?.takeIf { it.isNotEmpty() }
+        val title = if (hint != null) {
+            if (hint.length > 25) hint.substring(0, 22) + "..." else hint
+        } else {
+            "New Chat"
+        }
+        withContext(Dispatchers.IO) {
+            aiChatRepository.insertSession(
+                AIChatSessionEntity(
+                    ownerUid = uid,
+                    id = newId,
+                    title = title,
+                    createdTimestamp = System.currentTimeMillis(),
+                    updatedTimestamp = System.currentTimeMillis(),
+                    isPinned = false
+                )
+            )
+        }
+        setActiveSession(newId)
+        return newId
     }
 
     init {
