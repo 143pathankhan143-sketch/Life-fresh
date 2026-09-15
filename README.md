@@ -101,10 +101,17 @@ gradle/libs.versions.toml  version catalog
 
 ## Documentation notes
 
-`docs2/` holds the specification set for the AI subsystem. Read
-`docs2/AI_Documentation_to_Code_Mapping.md` first — it is an honest audit of which
-engines are actually implemented. Its own verdict for the current snapshot:
-**2 implemented · 28 partially implemented · 34 not implemented · 3 documentation-only**.
+`docs2/` holds the specification set for the AI subsystem.
+
+- **Start here for current truth:** `docs2/AI_Status_Baseline_v2.md` — the
+  feature-by-feature status sheet (Ready / Partial / Disconnected / Planned /
+  Deferred), updated at the end of every implementation phase.
+- `docs2/DB_Migration_Policy.md` — Room migration rules (no destructive
+  fallbacks, batched version bumps, migration tests mandatory).
+- `docs2/AI_Documentation_to_Code_Mapping.md` — the original (July 2026)
+  spec-to-code audit; kept as **history** (it predates the current
+  parser/voice/chat stack). Its verdict at the time: **2 implemented ·
+  28 partially implemented · 34 not implemented · 3 documentation-only**.
 
 Two known documentation/code mismatches to keep in mind:
 

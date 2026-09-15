@@ -464,7 +464,11 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12,
                         MIGRATION_12_13
                     )
-                    .fallbackToDestructiveMigration()
+                    // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
+                    // It silently erases the entire database whenever an on-disk
+                    // version has no migration path. If a version gap is ever
+                    // encountered, add the missing Migration(s) instead.
+                    // See docs2/DB_Migration_Policy.md.
                     .build()
                 INSTANCE = instance
                 instance
