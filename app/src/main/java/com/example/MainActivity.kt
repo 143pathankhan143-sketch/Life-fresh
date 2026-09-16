@@ -70,6 +70,7 @@ import com.example.data.LocalAppLanguage
 import com.example.data.LocalActiveLanguageMetadata
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.LocalDensity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
@@ -392,7 +393,10 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
     // (imePadding in chat/form screens) already push input fields above the
     // keyboard, and a visible nav bar would leave a dead gap between the
     // input field and the keyboard.
-    val imeVisible = WindowInsets.isImeVisible
+    // (Uses WindowInsets.ime.getBottom — WindowInsets.isImeVisible needs
+    // Compose 1.9+, this project is on 1.7.)
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
 
     val activeTab = remember(currentRoute) {
         when {
