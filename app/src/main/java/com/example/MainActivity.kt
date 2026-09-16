@@ -7,7 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.LocalWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -392,7 +392,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
     // (imePadding in chat/form screens) already push input fields above the
     // keyboard, and a visible nav bar would leave a dead gap between the
     // input field and the keyboard.
-    val imeVisible = LocalWindowInsets.current.isImeVisible
+    val imeVisible = WindowInsets.isImeVisible
 
     val activeTab = remember(currentRoute) {
         when {
