@@ -10,7 +10,6 @@ import com.example.ai.chat.repository.DefaultAIChatRepository
 import com.example.ui.screens.MockMessage
 import com.example.ui.screens.Sender
 import com.example.ui.viewmodel.CRMViewModel
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,16 +86,6 @@ class AIChatViewModel(
         if (textOverride == null) _inputText.value = ""
 
         val job = viewModelScope.launch {
-            val crm = crmViewModel
-            if (crm != null) {
-                val responseId = java.util.UUID.randomUUID().toString()
-                val crmResult = crm.processAICommand(trimmed, responseId, {})
-                if (crmResult.handled) {
-                    coroutineContext.ensureActive()
-                    repository.appendExternalResult(trimmed, crmResult.text, responseId, crmResult.isError, "CRM")
-                    return@launch
-                }
-            }
             repository.sendMessage(trimmed)
         }
         activeRequestJob = job

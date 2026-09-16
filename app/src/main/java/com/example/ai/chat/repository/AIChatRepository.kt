@@ -11,14 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-import android.content.Context
-import com.example.data.repository.AIServiceRepository
-
 interface AIChatRepository {
     val uiState: StateFlow<ChatUiState>
     suspend fun sendMessage(text: String)
     suspend fun retry()
-    fun appendExternalResult(userText: String, responseText: String, responseId: String, isError: Boolean, providerName: String)
     fun clearConversation()
     /**
      * Loads a previously persisted conversation into the in-memory UI state.
@@ -26,17 +22,12 @@ interface AIChatRepository {
      * conversation is never clobbered by a restore.
      */
     fun restoreMessages(messages: List<ChatMessage>)
-    suspend fun executeServiceQuery(context: Context, prompt: String): Result<String> = Result.success("")
 }
 
 class DefaultAIChatRepository(
     private val router: AIProviderRouter = AIProviderRouter(),
-    private val systemInstruction: String = AIConfig.DEFAULT_SYSTEM_INSTRUCTION,
-    private val aiServiceRepository: AIServiceRepository = AIServiceRepository()
+    private val systemInstruction: String = AIConfig.DEFAULT_SYSTEM_INSTRUCTION
 ) : AIChatRepository {
-    override suspend fun executeServiceQuery(context: Context, prompt: String): Result<String> {
-        return aiServiceRepository.processQuery(context, prompt)
-    }
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -86,13 +77,6 @@ class DefaultAIChatRepository(
         }
     }
 
-    override fun appendExternalResult(userText: String, responseText: String, responseId: String, isError: Boolean, providerName: String) {
-        synchronized(stateLock) {
-            val userMessage = ChatMessage(role = ChatRole.USER, content = userText)
-            val assistantMessage = ChatMessage(id = responseId, role = ChatRole.ASSISTANT, content = responseText, isError = isError, providerName = providerName)
-            _uiState.value = _uiState.value.copy(messages = _uiState.value.messages.filterNot { it.isError } + userMessage + assistantMessage, isThinking = false, errorMessage = if (isError) responseText else null, canRetry = false, activeProvider = providerName)
-        }
-    }
     override fun clearConversation() {
         synchronized(stateLock) {
             conversationGeneration++

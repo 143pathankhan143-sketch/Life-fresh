@@ -61,8 +61,6 @@ fun AIScreen(
         chatViewModel.attachCrmViewModel(viewModel)
     }
 
-    val legacyConfirmations = viewModel?.pendingConfirmations?.collectAsStateWithLifecycle()?.value ?: emptyMap()
-    val leadConfirmations = viewModel?.leadAIConfirmationStates?.collectAsStateWithLifecycle()?.value ?: emptyMap()
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
     val inputText by chatViewModel.inputText.collectAsStateWithLifecycle()
 
@@ -124,11 +122,7 @@ fun AIScreen(
                                 message = message,
                                 canRetry = uiState.canRetry && message.id == uiState.messages.lastOrNull()?.id,
                                 onRetry = { chatViewModel.retry() },
-                                onNavigateToSettings = onNavigateToSettings,
-                                showConfirmation = legacyConfirmations[message.id]?.let { it.status == com.example.ai.action.ConfirmationStatus.PENDING || it.status == com.example.ai.action.ConfirmationStatus.FAILED } == true || leadConfirmations[message.id]?.canConfirm == true,
-                                onConfirm = { viewModel?.confirmAction(message.id) },
-                                onCancel = { viewModel?.cancelAction(message.id) },
-                                confirmationStatusText = legacyConfirmations[message.id]?.let { when (it.status) { com.example.ai.action.ConfirmationStatus.SUCCESS -> it.successText; com.example.ai.action.ConfirmationStatus.FAILED -> it.errorText; com.example.ai.action.ConfirmationStatus.CANCELLED -> "Action cancelled."; com.example.ai.action.ConfirmationStatus.EXECUTING -> "Executing..."; else -> null } } ?: leadConfirmations[message.id]?.let { when (it.lifecycle) { com.example.leads.ai.LeadAIConfirmationLifecycle.SUCCESS -> it.successText; com.example.leads.ai.LeadAIConfirmationLifecycle.FAILED -> it.errorText; com.example.leads.ai.LeadAIConfirmationLifecycle.CANCELLED -> "Lead action cancelled."; com.example.leads.ai.LeadAIConfirmationLifecycle.EXECUTING -> "Executing..."; else -> null } }
+                                onNavigateToSettings = onNavigateToSettings
                             )
                             ChatRole.SYSTEM -> {}
                         }
@@ -380,10 +374,6 @@ private fun AssistantMessageBubble(
     message: ChatMessage,
     canRetry: Boolean,
     onRetry: () -> Unit,
-    showConfirmation: Boolean,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    confirmationStatusText: String?,
     onNavigateToSettings: () -> Unit = {}
 ) {
     Row(
@@ -521,15 +511,6 @@ private fun AssistantMessageBubble(
                             }
                         }
                     }
-                }
-                if (showConfirmation) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                        Button(onClick = onConfirm, modifier = Modifier.testTag("confirm_crm_action")) { Text("Confirm") }
-                        OutlinedButton(onClick = onCancel, modifier = Modifier.testTag("cancel_crm_action")) { Text("Cancel") }
-                    }
-                }
-                confirmationStatusText?.let { statusText ->
-                    Text(text = statusText, color = if (statusText == "Executing...") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
             }
         }
@@ -714,7 +695,7 @@ private fun AIChatComposer(
     }
 }
 
-// Legacy data classes preserved for CRMViewModel & VoiceConversationManager backward compatibility
+// Shared chat data classes used by CRMViewModel and the AI chat screen
 enum class Sender { USER, AI }
 
 data class MockMessage(

@@ -4,13 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.example.ai.chat.config.AIConfig
-import com.example.data.network.AIProxyRequest
-import com.example.data.network.AIProxyResponse
-import com.example.data.network.AIProxyService
-import com.example.data.security.AIQuotaManager
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,13 +12,16 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
-class AIServiceRepository(
-    private val proxyEndpointUrl: String = DEFAULT_PROXY_ENDPOINT
-) {
+/**
+ * Thin wrapper around the Google Generative Language API used for
+ * API-key validation from Settings ("Test connection").
+ *
+ * The chatbot itself talks to Gemini through its own provider layer
+ * (com.example.ai.chat.provider), NOT through this class.
+ */
+class AIServiceRepository {
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -33,66 +29,11 @@ class AIServiceRepository(
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    private val moshi: Moshi = Moshi.Builder()
-        .addLast(KotlinJsonAdapterFactory())
-        .build()
-
-    private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl("https://generativelanguage.googleapis.com/")
-        .client(okHttpClient)
-        .addConverterFactory(MoshiConverterFactory.create(moshi))
-        .build()
-
-    private val proxyService: AIProxyService = retrofit.create(AIProxyService::class.java)
-
     fun isNetworkAvailable(context: Context): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    /**
-     * Executes an AI prompt through the secure pipeline:
-     * 1. Check AIQuotaManager.canExecuteAI(context)
-     * 2. If customKey exists, call Google Gemini API directly
-     * 3. If no custom key, call default secure proxy endpoint
-     * 4. On success, call AIQuotaManager.incrementUsage(context) and return text response
-     */
-    suspend fun processQuery(context: Context, prompt: String): Result<String> = withContext(Dispatchers.IO) {
-        val trimmedPrompt = prompt.trim()
-        if (trimmedPrompt.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Prompt cannot be blank"))
-        }
-
-        if (!isNetworkAvailable(context)) {
-            return@withContext Result.failure(Exception("No internet connection. Please check your network and try again."))
-        }
-
-        // 1. Quota & Rate Limit Check
-        if (!AIQuotaManager.canExecuteAI(context)) {
-            return@withContext Result.failure(Exception("DAILY_LIMIT_REACHED"))
-        }
-
-        val customKey = AIQuotaManager.getCustomGeminiKey(context)
-        val deviceId = AIQuotaManager.getDeviceId(context)
-
-        try {
-            val responseText: String = if (!customKey.isNullOrBlank()) {
-                // 2. Direct Google Gemini call using user's BYOK key
-                callDirectGeminiApi(customKey, trimmedPrompt)
-            } else {
-                // 3. Backend AI Proxy call with device-bound rate limiting
-                callProxyEndpoint(context, trimmedPrompt, deviceId)
-            }
-
-            // 4. Record usage on success
-            AIQuotaManager.incrementUsage(context)
-            Result.success(responseText)
-        } catch (e: Exception) {
-            Log.e(TAG, "AI processing failed", e)
-            Result.failure(e)
-        }
     }
 
     /**
@@ -320,42 +261,7 @@ class AIServiceRepository(
         throw lastException ?: Exception("Unable to reach Google Gemini API after trying all fallback models.")
     }
 
-    private suspend fun callProxyEndpoint(context: Context, prompt: String, deviceId: String): String {
-        val request = AIProxyRequest(prompt = prompt, deviceId = deviceId)
-
-        try {
-            val proxyResponse: AIProxyResponse = proxyService.executeProxyQuery(proxyEndpointUrl, request)
-            if (!proxyResponse.error.isNullOrBlank()) {
-                throw Exception(proxyResponse.error)
-            }
-
-            val text = proxyResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-            if (!text.isNullOrBlank()) {
-                return text
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "AI proxy call failed: ${e.message}", e)
-        }
-
-        // Graceful fallback: If proxy is down, try environment fallback key if configured
-        val fallbackKey = AIConfig.geminiApiKey
-        if (fallbackKey.isNotBlank() && fallbackKey != "DEFAULT_GEMINI_API_KEY") {
-            try {
-                Log.i(TAG, "Proxy unreachable, executing with fallback configuration")
-                return callDirectGeminiApi(fallbackKey, prompt)
-            } catch (e: Exception) {
-                Log.w(TAG, "Fallback key failed: ${e.message}", e)
-                if (e.message?.startsWith("API Key Invalid or Expired") == true) {
-                    throw e
-                }
-            }
-        }
-
-        throw Exception("Default AI proxy is currently updating. Please enter your free personal Gemini API key in Settings > AI Assistant Configuration for instant, unlimited access.")
-    }
-
     companion object {
         private const val TAG = "AIServiceRepository"
-        const val DEFAULT_PROXY_ENDPOINT = "https://lifefresh-ai-proxy.run.app/api/v1/generate"
     }
 }
