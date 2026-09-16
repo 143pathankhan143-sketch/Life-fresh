@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.example.ai.chat.config.AIConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -81,19 +82,14 @@ class AIServiceRepository {
                         }
                     } catch (_: Throwable) {}
 
-                    // Priority order for modern Gemini models (Fastest first)
-                    val preferredOrder = listOf(
-                        "gemini-2.0-flash",
-                        "gemini-1.5-flash",
-                        "gemini-flash-latest",
-                        "gemini-2.5-flash",
-                        "gemini-2.5-pro"
-                    )
+                    // Priority order for modern Gemini models (Fastest first).
+                    // Single source of truth: AIConfig.GEMINI_TEXT_MODELS.
+                    val preferredOrder = AIConfig.GEMINI_TEXT_MODELS
 
                     val selectedModel = preferredOrder.firstOrNull { supportedModels.contains(it) }
                         ?: supportedModels.firstOrNull { it.contains("flash") }
                         ?: supportedModels.firstOrNull()
-                        ?: "gemini-2.0-flash"
+                        ?: preferredOrder.first()
 
                     val answer = callSingleGeminiModel(trimmed, selectedModel, "Say 'Connected'")
                     return@withContext Result.success("Connected successfully ($selectedModel): $answer")
@@ -166,13 +162,7 @@ class AIServiceRepository {
     }
 
     private fun callDirectGeminiApi(apiKey: String, prompt: String): String {
-        val models = listOf(
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-flash-latest",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro"
-        )
+        val models = AIConfig.GEMINI_TEXT_MODELS
 
         val requestJson = JSONObject().apply {
             val partsArray = JSONArray().apply {

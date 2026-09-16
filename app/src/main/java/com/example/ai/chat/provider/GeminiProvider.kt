@@ -24,7 +24,7 @@ class GeminiProvider(
         .readTimeout(25, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .build(),
-    private val modelName: String = "gemini-2.0-flash"
+    private val modelName: String = AIConfig.GEMINI_TEXT_MODELS.first()
 ) : AIProvider {
 
     override val name: String = "Gemini"
@@ -97,14 +97,9 @@ class GeminiProvider(
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val requestBody = requestJson.toString().toRequestBody(mediaType)
 
-            val models = listOf(
-                modelName,
-                "gemini-2.0-flash",
-                "gemini-1.5-flash",
-                "gemini-flash-latest",
-                "gemini-2.5-flash",
-                "gemini-2.5-pro"
-            ).distinct()
+            val models = AIConfig.GEMINI_TEXT_MODELS
+                .let { if (it.contains(modelName)) it else listOf(modelName) + it }
+                .distinct()
 
             var lastFailure: AIProviderResult.Failure? = null
 

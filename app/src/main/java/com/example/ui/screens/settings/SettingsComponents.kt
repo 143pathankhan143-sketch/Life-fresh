@@ -448,7 +448,7 @@ fun AIAssistantConfigCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Zero-leak proxy & personal Gemini key",
+                        text = "Personal Gemini key (BYOK) for unlimited chats",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -581,7 +581,7 @@ fun AIAssistantConfigCard(
                                     },
                                     onFailure = { error ->
                                         val reason = error.message?.takeIf { it.isNotBlank() } ?: "Unknown error"
-                                        statusMessage = "Invalid Key: $reason"
+                                        statusMessage = "Key test failed: $reason"
                                         isSuccessStatus = false
                                     }
                                 )

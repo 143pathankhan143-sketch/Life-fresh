@@ -86,6 +86,15 @@ Settings ── AIServiceRepository.testGeminiKey (key validation only)
 - Proxy-related cases dropped from `AIQuotaManagerTest`; quota + BYOK +
   `testGeminiKey` cases kept.
 
+## Changelog
+
+- **16 September 2026 (model deprecation incident):** Google shut down the
+  2.x model endpoints (`gemini-2.0-flash` 404 "no longer available to new
+  users"), which broke both chat and Settings key-test. Fix: all model names
+  now live in **one place** — `AIConfig.GEMINI_TEXT_MODELS`
+  (gemini-3.8-flash → 3.7 → 3.6 → 3.5 → gemini-flash-latest → 3.1-pro-preview).
+  If chat 404s again, update only that list (see the comment inside it).
+
 ## Process rule
 
 At the end of every phase: update this sheet (status + evidence + issues) and
