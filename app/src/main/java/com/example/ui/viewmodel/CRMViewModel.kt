@@ -232,7 +232,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         )
     }
 
-    val activeSessionId = savedStateHandle.getStateFlow<String?>(\"active_session_id\", null)
+    val activeSessionId = savedStateHandle.getStateFlow<String?>("active_session_id", null)
 
     fun setActiveSession(sessionId: String?) {
         savedStateHandle["active_session_id"] = sessionId
