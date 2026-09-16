@@ -68,6 +68,7 @@ import com.example.data.AppLanguageManager
 import com.example.data.LocalAppLanguage
 import com.example.data.LocalActiveLanguageMetadata
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInsets
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -387,6 +388,12 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         (currentRoute == "dashboard" || currentRoute == "leads" || currentRoute == "reports" || currentRoute == "settings" || currentRoute == "ai") && activeSettingsSubScreen == null
     }
 
+    // Hide the bottom nav while the keyboard is up: the IME insets
+    // (imePadding in chat/form screens) already push input fields above the
+    // keyboard, and a visible nav bar would leave a dead gap between the
+    // input field and the keyboard.
+    val imeVisible = LocalWindowInsets.current.isImeVisible
+
     val activeTab = remember(currentRoute) {
         when {
             currentRoute?.startsWith("dashboard") == true -> "dashboard"
@@ -453,7 +460,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         } else {
             {}
         },
-        bottomBar = if (isMainTab) {
+        bottomBar = if (isMainTab && !imeVisible) {
             {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
