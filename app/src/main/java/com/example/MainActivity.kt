@@ -69,7 +69,6 @@ import com.example.data.AppLanguageManager
 import com.example.data.LocalAppLanguage
 import com.example.data.LocalActiveLanguageMetadata
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalWindowInsets
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
