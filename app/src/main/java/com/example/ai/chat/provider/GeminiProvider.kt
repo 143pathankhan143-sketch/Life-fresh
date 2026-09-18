@@ -21,7 +21,9 @@ class GeminiProvider(
     private val apiKeyProvider: () -> String = { AIConfig.geminiApiKey },
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
+        // Gemini 3.x Flash models can legitimately need 10-20s on a mobile
+        // network; 25s caused intermittent timeouts on 5G.
+        .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .build(),
     private val modelName: String = AIConfig.GEMINI_TEXT_MODELS.first()
@@ -89,8 +91,20 @@ class GeminiProvider(
                 put("contents", jsonContents)
 
                 put("generationConfig", JSONObject().apply {
-                    put("temperature", 0.7)
+                    // NOTE: Gemini 3.x models default to thinking_level "high", which
+                    // adds 10-16s of internal reasoning per request. For an
+                    // interactive chat, "low" is Google's recommended level
+                    // (ai.google.dev/gemini-api/docs/generate-content/thinking).
+                    // All models in GEMINI_TEXT_MODELS (3.x family) support
+                    // thinkingLevel; the 2.5 family (not in our list) would use
+                    // thinkingBudget instead.
+                    // NOTE: temperature is intentionally NOT set — Google's Gemini 3
+                    // migration notes say explicit temperature values can cause
+                    // looping/performance degradation on 3.x models.
                     put("maxOutputTokens", 3072)
+                    put("thinkingConfig", JSONObject().apply {
+                        put("thinkingLevel", "low")
+                    })
                 })
             }
 
@@ -179,6 +193,14 @@ class GeminiProvider(
                 }
 
                 lastFailure = failure
+
+                // Rate limits are per-project (not per-model) and network
+                // timeouts affect every model endpoint equally — trying the
+                // remaining fallback models would only add seconds of delay.
+                if (failure.isRateLimitOrTimeout) {
+                    Log.w(TAG, "Gemini $model: ${failure.errorMessage} — skipping remaining fallback models")
+                    return@withContext failure
+                }
             }
 
             return@withContext lastFailure ?: AIProviderResult.Failure(
