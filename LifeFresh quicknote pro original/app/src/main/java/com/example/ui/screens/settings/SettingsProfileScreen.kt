@@ -236,8 +236,6 @@ fun SettingsProfileScreen(
         }
 
         // AI Assistant Configuration (BYOK & Quota Indicator)
-        if (BuildConfig.AI_FEATURES_ENABLED) {
-            AIAssistantConfigCard()
-        }
+        AIAssistantConfigCard()
     }
 }

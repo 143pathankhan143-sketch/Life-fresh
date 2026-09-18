@@ -7,7 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -67,6 +69,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.AppLanguageManager
 import com.example.data.LocalAppLanguage
 import com.example.data.LocalActiveLanguageMetadata
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
@@ -384,8 +387,17 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
     var activeSettingsSubScreen by rememberSaveable { mutableStateOf<String?>(null) }
 
     val isMainTab = remember(currentRoute, activeSettingsSubScreen) {
-        (currentRoute == "dashboard" || currentRoute == "leads" || currentRoute == "reports" || currentRoute == "settings") && activeSettingsSubScreen == null
+        (currentRoute == "dashboard" || currentRoute == "leads" || currentRoute == "reports" || currentRoute == "settings" || currentRoute == "ai") && activeSettingsSubScreen == null
     }
+
+    // Hide the bottom nav while the keyboard is up: the IME insets
+    // (imePadding in chat/form screens) already push input fields above the
+    // keyboard, and a visible nav bar would leave a dead gap between the
+    // input field and the keyboard.
+    // (Uses WindowInsets.ime.getBottom — WindowInsets.isImeVisible needs
+    // Compose 1.9+, this project is on 1.7.)
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
 
     val activeTab = remember(currentRoute) {
         when {
@@ -394,6 +406,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
             currentRoute?.startsWith("profile") == true ||
             currentRoute?.startsWith("edit_lead") == true ||
             currentRoute?.startsWith("add_lead") == true -> "leads"
+            currentRoute?.startsWith("ai") == true -> "ai"
             currentRoute?.startsWith("reports") == true -> "reports"
             currentRoute?.startsWith("settings") == true ||
             currentRoute?.startsWith("policy") == true -> "settings"
@@ -452,7 +465,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         } else {
             {}
         },
-        bottomBar = if (isMainTab) {
+        bottomBar = if (isMainTab && !imeVisible) {
             {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -492,25 +505,23 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                         icon = { Icon(Icons.Default.People, contentDescription = "Leads", modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_leads").padding(horizontal = 1.dp)
                     )
-                    if (BuildConfig.AI_FEATURES_ENABLED) {
-                        NavigationBarItem(
-                            selected = (activeTab == "ai"),
-                            onClick = { navigateToTab("ai") },
-                            label = {
-                                Text(
-                                    text = stringResource(R.string.nav_ai),
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Clip,
-                                    softWrap = false,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.wrapContentWidth(unbounded = true)
-                                )
-                            },
-                            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Co-Pilot", modifier = Modifier.size(20.dp)) },
-                            modifier = Modifier.testTag("nav_item_ai").padding(horizontal = 1.dp)
-                        )
-                    }
+                    NavigationBarItem(
+                        selected = (activeTab == "ai"),
+                        onClick = { navigateToTab("ai") },
+                        label = {
+                            Text(
+                                text = stringResource(R.string.nav_ai),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                                softWrap = false,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.wrapContentWidth(unbounded = true)
+                            )
+                        },
+                        icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Co-Pilot", modifier = Modifier.size(20.dp)) },
+                        modifier = Modifier.testTag("nav_item_ai").padding(horizontal = 1.dp)
+                    )
                     NavigationBarItem(
                         selected = (activeTab == "reports"),
                         onClick = { navigateToTab("reports") },
@@ -597,21 +608,19 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     )
                 }
 
-                if (BuildConfig.AI_FEATURES_ENABLED) {
-                    composable("ai") {
-                        AIScreen(
-                            viewModel = viewModel,
-                            onExit = {
-                                navController.popBackStack()
-                            },
-                            onAddLeadTrigger = {
-                                navController.navigate("add_lead")
-                            },
-                            onNavigateToSettings = {
-                                navController.navigate("settings")
-                            }
-                        )
-                    }
+                composable("ai") {
+                    AIScreen(
+                        viewModel = viewModel,
+                        onExit = {
+                            navController.popBackStack()
+                        },
+                        onAddLeadTrigger = {
+                            navController.navigate("add_lead")
+                        },
+                        onNavigateToSettings = {
+                            navController.navigate("settings")
+                        }
+                    )
                 }
 
                 composable("reports") {

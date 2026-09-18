@@ -53,8 +53,7 @@ import java.util.*
 fun DashboardTab(
     viewModel: CRMViewModel,
     authViewModel: com.example.ui.viewmodel.AuthViewModel,
-    onViewLeadProfile: (LeadEntity) -> Unit,
-    onOpenAIAssistant: () -> Unit = {}
+    onViewLeadProfile: (LeadEntity) -> Unit
 ) {
     val allLeads by viewModel.allLeadsList.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()

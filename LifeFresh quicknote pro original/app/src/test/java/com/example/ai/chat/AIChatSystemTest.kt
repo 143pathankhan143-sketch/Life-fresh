@@ -369,4 +369,103 @@ class AIChatSystemTest {
         assertFalse(viewModel.uiState.value.isThinking)
         assertEquals("", viewModel.inputText.value)
     }
+
+    // --- Restore (process-death / re-entry persistence) behaviour ---
+
+    @Test
+    fun restoreMessagesLoadsPersistedConversationIntoEmptyState() {
+        val repository = DefaultAIChatRepository()
+        assertTrue(repository.uiState.value.messages.isEmpty())
+
+        repository.restoreMessages(
+            listOf(
+                ChatMessage(id = "u1", role = ChatRole.USER, content = "Hello"),
+                ChatMessage(id = "a1", role = ChatRole.ASSISTANT, content = "Hi! How can I help?")
+            )
+        )
+
+        val state = repository.uiState.value
+        assertEquals(2, state.messages.size)
+        assertEquals("Hello", state.messages[0].content)
+        assertEquals("Hi! How can I help?", state.messages[1].content)
+        assertFalse(state.isThinking)
+        assertNull(state.errorMessage)
+    }
+
+    @Test
+    fun restoreMessagesDoesNotClobberLiveConversation() = runTest(testDispatcher) {
+        val groq = FakeProvider(name = "Groq", shouldSucceed = true, responseText = "Fresh")
+        val repository = DefaultAIChatRepository(AIProviderRouter(listOf(groq)))
+
+        repository.sendMessage("Live")
+        advanceUntilIdle()
+        assertEquals(2, repository.uiState.value.messages.size)
+
+        repository.restoreMessages(
+            listOf(ChatMessage(id = "old", role = ChatRole.USER, content = "Old"))
+        )
+
+        // Live conversation must be untouched.
+        assertEquals(2, repository.uiState.value.messages.size)
+        assertEquals("Live", repository.uiState.value.messages[0].content)
+    }
+
+    @Test
+    fun restoreMessagesIgnoresEmptyList() {
+        val repository = DefaultAIChatRepository()
+        repository.restoreMessages(emptyList())
+        assertTrue(repository.uiState.value.messages.isEmpty())
+    }
+
+    @Test
+    fun restoredConversationProvidesContextToNextTurn() = runTest(testDispatcher) {
+        val groq = FakeProvider(name = "Groq", shouldSucceed = true, responseText = "Context kept!")
+        val repository = DefaultAIChatRepository(AIProviderRouter(listOf(groq)))
+
+        repository.restoreMessages(
+            listOf(
+                ChatMessage(id = "u1", role = ChatRole.USER, content = "Pending leads dikhao"),
+                ChatMessage(id = "a1", role = ChatRole.ASSISTANT, content = "3 pending leads mile.")
+            )
+        )
+
+        repository.sendMessage("Unme se Ramesh complete kar do")
+        advanceUntilIdle()
+
+        // Provider must see restored history + the new user message.
+        assertEquals(3, groq.lastReceivedMessages.size)
+        assertEquals("Pending leads dikhao", groq.lastReceivedMessages[0].content)
+        assertEquals("3 pending leads mile.", groq.lastReceivedMessages[1].content)
+        assertEquals("Unme se Ramesh complete kar do", groq.lastReceivedMessages[2].content)
+
+        val state = repository.uiState.value
+        assertEquals(4, state.messages.size)
+        assertEquals("Context kept!", state.messages.last().content)
+    }
+
+    @Test
+    fun clearConversationAfterRestoreStartsFreshWithoutOldContext() = runTest(testDispatcher) {
+        val groq = FakeProvider(name = "Groq", shouldSucceed = true, responseText = "New chat")
+        val repository = DefaultAIChatRepository(AIProviderRouter(listOf(groq)))
+        val viewModel = AIChatViewModel(repository)
+
+        repository.restoreMessages(
+            listOf(
+                ChatMessage(id = "u1", role = ChatRole.USER, content = "Old question"),
+                ChatMessage(id = "a1", role = ChatRole.ASSISTANT, content = "Old answer")
+            )
+        )
+        assertEquals(2, viewModel.uiState.value.messages.size)
+
+        viewModel.clearConversation()
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+
+        viewModel.sendMessage("Brand new")
+        advanceUntilIdle()
+
+        // No restored context leaks into the fresh conversation.
+        assertEquals(1, groq.lastReceivedMessages.size)
+        assertEquals("Brand new", groq.lastReceivedMessages[0].content)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+    }
 }
