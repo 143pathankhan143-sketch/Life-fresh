@@ -128,7 +128,7 @@ class AIChatViewModel(
         _inputText.value = ""
         // Activate the session BEFORE swapping the UI state, so if the
         // persistence collector observes the restored messages, it writes to
-        *this* session (insert is idempotent via REPLACE).
+        // this session (insert is idempotent via REPLACE).
         crm.setActiveSession(sessionId)
         repository.clearConversation()
         repository.restoreMessages(messages.map { it.toChatMessage() })
