@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,7 +47,11 @@ import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.viewmodel.AIChatViewModel
 import com.example.ui.viewmodel.CRMViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun AIScreen(
@@ -63,6 +68,15 @@ fun AIScreen(
 
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
     val inputText by chatViewModel.inputText.collectAsStateWithLifecycle()
+
+    // Chat history (sessions saved in Room, already scoped to the signed-in uid)
+    val sessionsFlow = remember(viewModel) {
+        viewModel?.dbChatSessions ?: MutableStateFlow<List<ChatSession>>(emptyList())
+    }
+    val sessions by sessionsFlow.collectAsStateWithLifecycle()
+    val activeSessionId = viewModel?.activeSessionId?.value
+    var showHistoryDialog by remember { mutableStateOf(false) }
+    var pendingDeleteSession by remember { mutableStateOf<ChatSession?>(null) }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -88,7 +102,8 @@ fun AIScreen(
         AIChatHeader(
             hasMessages = uiState.messages.isNotEmpty(),
             onExit = onExit,
-            onClearChat = { chatViewModel.clearConversation() }
+            onClearChat = { chatViewModel.clearConversation() },
+            onOpenHistory = { showHistoryDialog = true }
         )
 
         Box(
@@ -149,13 +164,63 @@ fun AIScreen(
             }
         )
     }
+
+    if (showHistoryDialog) {
+        AIChatHistoryDialog(
+            sessions = sessions,
+            activeSessionId = activeSessionId,
+            onOpenSession = { session ->
+                showHistoryDialog = false
+                chatViewModel.openSession(session.id, session.messages)
+            },
+            onRequestDelete = { session -> pendingDeleteSession = session },
+            onDismiss = { showHistoryDialog = false }
+        )
+    }
+
+    pendingDeleteSession?.let { session ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSession = null },
+            title = { Text("Delete this chat?") },
+            text = {
+                Text(
+                    text = "\"${session.title}\" will be removed permanently.",
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel?.deleteSession(session.id)
+                        // If the deleted session was on screen, start fresh
+                        if (session.id == activeSessionId) chatViewModel.clearConversation()
+                        pendingDeleteSession = null
+                        showHistoryDialog = false
+                    },
+                    modifier = Modifier.testTag("history_delete_confirm")
+                ) {
+                    Text(
+                        text = "Delete",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteSession = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun AIChatHeader(
     onExit: () -> Unit,
     hasMessages: Boolean,
-    onClearChat: () -> Unit
+    onClearChat: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -207,16 +272,34 @@ private fun AIChatHeader(
                 )
             }
 
-            if (hasMessages) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasMessages) {
+                    IconButton(
+                        onClick = onClearChat,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("btn_clear_chat")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestartAlt,
+                            contentDescription = "New Chat",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
                 IconButton(
-                    onClick = onClearChat,
+                    onClick = onOpenHistory,
                     modifier = Modifier
                         .size(36.dp)
-                        .testTag("btn_clear_chat")
+                        .testTag("btn_history_ai")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.RestartAlt,
-                        contentDescription = "New Chat",
+                        imageVector = Icons.Default.History,
+                        contentDescription = "Chat History",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -224,6 +307,128 @@ private fun AIChatHeader(
             }
         }
     }
+}
+
+@Composable
+private fun AIChatHistoryDialog(
+    sessions: List<ChatSession>,
+    activeSessionId: String?,
+    onOpenSession: (ChatSession) -> Unit,
+    onRequestDelete: (ChatSession) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .testTag("history_dialog")
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Chat History",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("history_close_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (sessions.isEmpty()) {
+                    Text(
+                        text = "No past chats yet. Start a conversation and it will appear here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(sessions, key = { it.id }) { session ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onOpenSession(session) }
+                                    .padding(horizontal = 10.dp, vertical = 10.dp)
+                                    .testTag("history_session_row"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (session.id == activeSessionId) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = session.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${formatSessionDate(session.timestamp)}  ·  ${session.messages.size} messages",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onRequestDelete(session) },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("history_delete_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete chat",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal fun formatSessionDate(timestamp: Long): String {
+    val format = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+    return format.format(Date(timestamp))
 }
 
 @Composable
