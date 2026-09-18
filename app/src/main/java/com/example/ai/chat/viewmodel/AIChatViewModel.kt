@@ -112,6 +112,31 @@ class AIChatViewModel(
         repository.clearConversation()
     }
 
+    /**
+     * Opens a past chat session from history: makes [sessionId] the active
+     * session and replaces the on-screen conversation with [messages].
+     *
+     * The messages are already loaded from Room by the caller (see
+     * [CRMViewModel.dbChatSessions]) — this function does no database access.
+     * Loaded message ids are marked as persisted so the mirroring collector
+     * never re-saves them.
+     */
+    fun openSession(sessionId: String, messages: List<MockMessage>) {
+        val crm = crmViewModel ?: return
+        activeRequestJob?.cancel()
+        activeRequestJob = null
+        _inputText.value = ""
+        // Activate the session BEFORE swapping the UI state, so if the
+        // persistence collector observes the restored messages, it writes to
+        *this* session (insert is idempotent via REPLACE).
+        crm.setActiveSession(sessionId)
+        repository.clearConversation()
+        repository.restoreMessages(messages.map { it.toChatMessage() })
+        val state = repository.uiState.value
+        persistedMessageIds = state.messages.map { it.id }.toSet()
+        lastPersistedTimestamp = state.messages.map { it.timestamp }.maxOrNull() ?: 0L
+    }
+
     private fun MockMessage.toChatMessage(): ChatMessage = ChatMessage(
         id = id,
         role = if (sender == Sender.USER) ChatRole.USER else ChatRole.ASSISTANT,
