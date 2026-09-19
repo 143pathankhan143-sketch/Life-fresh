@@ -9,6 +9,24 @@ import com.example.BuildConfig
  */
 object AIConfig {
 
+    /**
+     * Current Gemini text-generation models, ordered by preference
+     * (newest stable Flash first, slower/more expensive models last).
+     *
+     * IMPORTANT: Google frequently deprecates model endpoints (e.g.
+     * gemini-2.0-flash was shut down in 2026). If chat starts failing with
+     * HTTP 404 "model no longer available", update this list with the
+     * current models from https://ai.google.dev/gemini-api/docs/models.
+     */
+    val GEMINI_TEXT_MODELS: List<String> = listOf(
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-3.1-pro-preview"
+    )
+
     @Volatile
     var customGeminiApiKeyProvider: (() -> String)? = null
 

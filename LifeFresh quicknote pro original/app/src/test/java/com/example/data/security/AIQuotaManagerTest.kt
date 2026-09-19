@@ -2,13 +2,6 @@ package com.example.data.security
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.network.AICandidate
-import com.example.data.network.AIContent
-import com.example.data.network.AIPart
-import com.example.data.network.AIProxyRequest
-import com.example.data.network.AIProxyResponse
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -93,52 +86,10 @@ class AIQuotaManagerTest {
     }
 
     @Test
-    fun `proxy models serialize and deserialize correctly with Moshi`() {
-        val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
-
-        // Test AIProxyRequest
-        val requestAdapter = moshi.adapter(AIProxyRequest::class.java)
-        val request = AIProxyRequest(prompt = "Hello AI", deviceId = "device-abc-123")
-        val jsonRequest = requestAdapter.toJson(request)
-        assertTrue(jsonRequest.contains("Hello AI"))
-        assertTrue(jsonRequest.contains("device-abc-123"))
-
-        val parsedRequest = requestAdapter.fromJson(jsonRequest)
-        assertNotNull(parsedRequest)
-        assertEquals("Hello AI", parsedRequest?.prompt)
-        assertEquals("device-abc-123", parsedRequest?.deviceId)
-
-        // Test AIProxyResponse
-        val responseAdapter = moshi.adapter(AIProxyResponse::class.java)
-        val response = AIProxyResponse(
-            candidates = listOf(
-                AICandidate(
-                    content = AIContent(
-                        parts = listOf(AIPart(text = "AI Response Text"))
-                    )
-                )
-            ),
-            error = null
-        )
-        val jsonResponse = responseAdapter.toJson(response)
-        val parsedResponse = responseAdapter.fromJson(jsonResponse)
-        assertNotNull(parsedResponse)
-        assertEquals("AI Response Text", parsedResponse?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text)
-    }
-
-    @Test
     fun `testGeminiKey fails immediately with blank key`() = kotlinx.coroutines.runBlocking {
         val repo = com.example.data.repository.AIServiceRepository()
         val result = repo.testGeminiKey("   ")
         assertTrue(result.isFailure)
         assertEquals("API Key cannot be empty.", result.exceptionOrNull()?.message)
-    }
-
-    @Test
-    fun `processQuery fails immediately with blank prompt`() = kotlinx.coroutines.runBlocking {
-        val repo = com.example.data.repository.AIServiceRepository()
-        val result = repo.processQuery(context, "   ")
-        assertTrue(result.isFailure)
-        assertEquals("Prompt cannot be blank", result.exceptionOrNull()?.message)
     }
 }

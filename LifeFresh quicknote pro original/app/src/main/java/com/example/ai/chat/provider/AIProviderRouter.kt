@@ -37,9 +37,18 @@ class AIProviderRouter(
             }
         }
 
+        val summary = when {
+            lastFailure == null ->
+                "I'm sorry, I couldn't reach the AI service right now. Please check your connection and try again."
+            lastFailure.isRateLimitOrTimeout ->
+                "The AI service is busy right now (rate limit or slow response). Please wait a minute and try again."
+            else ->
+                "I'm sorry, I couldn't reach the AI service right now. Last error: ${lastFailure.errorMessage.take(120)}"
+        }
+
         return AIProviderResult.Failure(
             providerName = "Router",
-            errorMessage = "I'm sorry, I couldn't reach the AI service right now. Please check your connection and try again.",
+            errorMessage = summary,
             isRetryable = true,
             isRateLimitOrTimeout = lastFailure?.isRateLimitOrTimeout ?: false,
             cause = lastFailure?.cause

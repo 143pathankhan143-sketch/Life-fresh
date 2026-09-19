@@ -6,5 +6,5 @@ package com.example.config
  * Set AI_FEATURES_ENABLED to false for the non-AI public freeze release.
  */
 object ReleaseFeatureFlags {
-    const val AI_FEATURES_ENABLED: Boolean = false
+    const val AI_FEATURES_ENABLED: Boolean = true
 }
