@@ -4,7 +4,7 @@ Native Android **CRM + Quick Notes** app (Kotlin / Jetpack Compose), originally 
 Google AI Studio and converted from the LifeFresh CRM. Offline-first by design: Room is the
 source of truth, Firestore is an optional sync target.
 
-**Package:** `com.lifefreshcrm.pro.inkgql` · **Version:** 1.0.1 (code 2)
+**Package:** `com.lifefreshcrm.pro` · **Version:** 1.0.1 (code 2)
 **minSdk:** 24 · **targetSdk / compileSdk:** 36
 
 > This repository previously shipped the whole project inside
