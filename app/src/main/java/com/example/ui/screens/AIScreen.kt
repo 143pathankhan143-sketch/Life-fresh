@@ -777,6 +777,18 @@ private fun AssistantCodeBlock(block: FormattedBlock.CodeBlock) {
     }
 }
 
+/** Formats "yyyy-MM-dd" (+ optional "HH:mm") for the confirmation card display. */
+private fun formatReminderDisplay(action: LeadAction): String {
+    val pretty = try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(action.reminderDate)
+        if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed)
+        else action.reminderDate
+    } catch (e: Exception) {
+        action.reminderDate
+    }
+    return if (action.reminderTime.isNotBlank()) "$pretty, ${action.reminderTime}" else pretty
+}
+
 @Composable
 private fun PendingLeadActionCard(
     action: LeadAction,
@@ -816,6 +828,18 @@ private fun PendingLeadActionCard(
             if (action.diseases.isNotEmpty()) {
                 Text(
                     text = "Wellness: ${action.diseases.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (action.note.isNotBlank()) {
+                Text(
+                    text = "Note: ${action.note}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (action.reminderDate.isNotBlank()) {
+                Text(
+                    text = "Reminder: ${formatReminderDisplay(action)}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

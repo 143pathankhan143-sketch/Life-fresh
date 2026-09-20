@@ -96,4 +96,32 @@ class LeadActionParserTest {
         val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
         assertEquals(listOf("Diabetes"), parsed.action.diseases)
     }
+
+    @Test
+    fun `note and reminder are parsed`() {
+        val reply = "[LEAD_CONFIRM]{\"name\":\"Ravi\",\"mobile\":\"9876543210\",\"diseases\":[],\"note\":\"10 din baad call karna hai\",\"reminderDate\":\"2026-09-30\",\"reminderTime\":\"10:00\"}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals("10 din baad call karna hai", parsed.action.note)
+        assertEquals("2026-09-30", parsed.action.reminderDate)
+        assertEquals("10:00", parsed.action.reminderTime)
+    }
+
+    @Test
+    fun `missing optional fields default to empty`() {
+        val reply = "[LEAD_CONFIRM]{\"name\":\"Amit\",\"mobile\":\"9876543210\",\"diseases\":[]}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals("", parsed.action.note)
+        assertEquals("", parsed.action.reminderDate)
+        assertEquals("", parsed.action.reminderTime)
+    }
+
+    @Test
+    fun `note is length capped and reminder fields are short-capped`() {
+        val longNote = "n".repeat(300)
+        val reply = "[LEAD_CONFIRM]{\"name\":\"A\",\"mobile\":\"9876543210\",\"diseases\":[],\"note\":\"$longNote\",\"reminderDate\":\"2026-09-30EXTRA\",\"reminderTime\":\"10:00:99\"}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(120, parsed.action.note.length)
+        assertEquals("2026-09-30", parsed.action.reminderDate)
+        assertEquals("10:00", parsed.action.reminderTime)
+    }
 }

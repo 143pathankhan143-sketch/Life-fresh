@@ -251,6 +251,7 @@ fun LeadsTab(
             if (currentLeads.isEmpty()) {
             val isReminderFilter = activeFilter.startsWith("rem-")
             val isSearchMode = searchQuery.isNotEmpty()
+            val isDraftsFilter = activeFilter == "drafts"
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -312,6 +313,8 @@ fun LeadsTab(
                     Text(
                         text = if (isSearchMode) {
                             "No Matching Clients Found"
+                        } else if (isDraftsFilter) {
+                            "No Drafts Found"
                         } else if (isReminderFilter) {
                             when (activeFilter) {
                                 "rem-today" -> "No Reminders Today"
@@ -333,6 +336,8 @@ fun LeadsTab(
                     Text(
                         text = if (isSearchMode) {
                             "We couldn't find any clients matching \"$searchQuery\". Try checking the spelling, searching by mobile number, or wellness issue."
+                        } else if (isDraftsFilter) {
+                            "Jab aap AI chat me lead banate waqt rokte ya cancel karte ho, adhuri details yahan draft ke roop me save hoti hain."
                         } else if (isReminderFilter) {
                             when (activeFilter) {
                                 "rem-today" -> "You're all caught up for today! No wellness follow-ups or alerts are scheduled right now."

@@ -115,18 +115,8 @@ class AIChatViewModel(
         }
         val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
         val job = viewModelScope.launch {
-            val error = crm.saveLeadFromAIChat(effective)
-            repository.addLocalAssistantMessage(
-                if (error == null) {
-                    if (effective.kind == LeadAction.Kind.DRAFT) {
-                        "📝 '${effective.name}' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
-                    } else {
-                        "✅ Lead '${effective.name}' save ho gaya. Leads tab me dikhega."
-                    }
-                } else {
-                    error
-                }
-            )
+            val message = crm.saveLeadFromAIChat(effective)
+            repository.addLocalAssistantMessage(message)
         }
         activeRequestJob = job
         job.invokeOnCompletion { if (activeRequestJob === job) activeRequestJob = null }

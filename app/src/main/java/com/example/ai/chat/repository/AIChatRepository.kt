@@ -12,6 +12,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 interface AIChatRepository {
     val uiState: StateFlow<ChatUiState>
@@ -38,8 +41,18 @@ interface AIChatRepository {
 
 class DefaultAIChatRepository(
     private val router: AIProviderRouter = AIProviderRouter(),
-    private val systemInstruction: String = AIConfig.DEFAULT_SYSTEM_INSTRUCTION
+    systemInstruction: String = AIConfig.DEFAULT_SYSTEM_INSTRUCTION
 ) : AIChatRepository {
+    /**
+     * The model needs today's date to convert relative follow-up expressions
+     * (for example "10 din baad call karna hai") into a concrete reminder
+     * date. Computed once per app launch.
+     */
+    private val fullSystemInstruction: String =
+        systemInstruction +
+            "\nToday's date: " +
+            SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.ENGLISH).format(Date())
+
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -121,7 +134,7 @@ class DefaultAIChatRepository(
         activeRequestId == token.id && conversationGeneration == token.conversationGeneration
 
     private suspend fun safelyRoute(messages: List<ChatMessage>): AIProviderResult = try {
-        router.routeChat(messages, systemInstruction)
+        router.routeChat(messages, fullSystemInstruction)
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (t: Throwable) {

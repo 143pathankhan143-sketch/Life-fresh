@@ -16,7 +16,10 @@ data class LeadAction(
     val kind: Kind,
     val name: String,
     val mobile: String,
-    val diseases: List<String>
+    val diseases: List<String>,
+    val note: String = "",
+    val reminderDate: String = "", // "yyyy-MM-dd" or empty
+    val reminderTime: String = "" // "HH:mm" (24h) or empty
 ) {
     enum class Kind {
         /** All required details collected; the app offers Save (and Draft). */
@@ -57,6 +60,7 @@ object LeadActionParser {
     private const val MAX_MOBILE_LENGTH = 20
     private const val MAX_DISEASES = 5
     private const val MAX_DISEASE_LENGTH = 40
+    private const val MAX_NOTE_LENGTH = 120
 
     private val markerRegex = Regex(
         "\\[LEAD_(CONFIRM|DRAFT)\\]\\s*(\\{.*?\\})(?:\\s*\\[/LEAD_(?:CONFIRM|DRAFT)\\])?",
@@ -98,6 +102,10 @@ object LeadActionParser {
                 }
             }
 
+            val note = json.optString("note", "").trim().take(MAX_NOTE_LENGTH)
+            val reminderDate = json.optString("reminderDate", "").trim().take(10)
+            val reminderTime = json.optString("reminderTime", "").trim().take(5)
+
             // Nothing collected at all -> not a meaningful action.
             if (name.isEmpty() && mobile.isEmpty()) return null
 
@@ -105,7 +113,10 @@ object LeadActionParser {
                 kind = kind,
                 name = name,
                 mobile = mobile,
-                diseases = diseases.distinctBy { it.lowercase() }
+                diseases = diseases.distinctBy { it.lowercase() },
+                note = note,
+                reminderDate = reminderDate,
+                reminderTime = reminderTime
             )
         } catch (_: Exception) {
             null

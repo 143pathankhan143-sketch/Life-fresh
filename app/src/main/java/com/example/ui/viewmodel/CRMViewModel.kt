@@ -1152,12 +1152,13 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
      *
      * The AI never saves on its own: this is only called after the user taps a
      * button on the chat confirmation card. Drafts are device-local and never
-     * sync to cloud (see LeadRepository). Full leads reuse the normal insert
-     * path with the LOCAL_AI origin.
+     * sync to cloud (see LeadRepository); drafts never schedule alarms either.
+     * Full leads reuse the normal insert path with the LOCAL_AI origin.
      *
-     * Returns null on success, or a user-facing Hinglish error message.
+     * Returns the chat message to show after the save attempt
+     * (success, success-with-warning, or error).
      */
-    suspend fun saveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String? {
+    suspend fun saveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
         val uid = _currentUidFlow.value
             ?: FirebaseAuth.getInstance().currentUser?.uid
             ?: ""
@@ -1183,6 +1184,37 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             .distinctBy { it.lowercase(Locale.getDefault()) }
             .take(5)
 
+        val note = action.note.trim()
+
+        // Reminder: validate strictly before saving. Invalid/past/duplicate
+        // reminders are skipped (the lead still saves) with a warning message.
+        var reminderDate = ""
+        var reminderTime = ""
+        var reminderWarning = ""
+        if (!isDraft && action.reminderDate.isNotBlank()) {
+            val canonicalDate = parseStrictYMD(action.reminderDate)
+            when {
+                canonicalDate == null ->
+                    reminderWarning = " Reminder date samajh nahi aayi, isliye alarm set nahi hua."
+                else -> {
+                    val time = normalizeReminderTime(action.reminderTime)
+                    val triggerMillis = reminderTriggerMillis(canonicalDate, time)
+                    if (triggerMillis != null && triggerMillis <= System.currentTimeMillis()) {
+                        reminderWarning = " Reminder time past me hai, isliye alarm set nahi hua."
+                    } else if (leadOperationService.hasDuplicateReminder(
+                            null, canonicalDate, time, allLeadsList.value
+                        )
+                    ) {
+                        reminderWarning = " Isi date-time pe doosra reminder pehle se hai, isliye yeh alarm set nahi hua."
+                    } else {
+                        reminderDate = canonicalDate
+                        reminderTime = time
+                    }
+                }
+            }
+        }
+
+        val now = System.currentTimeMillis()
         val entity = LeadEntity(
             id = UUID.randomUUID().toString(),
             name = name,
@@ -1192,26 +1224,86 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             relation = "",
             otherRelation = "",
             status = "Pending",
-            reminderDate = "",
-            reminderTime = "",
-            reminderNote = "",
+            reminderDate = reminderDate,
+            reminderTime = reminderTime,
+            reminderNote = if (reminderDate.isNotEmpty()) note else "",
             reminderStatus = "Pending",
-            notes = "",
+            notes = note,
             archived = false,
             lastCall = null,
-            timestamp = System.currentTimeMillis(),
-            notesUpdatedAt = 0L,
-            reminderUpdatedAt = 0L,
+            timestamp = now,
+            notesUpdatedAt = if (note.isNotEmpty()) now else 0L,
+            reminderUpdatedAt = if (reminderDate.isNotEmpty()) now else 0L,
             isDraft = isDraft,
             ownerUid = uid
         )
 
         return try {
             repository.insertLead(entity, com.example.sync.LeadWriteOrigin.LOCAL_AI)
-            null
+
+            var message = if (isDraft) {
+                "📝 '$name' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+            } else {
+                "✅ Lead '$name' save ho gaya. Leads tab me dikhega."
+            }
+
+            if (reminderDate.isNotEmpty()) {
+                try {
+                    com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), entity)
+                    message += " Reminder set hua: ${formatReminderForDisplay(reminderDate, reminderTime)}."
+                } catch (error: Exception) {
+                    message += " Reminder alarm set nahi ho saka."
+                }
+            }
+
+            message + reminderWarning
         } catch (error: Exception) {
             "Lead save nahi ho saka: ${error.message.orEmpty()}"
         }
+    }
+
+    /** Strict yyyy-MM-dd parse; returns the canonical date string or null. */
+    private fun parseStrictYMD(value: String): String? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val position = java.text.ParsePosition(0)
+        val parsed = formatter.parse(value, position) ?: return null
+        if (position.index != value.length) return null
+        return formatter.format(parsed)
+    }
+
+    /** Accepts HH:mm (24h); falls back to 09:00 when missing or invalid. */
+    private fun normalizeReminderTime(value: String): String {
+        val clean = value.trim()
+        if (
+            clean.length == 5 &&
+            clean[2] == ':' &&
+            clean.substring(0, 2).all(Char::isDigit) &&
+            clean.substring(3).all(Char::isDigit)
+        ) {
+            val hour = clean.substring(0, 2).toInt()
+            val minute = clean.substring(3).toInt()
+            if (hour in 0..23 && minute in 0..59) return clean
+        }
+        return "09:00"
+    }
+
+    private fun reminderTriggerMillis(date: String, time: String): Long? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+        return try {
+            formatter.parse("$date $time")?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun formatReminderForDisplay(date: String, time: String): String {
+        val pretty = try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
+            if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed) else date
+        } catch (e: Exception) {
+            date
+        }
+        return if (time.isNotEmpty()) "$pretty, $time" else pretty
     }
 
     fun deleteLead(lead: LeadEntity) {
