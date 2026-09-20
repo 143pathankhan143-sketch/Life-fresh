@@ -2,6 +2,7 @@ package com.example.ai.chat.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.chat.lead.LeadAction
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.model.ChatUiState
@@ -97,6 +98,43 @@ class AIChatViewModel(
         val job = viewModelScope.launch { repository.retry() }
         activeRequestJob = job
         job.invokeOnCompletion { if (activeRequestJob === job) activeRequestJob = null }
+    }
+
+    /**
+     * Saves the lead proposed by the AI. [saveAsDraft] forces a draft.
+     * Only callable from the chat confirmation card - the AI itself can
+     * never trigger a save.
+     */
+    fun confirmPendingLead(saveAsDraft: Boolean = false) {
+        val action = uiState.value.pendingLeadAction ?: return
+        val crm = crmViewModel
+        repository.dismissPendingLead()
+        if (crm == null) {
+            repository.addLocalAssistantMessage("Lead save ke liye account zaroori hai. Pehle login karo.")
+            return
+        }
+        val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
+        val job = viewModelScope.launch {
+            val error = crm.saveLeadFromAIChat(effective)
+            repository.addLocalAssistantMessage(
+                if (error == null) {
+                    if (effective.kind == LeadAction.Kind.DRAFT) {
+                        "📝 '${effective.name}' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+                    } else {
+                        "✅ Lead '${effective.name}' save ho gaya. Leads tab me dikhega."
+                    }
+                } else {
+                    error
+                }
+            )
+        }
+        activeRequestJob = job
+        job.invokeOnCompletion { if (activeRequestJob === job) activeRequestJob = null }
+    }
+
+    /** Dismisses the pending lead confirmation card without saving. */
+    fun cancelPendingLead() {
+        repository.dismissPendingLead()
     }
 
     /**

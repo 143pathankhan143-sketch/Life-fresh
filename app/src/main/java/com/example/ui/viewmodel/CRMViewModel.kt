@@ -427,7 +427,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     // Application state
     val searchQuery = MutableStateFlow("")
-    val currentFilter = MutableStateFlow("all") // "all", "pending", "complete", "archived", "rem-today", "rem-upcoming", "rem-overdue", "rem-all"
+    val currentFilter = MutableStateFlow("all") // "all", "drafts", "pending", "complete", "archived", "rem-today", "rem-upcoming", "rem-overdue", "rem-all"
 
     // Theme state
     val isDarkMode = MutableStateFlow(sharedPrefs.getBoolean("lifefresh_theme", false))
@@ -983,6 +983,14 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         val todayStr = getSystemTodayDateStr()
 
         leads.filter { lead ->
+            // Drafts (incomplete leads from the AI chat) only appear under
+            // the Drafts filter - they are hidden from every other view.
+            if (filter == "drafts") {
+                if (!lead.isDraft) return@filter false
+            } else {
+                if (lead.isDraft) return@filter false
+            }
+
             // Filter out archived unless explicitly viewing archive
             if (filter == "archived") {
                 if (!lead.archived) return@filter false
@@ -1136,6 +1144,73 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
             com.example.leads.operation.LeadSaveStatus.DATABASE_ERROR ->
                 SaveLeadResult.SAVE_FAILED
+        }
+    }
+
+    /**
+     * Saves a lead collected through the AI chat (LEAD-COLLECT protocol).
+     *
+     * The AI never saves on its own: this is only called after the user taps a
+     * button on the chat confirmation card. Drafts are device-local and never
+     * sync to cloud (see LeadRepository). Full leads reuse the normal insert
+     * path with the LOCAL_AI origin.
+     *
+     * Returns null on success, or a user-facing Hinglish error message.
+     */
+    suspend fun saveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String? {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead save ke liye pehle login karo."
+
+        val isDraft = action.kind == com.example.ai.chat.lead.LeadAction.Kind.DRAFT
+        val name = action.name.trim().ifBlank { "Unknown" }
+        val mobile = action.mobile.filter(Char::isDigit)
+
+        if (!isDraft && mobile.length !in 10..15) {
+            return "Number sahi nahi lag raha (10-15 digits chahiye). Lead save nahi hua."
+        }
+
+        if (!isDraft && mobile.isNotEmpty() &&
+            allLeadsList.value.any { it.mobile.filter(Char::isDigit) == mobile }
+        ) {
+            return "Yeh number pehle se maujood hai, isliye naya lead save nahi hua."
+        }
+
+        val diseases = action.diseases
+            .map { it.trim().replace(Regex("\\s+"), " ") }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase(Locale.getDefault()) }
+            .take(5)
+
+        val entity = LeadEntity(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            mobile = mobile,
+            diseases = JSONArray(diseases).toString(),
+            otherDisease = "",
+            relation = "",
+            otherRelation = "",
+            status = "Pending",
+            reminderDate = "",
+            reminderTime = "",
+            reminderNote = "",
+            reminderStatus = "Pending",
+            notes = "",
+            archived = false,
+            lastCall = null,
+            timestamp = System.currentTimeMillis(),
+            notesUpdatedAt = 0L,
+            reminderUpdatedAt = 0L,
+            isDraft = isDraft,
+            ownerUid = uid
+        )
+
+        return try {
+            repository.insertLead(entity, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            null
+        } catch (error: Exception) {
+            "Lead save nahi ho saka: ${error.message.orEmpty()}"
         }
     }
 

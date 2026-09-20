@@ -34,6 +34,7 @@
     <!-- Leads Tab -->
     <string name="leads_search_placeholder">नाम, फोन, बीमारी से खोजें…</string>
     <string name="leads_filter_all">सभी</string>
+    <string name="leads_filter_drafts">ड्राफ्ट</string>
     <string name="leads_filter_pending">लंबित</string>
     <string name="leads_filter_complete">पूर्ण</string>
     <string name="leads_filter_archived">संग्रहीत</string>

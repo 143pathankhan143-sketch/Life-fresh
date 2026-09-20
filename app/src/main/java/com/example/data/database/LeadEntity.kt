@@ -29,5 +29,7 @@ data class LeadEntity(
     val notesUpdatedAt: Long = 0L,
     @ColumnInfo(defaultValue = "0")
     val reminderUpdatedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0")
+    val isDraft: Boolean = false, // true = incomplete lead kept in the Drafts section (device-local, never synced)
     val ownerUid: String = ""
 )

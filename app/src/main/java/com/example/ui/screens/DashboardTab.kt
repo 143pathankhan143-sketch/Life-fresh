@@ -58,8 +58,8 @@ fun DashboardTab(
     val allLeads by viewModel.allLeadsList.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
 
-    // Filter out archived for analytic calculations
-    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived } }
+    // Filter out archived and drafts for analytic calculations
+    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived && !it.isDraft } }
 
     val total = activeLeads.size
     val pending = activeLeads.count { it.status.equals("Pending", ignoreCase = true) }

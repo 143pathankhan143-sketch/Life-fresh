@@ -422,6 +422,13 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v13 had no draft support. Every existing lead is a real (non-draft) lead.
+        db.execSQL("ALTER TABLE `leads` ADD COLUMN `isDraft` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -432,7 +439,7 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
         SyncConflictEntity::class,
         SyncCheckpointEntity::class
     ], 
-    version = 13, 
+    version = 14, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -462,7 +469,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13,
+                        MIGRATION_13_14
                     )
                     // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
                     // It silently erases the entire database whenever an on-disk

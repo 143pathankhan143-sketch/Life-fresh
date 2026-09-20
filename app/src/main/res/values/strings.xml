@@ -34,6 +34,7 @@
     <!-- Leads Tab -->
     <string name="leads_search_placeholder">Search leads by name, phone, disease…</string>
     <string name="leads_filter_all">All</string>
+    <string name="leads_filter_drafts">Drafts</string>
     <string name="leads_filter_pending">Pending</string>
     <string name="leads_filter_complete">Complete</string>
     <string name="leads_filter_archived">Archived</string>

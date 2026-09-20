@@ -47,6 +47,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.text.font.FontFamily
 import com.example.ai.chat.formatter.AIMessageFormatter
 import com.example.ai.chat.formatter.FormattedBlock
+import com.example.ai.chat.lead.LeadAction
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.viewmodel.AIChatViewModel
@@ -87,9 +88,12 @@ fun AIScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Automatically scroll to latest message or thinking state
-    LaunchedEffect(uiState.messages.size, uiState.isThinking) {
-        val totalItems = uiState.messages.size + if (uiState.isThinking) 1 else 0
+    // Automatically scroll to latest message, thinking state or pending lead card
+    val hasPendingLeadCard = uiState.pendingLeadAction != null
+    LaunchedEffect(uiState.messages.size, uiState.isThinking, hasPendingLeadCard) {
+        val totalItems = uiState.messages.size +
+            (if (uiState.isThinking) 1 else 0) +
+            (if (hasPendingLeadCard) 1 else 0)
         if (totalItems > 0) {
             coroutineScope.launch {
                 listState.animateScrollToItem(totalItems - 1)
@@ -150,6 +154,18 @@ fun AIScreen(
                     if (uiState.isThinking) {
                         item(key = "thinking_state_item") {
                             AIThinkingBubble()
+                        }
+                    }
+
+                    // Pending lead proposed by the AI - only the user's tap saves it
+                    uiState.pendingLeadAction?.let { pendingAction ->
+                        item(key = "pending_lead_action_card") {
+                            PendingLeadActionCard(
+                                action = pendingAction,
+                                onSave = { chatViewModel.confirmPendingLead(saveAsDraft = false) },
+                                onSaveAsDraft = { chatViewModel.confirmPendingLead(saveAsDraft = true) },
+                                onDismiss = { chatViewModel.cancelPendingLead() }
+                            )
                         }
                     }
                 }
@@ -757,6 +773,77 @@ private fun AssistantCodeBlock(block: FormattedBlock.CodeBlock) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             )
+        }
+    }
+}
+
+@Composable
+private fun PendingLeadActionCard(
+    action: LeadAction,
+    onSave: () -> Unit,
+    onSaveAsDraft: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDraft = action.kind == LeadAction.Kind.DRAFT
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ai_lead_action_card"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = if (isDraft) "Draft save karein?" else "Lead save karein?",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Naam: ${action.name.ifBlank { "Unknown" }}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            if (action.mobile.isNotBlank()) {
+                Text(
+                    text = "Mobile: ${action.mobile}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (action.diseases.isNotEmpty()) {
+                Text(
+                    text = "Wellness: ${action.diseases.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Row(
+                modifier = Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (!isDraft) {
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_save_confirm")
+                    ) {
+                        Text("Save Lead")
+                    }
+                }
+                OutlinedButton(
+                    onClick = onSaveAsDraft,
+                    modifier = Modifier.testTag("ai_lead_save_draft")
+                ) {
+                    Text("Draft me rakho")
+                }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("ai_lead_save_cancel")
+                ) {
+                    Text("Cancel")
+                }
+            }
         }
     }
 }

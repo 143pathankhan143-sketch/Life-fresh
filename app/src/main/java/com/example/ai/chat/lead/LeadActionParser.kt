@@ -1,0 +1,112 @@
+package com.example.ai.chat.lead
+
+import org.json.JSONObject
+
+/**
+ * A lead action proposed by the AI through the LEAD-COLLECT protocol.
+ *
+ * The model ends its reply with a hidden block such as:
+ * [LEAD_CONFIRM]{"name":"Rahul","mobile":"9876543210","diseases":["Diabetes"]}
+ *
+ * The block is never shown to the user. The app parses it out of the reply
+ * and shows a confirmation card instead. A lead is saved to Room only after
+ * the user taps a button on that card - the AI itself never writes data.
+ */
+data class LeadAction(
+    val kind: Kind,
+    val name: String,
+    val mobile: String,
+    val diseases: List<String>
+) {
+    enum class Kind {
+        /** All required details collected; the app offers Save (and Draft). */
+        CONFIRM,
+
+        /** Collection was cancelled/paused or is incomplete; save as a draft. */
+        DRAFT
+    }
+
+    /** True when at least one real detail was collected (for draft decisions). */
+    val hasAnyDetail: Boolean
+        get() = (name.isNotBlank() && !name.equals("Unknown", ignoreCase = true)) || mobile.isNotBlank()
+}
+
+sealed class ParsedLeadReply {
+    /** No action block present - show the reply as-is. */
+    data class Normal(val text: String) : ParsedLeadReply()
+
+    /** An action block was found and parsed - show [visibleText] plus the card. */
+    data class WithAction(val action: LeadAction, val visibleText: String) : ParsedLeadReply()
+}
+
+/**
+ * Extracts the hidden LEAD_CONFIRM / LEAD_DRAFT block from an AI reply.
+ *
+ * Deliberately tolerant (the model is not 100% format-strict):
+ * - the marker may appear anywhere in the reply, not only at the end;
+ * - the optional closing tag may be missing;
+ * - the JSON must be a flat object (the first '}' ends it);
+ * - unknown extra keys are ignored, fields are trimmed and length-capped.
+ *
+ * Any malformed input degrades safely to [ParsedLeadReply.Normal]:
+ * the raw text is shown and nothing is ever saved.
+ */
+object LeadActionParser {
+
+    private const val MAX_NAME_LENGTH = 80
+    private const val MAX_MOBILE_LENGTH = 20
+    private const val MAX_DISEASES = 5
+    private const val MAX_DISEASE_LENGTH = 40
+
+    private val markerRegex = Regex(
+        "\\[LEAD_(CONFIRM|DRAFT)\\]\\s*(\\{.*?\\})(?:\\s*\\[/LEAD_(?:CONFIRM|DRAFT)\\])?",
+        RegexOption.DOT_MATCHES_ALL
+    )
+
+    fun parse(content: String): ParsedLeadReply {
+        val match = markerRegex.find(content) ?: return ParsedLeadReply.Normal(content)
+
+        val kind = when (match.groupValues[1]) {
+            "CONFIRM" -> LeadAction.Kind.CONFIRM
+            else -> LeadAction.Kind.DRAFT
+        }
+
+        val action = parseAction(match.groupValues[2], kind) ?: return ParsedLeadReply.Normal(content)
+
+        val visibleText = (
+            content.substring(0, match.range.first) +
+                " " +
+                content.substring(match.range.last + 1)
+            ).trim()
+
+        return ParsedLeadReply.WithAction(action = action, visibleText = visibleText)
+    }
+
+    private fun parseAction(jsonText: String, kind: LeadAction.Kind): LeadAction? = try {
+        val json = JSONObject(jsonText)
+        val name = json.optString("name", "").trim().take(MAX_NAME_LENGTH)
+        val mobile = json.optString("mobile", "").trim().take(MAX_MOBILE_LENGTH)
+
+        val diseases = mutableListOf<String>()
+        val rawDiseases = json.optJSONArray("diseases")
+        if (rawDiseases != null) {
+            for (i in 0 until rawDiseases.length()) {
+                val disease = rawDiseases.optString(i, "").trim().replace(Regex("\\s+"), " ")
+                if (disease.isNotEmpty()) diseases += disease.take(MAX_DISEASE_LENGTH)
+                if (diseases.size >= MAX_DISEASES) break
+            }
+        }
+
+        // Nothing collected at all -> not a meaningful action.
+        if (name.isEmpty() && mobile.isEmpty()) return null
+
+        LeadAction(
+            kind = kind,
+            name = name,
+            mobile = mobile,
+            diseases = diseases.distinctBy { it.lowercase() }
+        )
+    } catch (_: Exception) {
+        null
+    }
+}

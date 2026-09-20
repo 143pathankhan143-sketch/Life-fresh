@@ -191,6 +191,12 @@ fun LeadsTab(
                     onClick = { viewModel.currentFilter.value = "all" }
                 )
                 FilterChipBtn(
+                    label = stringResource(R.string.leads_filter_drafts),
+                    active = (activeFilter == "drafts"),
+                    icon = if (activeFilter == "drafts") Icons.Filled.Description else Icons.Outlined.Description,
+                    onClick = { viewModel.currentFilter.value = "drafts" }
+                )
+                FilterChipBtn(
                     label = stringResource(R.string.leads_filter_pending),
                     active = (activeFilter == "pending"),
                     icon = if (activeFilter == "pending") Icons.Filled.AccessTime else Icons.Outlined.AccessTime,

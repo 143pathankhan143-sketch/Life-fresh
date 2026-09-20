@@ -47,7 +47,8 @@ fun ReportsTab(viewModel: CRMViewModel) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val allLeads by viewModel.allLeadsList.collectAsStateWithLifecycle()
-    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived } }
+    // Drafts (incomplete leads) never appear in reports
+    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived && !it.isDraft } }
 
     var isDownloading by remember { mutableStateOf(false) }
     var isSharing by remember { mutableStateOf(false) }

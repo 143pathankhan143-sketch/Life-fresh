@@ -34,6 +34,7 @@
     <!-- Leads Tab -->
     <string name="leads_search_placeholder">نام، فون، بیماری سے تلاش کریں…</string>
     <string name="leads_filter_all">تمام</string>
+    <string name="leads_filter_drafts">مسودے</string>
     <string name="leads_filter_pending">زیر التواء</string>
     <string name="leads_filter_complete">مکمل</string>
     <string name="leads_filter_archived">محفوظ شدہ</string>

@@ -88,8 +88,11 @@ class LeadOperationService(
             )
         }
 
+        // Drafts (incomplete leads from the AI chat) must not block a new,
+        // complete lead with the same number - the user may be completing it.
         val duplicateMobile = currentLeads.any { lead ->
             lead.id != requestedId &&
+                !lead.isDraft &&
                 LeadValidator.normalizeMobile(lead.mobile) == normalizedDraft.mobile
         }
 

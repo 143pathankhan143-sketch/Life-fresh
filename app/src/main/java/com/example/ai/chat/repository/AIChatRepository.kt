@@ -1,6 +1,8 @@
 package com.example.ai.chat.repository
 
 import com.example.ai.chat.config.AIConfig
+import com.example.ai.chat.lead.LeadActionParser
+import com.example.ai.chat.lead.ParsedLeadReply
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.model.ChatUiState
@@ -22,6 +24,16 @@ interface AIChatRepository {
      * conversation is never clobbered by a restore.
      */
     fun restoreMessages(messages: List<ChatMessage>)
+    /**
+     * Dismisses the pending lead confirmation card without saving anything.
+     * Called when the user taps Cancel, or implicitly when a new message is sent.
+     */
+    fun dismissPendingLead()
+    /**
+     * Appends a locally generated assistant message (for example a save
+     * confirmation after the user tapped a card button).
+     */
+    fun addLocalAssistantMessage(content: String)
 }
 
 class DefaultAIChatRepository(
@@ -48,7 +60,8 @@ class DefaultAIChatRepository(
                     ChatMessage(role = ChatRole.USER, content = trimmed)
                 _uiState.value = _uiState.value.copy(
                     messages = updated, isThinking = true, errorMessage = null,
-                    canRetry = false, activeProvider = null
+                    canRetry = false, activeProvider = null,
+                    pendingLeadAction = null // a new message dismisses any pending lead card
                 )
                 updated
             }
@@ -67,7 +80,7 @@ class DefaultAIChatRepository(
                 if (clean.none { it.role == ChatRole.USER }) return
                 _uiState.value = _uiState.value.copy(
                     messages = clean, isThinking = true, errorMessage = null,
-                    canRetry = false, activeProvider = null
+                    canRetry = false, activeProvider = null, pendingLeadAction = null
                 )
                 clean
             }
@@ -124,13 +137,22 @@ class DefaultAIChatRepository(
             if (!isCurrent(token)) return
             when (result) {
                 is AIProviderResult.Success -> {
+                    // The reply may end with a hidden LEAD_CONFIRM / LEAD_DRAFT block.
+                    // It is stripped from the visible text and surfaced as a
+                    // confirmation card instead - nothing is saved on its own.
+                    val parsed = LeadActionParser.parse(result.text)
+                    val visibleText = when (parsed) {
+                        is ParsedLeadReply.Normal -> parsed.text
+                        is ParsedLeadReply.WithAction -> parsed.visibleText
+                    }
                     val message = ChatMessage(
-                        role = ChatRole.ASSISTANT, content = result.text,
+                        role = ChatRole.ASSISTANT, content = visibleText,
                         providerName = result.providerName
                     )
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + message, isThinking = false,
-                        errorMessage = null, canRetry = false, activeProvider = result.providerName
+                        errorMessage = null, canRetry = false, activeProvider = result.providerName,
+                        pendingLeadAction = (parsed as? ParsedLeadReply.WithAction)?.action
                     )
                 }
                 is AIProviderResult.Failure -> {
@@ -145,6 +167,28 @@ class DefaultAIChatRepository(
                     )
                 }
             }
+        }
+    }
+
+    override fun dismissPendingLead() {
+        synchronized(stateLock) {
+            if (_uiState.value.pendingLeadAction != null) {
+                _uiState.value = _uiState.value.copy(pendingLeadAction = null)
+            }
+        }
+    }
+
+    override fun addLocalAssistantMessage(content: String) {
+        if (content.isBlank()) return
+        synchronized(stateLock) {
+            val message = ChatMessage(
+                role = ChatRole.ASSISTANT, content = content.trim(),
+                providerName = null
+            )
+            _uiState.value = _uiState.value.copy(
+                messages = _uiState.value.messages + message,
+                errorMessage = null, canRetry = false
+            )
         }
     }
 
