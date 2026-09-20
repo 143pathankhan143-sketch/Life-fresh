@@ -82,31 +82,33 @@ object LeadActionParser {
         return ParsedLeadReply.WithAction(action = action, visibleText = visibleText)
     }
 
-    private fun parseAction(jsonText: String, kind: LeadAction.Kind): LeadAction? = try {
-        val json = JSONObject(jsonText)
-        val name = json.optString("name", "").trim().take(MAX_NAME_LENGTH)
-        val mobile = json.optString("mobile", "").trim().take(MAX_MOBILE_LENGTH)
+    private fun parseAction(jsonText: String, kind: LeadAction.Kind): LeadAction? {
+        return try {
+            val json = JSONObject(jsonText)
+            val name = json.optString("name", "").trim().take(MAX_NAME_LENGTH)
+            val mobile = json.optString("mobile", "").trim().take(MAX_MOBILE_LENGTH)
 
-        val diseases = mutableListOf<String>()
-        val rawDiseases = json.optJSONArray("diseases")
-        if (rawDiseases != null) {
-            for (i in 0 until rawDiseases.length()) {
-                val disease = rawDiseases.optString(i, "").trim().replace(Regex("\\s+"), " ")
-                if (disease.isNotEmpty()) diseases += disease.take(MAX_DISEASE_LENGTH)
-                if (diseases.size >= MAX_DISEASES) break
+            val diseases = mutableListOf<String>()
+            val rawDiseases = json.optJSONArray("diseases")
+            if (rawDiseases != null) {
+                for (i in 0 until rawDiseases.length()) {
+                    val disease = rawDiseases.optString(i, "").trim().replace(Regex("\\s+"), " ")
+                    if (disease.isNotEmpty()) diseases += disease.take(MAX_DISEASE_LENGTH)
+                    if (diseases.size >= MAX_DISEASES) break
+                }
             }
+
+            // Nothing collected at all -> not a meaningful action.
+            if (name.isEmpty() && mobile.isEmpty()) return null
+
+            LeadAction(
+                kind = kind,
+                name = name,
+                mobile = mobile,
+                diseases = diseases.distinctBy { it.lowercase() }
+            )
+        } catch (_: Exception) {
+            null
         }
-
-        // Nothing collected at all -> not a meaningful action.
-        if (name.isEmpty() && mobile.isEmpty()) return null
-
-        LeadAction(
-            kind = kind,
-            name = name,
-            mobile = mobile,
-            diseases = diseases.distinctBy { it.lowercase() }
-        )
-    } catch (_: Exception) {
-        null
     }
 }
