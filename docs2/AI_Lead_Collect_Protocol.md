@@ -71,6 +71,37 @@ the final save button. No local/offline AI is involved.
 | Draft column + migration v13→v14 | `data/database/LeadEntity.kt`, `AppDatabase.kt` |
 | Drafts filter chip + drafts empty state | `ui/screens/LeadsTab.kt` + `leads_filter_drafts` strings |
 
+## CRM awareness (step 3)
+
+Before **every** request the app appends a compact read-only `CRM DATA
+SNAPSHOT` to the system instruction (counts, 15 most recent clients, up to
+10 drafts - name/phone/status/reminder date/wellness). It is rebuilt from
+the in-memory leads StateFlow, so it is always fresh and costs no database
+access. The model answers questions ("kitne pending hain?", "Rahul ka
+phone?") from it and is instructed never to claim an answer changed data.
+
+## Draft completion (step 3)
+
+- "Mere drafts dekho" → answered from the snapshot's draft list.
+- "Rahul ka draft complete karo" → the model reuses the draft's known
+  details (visible in the snapshot), asks only for what is missing, and
+  emits a normal `LEAD_CONFIRM` block.
+- The save path then **matches the draft** (by mobile, or by name for
+  draft saves without a mobile) and reuses that draft's row - the draft
+  becomes a real lead instead of a duplicate. Drafts no longer block the
+  duplicate-mobile check either.
+
+## Lead status (step 3)
+
+- "Rahul complete karo" / "Rahul ko pending karo" → the model identifies
+  the lead from the snapshot (phone preferred) and emits:
+  `[LEAD_STATUS]{"name":"Rahul","mobile":"98...","status":"Complete"}`
+- The app shows a confirmation card ("Update karo" / "Cancel"); only the
+  user's tap applies the change via `CRMViewModel.updateLeadStatusFromAIChat`
+  (matched by mobile, then unique name - ambiguous names are rejected so
+  the model asks for the phone number). Complete cancels the alarm;
+  Pending reschedules it when a reminder exists.
+
 ## Safety properties
 
 - Malformed/missing marker or JSON → the reply is shown as normal text,
@@ -78,4 +109,5 @@ the final save button. No local/offline AI is involved.
 - Full-lead saves validate the mobile (10-15 digits) and reject duplicates.
 - A new user message, or clearing/opening a session, dismisses a pending card.
 - All existing testTags are unchanged; new ones: `ai_lead_action_card`,
-  `ai_lead_save_confirm`, `ai_lead_save_draft`, `ai_lead_save_cancel`.
+  `ai_lead_save_confirm`, `ai_lead_save_draft`, `ai_lead_save_cancel`,
+  `ai_lead_status_confirm`.

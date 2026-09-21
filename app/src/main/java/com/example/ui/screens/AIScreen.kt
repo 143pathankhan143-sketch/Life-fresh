@@ -797,6 +797,7 @@ private fun PendingLeadActionCard(
     onDismiss: () -> Unit
 ) {
     val isDraft = action.kind == LeadAction.Kind.DRAFT
+    val isStatus = action.kind == LeadAction.Kind.STATUS
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -811,12 +812,20 @@ private fun PendingLeadActionCard(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = if (isDraft) "Draft save karein?" else "Lead save karein?",
+                text = when {
+                    isStatus -> "Status update karein?"
+                    isDraft -> "Draft save karein?"
+                    else -> "Lead save karein?"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Naam: ${action.name.ifBlank { "Unknown" }}",
+                text = if (isStatus) {
+                    "Client: ${action.name.ifBlank { "Unknown" }}"
+                } else {
+                    "Naam: ${action.name.ifBlank { "Unknown" }}"
+                },
                 style = MaterialTheme.typography.bodyMedium
             )
             if (action.mobile.isNotBlank()) {
@@ -843,23 +852,38 @@ private fun PendingLeadActionCard(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+            if (isStatus) {
+                Text(
+                    text = "Naya status: ${action.status}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             Row(
                 modifier = Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (!isDraft) {
+                if (isStatus) {
                     Button(
                         onClick = onSave,
-                        modifier = Modifier.testTag("ai_lead_save_confirm")
+                        modifier = Modifier.testTag("ai_lead_status_confirm")
                     ) {
-                        Text("Save Lead")
+                        Text("Update karo")
                     }
-                }
-                OutlinedButton(
-                    onClick = onSaveAsDraft,
-                    modifier = Modifier.testTag("ai_lead_save_draft")
-                ) {
-                    Text("Draft me rakho")
+                } else {
+                    if (!isDraft) {
+                        Button(
+                            onClick = onSave,
+                            modifier = Modifier.testTag("ai_lead_save_confirm")
+                        ) {
+                            Text("Save Lead")
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onSaveAsDraft,
+                        modifier = Modifier.testTag("ai_lead_save_draft")
+                    ) {
+                        Text("Draft me rakho")
+                    }
                 }
                 TextButton(
                     onClick = onDismiss,

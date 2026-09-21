@@ -1148,6 +1148,70 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
     }
 
     /**
+     * Builds the compact read-only CRM snapshot that is appended to the AI
+     * system instruction before every request. In-memory only (StateFlow
+     * snapshot) - no database access, so it is safe to call per message.
+     */
+    fun buildCrmSnapshot(): String {
+        val leads = allLeadsList.value
+        val full = leads.filter { !it.isDraft }
+        val drafts = leads.filter { it.isDraft }
+        val pending = full.count { it.status.equals("Pending", ignoreCase = true) }
+        val complete = full.count { it.status.equals("Complete", ignoreCase = true) }
+        val todayStr = getSystemTodayDateStr()
+        val remToday = full.count { it.reminderDate == todayStr && it.reminderStatus == "Pending" }
+
+        val sb = StringBuilder()
+        sb.append("CRM DATA SNAPSHOT (read-only context about the user's current leads, refreshed for every message. Answer questions from it; it never changes data):\n")
+        sb.append("Counts: total clients=").append(full.size)
+            .append(", pending=").append(pending)
+            .append(", complete=").append(complete)
+            .append(", drafts=").append(drafts.size)
+            .append(", reminders due today=").append(remToday)
+            .append('\n')
+
+        val recent = full.sortedByDescending { it.timestamp }.take(15)
+        if (recent.isNotEmpty()) {
+            sb.append("Recent clients (name | phone | status | reminderDate | wellness):\n")
+            recent.forEach { lead ->
+                sb.append(lead.name)
+                    .append(" | ").append(lead.mobile.ifEmpty { "-" })
+                    .append(" | ").append(lead.status)
+                    .append(" | ").append(lead.reminderDate.ifEmpty { "-" })
+                val wellness = diseasesCompact(lead.diseases)
+                if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                sb.append('\n')
+            }
+        }
+
+        if (drafts.isNotEmpty()) {
+            sb.append("Incomplete drafts (from AI chat, not yet saved as real clients):\n")
+            drafts.sortedByDescending { it.timestamp }.take(10).forEach { lead ->
+                sb.append("- ").append(lead.name)
+                    .append(" | ").append(lead.mobile.ifEmpty { "no phone yet" })
+                val wellness = diseasesCompact(lead.diseases)
+                if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                sb.append('\n')
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun diseasesCompact(diseasesJson: String): String {
+        if (diseasesJson.isBlank()) return ""
+        return try {
+            val arr = JSONArray(diseasesJson)
+            val items = (0 until arr.length()).map { arr.optString(it, "") }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(4)
+            items.joinToString(", ").take(60)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /**
      * Saves a lead collected through the AI chat (LEAD-COLLECT protocol).
      *
      * The AI never saves on its own: this is only called after the user taps a
@@ -1172,8 +1236,10 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             return "Number sahi nahi lag raha (10-15 digits chahiye). Lead save nahi hua."
         }
 
+        // Drafts do not block a real lead with the same number - the user
+        // may be completing one of them right now.
         if (!isDraft && mobile.isNotEmpty() &&
-            allLeadsList.value.any { it.mobile.filter(Char::isDigit) == mobile }
+            allLeadsList.value.any { !it.isDraft && it.mobile.filter(Char::isDigit) == mobile }
         ) {
             return "Yeh number pehle se maujood hai, isliye naya lead save nahi hua."
         }
@@ -1214,9 +1280,20 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             }
         }
 
+        // Draft completion: when this save matches an existing draft (same
+        // mobile, or same name when saving a draft without a mobile), reuse
+        // that draft's row instead of creating a new one.
+        val matchingDraft = when {
+            mobile.isNotEmpty() ->
+                allLeadsList.value.firstOrNull { it.isDraft && it.mobile.filter(Char::isDigit) == mobile }
+            isDraft && name.isNotBlank() ->
+                allLeadsList.value.firstOrNull { it.isDraft && it.name.equals(name, ignoreCase = true) }
+            else -> null
+        }
+
         val now = System.currentTimeMillis()
         val entity = LeadEntity(
-            id = UUID.randomUUID().toString(),
+            id = matchingDraft?.id ?: UUID.randomUUID().toString(),
             name = name,
             mobile = mobile,
             diseases = JSONArray(diseases).toString(),
@@ -1231,7 +1308,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             notes = note,
             archived = false,
             lastCall = null,
-            timestamp = now,
+            timestamp = matchingDraft?.timestamp ?: now,
             notesUpdatedAt = if (note.isNotEmpty()) now else 0L,
             reminderUpdatedAt = if (reminderDate.isNotEmpty()) now else 0L,
             isDraft = isDraft,
@@ -1241,10 +1318,15 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         return try {
             repository.insertLead(entity, com.example.sync.LeadWriteOrigin.LOCAL_AI)
 
-            var message = if (isDraft) {
-                "📝 '$name' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
-            } else {
-                "✅ Lead '$name' save ho gaya. Leads tab me dikhega."
+            var message = when {
+                isDraft && matchingDraft != null ->
+                    "📝 Draft '$name' update ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+                isDraft ->
+                    "📝 '$name' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+                matchingDraft != null ->
+                    "✅ Draft '$name' complete ho gaya - ab proper lead ban gaya."
+                else ->
+                    "✅ Lead '$name' save ho gaya. Leads tab me dikhega."
             }
 
             if (reminderDate.isNotEmpty()) {
@@ -1259,6 +1341,64 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             message + reminderWarning
         } catch (error: Exception) {
             "Lead save nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Applies a status change (Pending/Complete) proposed by the AI chat.
+     * Only callable from the chat confirmation card. The lead is matched by
+     * mobile first (exact), then by name - ambiguous names are rejected so
+     * the AI can ask the user for the phone number.
+     *
+     * Returns the chat message to show after the update attempt.
+     */
+    suspend fun updateLeadStatusFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead update ke liye pehle login karo."
+
+        val newStatus = if (action.status.equals("Complete", ignoreCase = true)) "Complete" else "Pending"
+        val mobile = action.mobile.filter(Char::isDigit)
+        val leads = allLeadsList.value.filter { !it.isDraft }
+
+        val nameMatches = if (action.name.isNotBlank()) {
+            leads.filter { it.name.equals(action.name, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+
+        val lead = when {
+            mobile.isNotEmpty() -> leads.firstOrNull { it.mobile.filter(Char::isDigit) == mobile }
+            nameMatches.size == 1 -> nameMatches.first()
+            nameMatches.size > 1 ->
+                return "'${action.name}' ke naam se multiple leads hain. Phone number batayein taaki sahi lead update ho."
+            else -> null
+        }
+
+        if (lead == null) {
+            return "Lead nahi mila. Naam ya number dobara check karke try karo."
+        }
+
+        val updated = lead.copy(
+            status = newStatus,
+            reminderStatus = when {
+                newStatus == "Complete" -> "Completed"
+                lead.reminderDate.isNotEmpty() -> "Pending"
+                else -> lead.reminderStatus
+            }
+        )
+
+        return try {
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            if (newStatus == "Complete") {
+                com.example.audio.ReminderScheduler.cancelReminder(getApplication(), updated.ownerUid, updated.id)
+            } else if (lead.reminderDate.isNotEmpty()) {
+                com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+            }
+            "✅ '${lead.name}' ka status ab $newStatus hai."
+        } catch (error: Exception) {
+            "Status update nahi ho saka: ${error.message.orEmpty()}"
         }
     }
 

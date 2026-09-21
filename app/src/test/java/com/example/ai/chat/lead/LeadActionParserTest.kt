@@ -124,4 +124,39 @@ class LeadActionParserTest {
         assertEquals("2026-09-30", parsed.action.reminderDate)
         assertEquals("10:00", parsed.action.reminderTime)
     }
+
+    @Test
+    fun `status block is parsed with normalized status`() {
+        val reply = """Rahul ko complete mark kar do?
+[LEAD_STATUS]{"name":"Rahul","mobile":"9876543210","status":"completed"}"""
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.STATUS, parsed.action.kind)
+        assertEquals("Rahul", parsed.action.name)
+        assertEquals("9876543210", parsed.action.mobile)
+        assertEquals("Complete", parsed.action.status)
+        assertEquals("Rahul ko complete mark kar do?", parsed.visibleText)
+    }
+
+    @Test
+    fun `status block with invalid status is not an action`() {
+        val reply = "[LEAD_STATUS]{\"name\":\"Rahul\",\"mobile\":\"9876543210\",\"status\":\"Weird\"}"
+        val parsed = LeadActionParser.parse(reply)
+        assertTrue(parsed is ParsedLeadReply.Normal)
+    }
+
+    @Test
+    fun `status block without name and mobile is not an action`() {
+        val reply = "[LEAD_STATUS]{\"name\":\"\",\"mobile\":\"\",\"status\":\"Pending\"}"
+        val parsed = LeadActionParser.parse(reply)
+        assertTrue(parsed is ParsedLeadReply.Normal)
+    }
+
+    @Test
+    fun `status block with only mobile is parsed`() {
+        val reply = "[LEAD_STATUS]{\"name\":\"\",\"mobile\":\"9812345678\",\"status\":\"Pending\"}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.STATUS, parsed.action.kind)
+        assertEquals("9812345678", parsed.action.mobile)
+        assertEquals("Pending", parsed.action.status)
+    }
 }

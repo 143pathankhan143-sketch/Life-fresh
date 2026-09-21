@@ -37,6 +37,12 @@ interface AIChatRepository {
      * confirmation after the user tapped a card button).
      */
     fun addLocalAssistantMessage(content: String)
+    /**
+     * Registers the source of the read-only CRM data snapshot that is
+     * appended to the system instruction before every request. Null (or an
+     * empty result) means the snapshot is simply not sent.
+     */
+    fun setCrmSnapshotProvider(provider: (() -> String)?)
 }
 
 class DefaultAIChatRepository(
@@ -52,6 +58,9 @@ class DefaultAIChatRepository(
         systemInstruction +
             "\nToday's date: " +
             SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.ENGLISH).format(Date())
+
+    @Volatile
+    private var crmSnapshotProvider: (() -> String)? = null
 
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
@@ -134,7 +143,14 @@ class DefaultAIChatRepository(
         activeRequestId == token.id && conversationGeneration == token.conversationGeneration
 
     private suspend fun safelyRoute(messages: List<ChatMessage>): AIProviderResult = try {
-        router.routeChat(messages, fullSystemInstruction)
+        // The snapshot is rebuilt for every request so the model always sees
+        // the current leads (a failing provider never breaks the chat).
+        val snapshot = try {
+            crmSnapshotProvider?.invoke().orEmpty()
+        } catch (t: Throwable) {
+            ""
+        }
+        router.routeChat(messages, fullSystemInstruction + snapshot)
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (t: Throwable) {
@@ -181,6 +197,10 @@ class DefaultAIChatRepository(
                 }
             }
         }
+    }
+
+    override fun setCrmSnapshotProvider(provider: (() -> String)?) {
+        crmSnapshotProvider = provider
     }
 
     override fun dismissPendingLead() {

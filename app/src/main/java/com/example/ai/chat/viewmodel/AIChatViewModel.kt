@@ -41,6 +41,8 @@ class AIChatViewModel(
         crmViewModel = viewModel
         if (viewModel != null && !persistenceStarted) {
             persistenceStarted = true
+            // The AI gets a fresh read-only CRM snapshot before every request.
+            repository.setCrmSnapshotProvider { viewModel.buildCrmSnapshot() }
             viewModelScope.launch { startPersistence(viewModel) }
         }
     }
@@ -113,9 +115,13 @@ class AIChatViewModel(
             repository.addLocalAssistantMessage("Lead save ke liye account zaroori hai. Pehle login karo.")
             return
         }
-        val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
         val job = viewModelScope.launch {
-            val message = crm.saveLeadFromAIChat(effective)
+            val message = if (action.kind == LeadAction.Kind.STATUS) {
+                crm.updateLeadStatusFromAIChat(action)
+            } else {
+                val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
+                crm.saveLeadFromAIChat(effective)
+            }
             repository.addLocalAssistantMessage(message)
         }
         activeRequestJob = job
