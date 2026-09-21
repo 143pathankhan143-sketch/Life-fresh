@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -32,11 +33,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -99,6 +103,7 @@ fun AIScreen(
     val activeSessionId = viewModel?.activeSessionId?.value
     var showHistoryPanel by remember { mutableStateOf(false) }
     var pendingDeleteSession by remember { mutableStateOf<ChatSession?>(null) }
+    var pendingRenameSession by remember { mutableStateOf<ChatSession?>(null) }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -241,6 +246,13 @@ fun AIScreen(
                     showHistoryPanel = false
                     chatViewModel.clearConversation()
                 },
+                onTogglePin = { session ->
+                    viewModel?.updateSessionPin(session.id, !session.isPinned)
+                },
+                onRenameRequested = { session -> pendingRenameSession = session },
+                onToggleArchive = { session ->
+                    viewModel?.archiveSession(session.id, !session.isArchived)
+                },
                 onDismiss = { showHistoryPanel = false }
             )
         }
@@ -276,6 +288,44 @@ fun AIScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingDeleteSession = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    pendingRenameSession?.let { session ->
+        var draftTitle by remember(session) { mutableStateOf(session.title) }
+        AlertDialog(
+            onDismissRequest = { pendingRenameSession = null },
+            title = { Text("Rename chat") },
+            text = {
+                OutlinedTextField(
+                    value = draftTitle,
+                    onValueChange = { draftTitle = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("rename_input"),
+                    singleLine = true,
+                    label = { Text("Chat name") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val title = draftTitle.trim()
+                        if (title.isNotEmpty()) {
+                            viewModel?.renameSession(session.id, title)
+                        }
+                        pendingRenameSession = null
+                    },
+                    modifier = Modifier.testTag("rename_confirm_btn")
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRenameSession = null }) {
                     Text("Cancel")
                 }
             }
@@ -384,6 +434,9 @@ private fun AIChatHistoryPanel(
     onOpenSession: (ChatSession) -> Unit,
     onRequestDelete: (ChatSession) -> Unit,
     onNewChat: () -> Unit,
+    onTogglePin: (ChatSession) -> Unit,
+    onRenameRequested: (ChatSession) -> Unit,
+    onToggleArchive: (ChatSession) -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -490,64 +543,189 @@ private fun AIChatHistoryPanel(
                         modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
                     )
                 } else {
+                    val activeSessions = sessions.filter { !it.isArchived }
+                    val archivedSessions = sessions.filter { it.isArchived }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(sessions, key = { it.id }) { session ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onOpenSession(session) }
-                                    .padding(horizontal = 10.dp, vertical = 10.dp)
-                                    .testTag("history_session_row"),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (session.id == activeSessionId) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = session.title,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = "${formatSessionDate(session.timestamp)}  ·  ${session.messages.size} messages",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { onRequestDelete(session) },
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .testTag("history_delete_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "Delete chat",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                        items(activeSessions, key = { it.id }) { session ->
+                            HistorySessionRow(
+                                session = session,
+                                isActive = session.id == activeSessionId,
+                                onOpen = { onOpenSession(session) },
+                                onTogglePin = { onTogglePin(session) },
+                                onRename = { onRenameRequested(session) },
+                                onToggleArchive = { onToggleArchive(session) },
+                                onDelete = { onRequestDelete(session) }
+                            )
+                        }
+                        if (archivedSessions.isNotEmpty()) {
+                            item(key = "archived_header") {
+                                Text(
+                                    text = "ARCHIVED",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp, start = 10.dp)
+                                )
+                            }
+                            items(archivedSessions, key = { it.id }) { session ->
+                                HistorySessionRow(
+                                    session = session,
+                                    isActive = session.id == activeSessionId,
+                                    onOpen = { onOpenSession(session) },
+                                    onTogglePin = { onTogglePin(session) },
+                                    onRename = { onRenameRequested(session) },
+                                    onToggleArchive = { onToggleArchive(session) },
+                                    onDelete = { onRequestDelete(session) }
+                                )
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * One chat row in the history panel: tap to open, and a 3-dot menu with
+ * Pin/Unpin, Rename, Archive/Unarchive and Delete.
+ */
+@Composable
+private fun HistorySessionRow(
+    session: ChatSession,
+    isActive: Boolean,
+    onOpen: () -> Unit,
+    onTogglePin: () -> Unit,
+    onRename: () -> Unit,
+    onToggleArchive: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onOpen, onClickLabel = "Open chat")
+                .padding(start = 10.dp, end = 42.dp, top = 10.dp, bottom = 10.dp)
+                .testTag("history_session_row"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (session.isPinned) {
+                Icon(
+                    imageVector = Icons.Filled.PushPin,
+                    contentDescription = "Pinned",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (isActive) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = session.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${formatSessionDate(session.timestamp)}  ·  ${session.messages.size} messages",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 2.dp)
+        ) {
+            IconButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("history_menu_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = "Chat options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                modifier = Modifier.testTag("history_menu")
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (session.isPinned) "Unpin" else "Pin") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.PushPin, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onTogglePin()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Rename") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onRename()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (session.isArchived) "Move to chats" else "Archive") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (session.isArchived) Icons.Filled.Unarchive else Icons.Filled.Archive,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onToggleArchive()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    }
+                )
             }
         }
     }
@@ -1467,7 +1645,7 @@ private fun AIChatComposer(
                     // Mic + send buttons (smaller, with spacing - no overlap)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Mic button: start listening, or stop (transcript -> box).
                         IconButton(
@@ -1541,5 +1719,6 @@ data class ChatSession(
     val title: String = "",
     val messages: List<MockMessage> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false
 )

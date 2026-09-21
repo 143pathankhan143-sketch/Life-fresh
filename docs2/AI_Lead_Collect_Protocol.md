@@ -186,9 +186,15 @@ phone?") from it and is instructed never to claim an answer changed data.
 - Retry button on the last AI reply (error or normal): error reply is dropped
   (or partial streamed text + error dropped) and the last user question is
   re-asked.
+- History options: each chat row has a 3-dot menu with Pin/Unpin
+  (pinned sort first, pin icon shown), Rename (title edit dialog) and
+  Archive/Unarchive (archived chats move to an "ARCHIVED" section at the
+  bottom; DB v16 migration adds `ai_chat_sessions.isArchived`). Delete
+  (with confirm) stays in the same menu.
 
 New testTags: `history_panel`, `history_new_chat_btn`, `ai_reply_duration`,
-`ai_msg_copy_btn`, `ai_msg_share_btn`.
+`ai_msg_copy_btn`, `ai_msg_share_btn`, `history_menu_btn`, `history_menu`,
+`rename_input`, `rename_confirm_btn`.
 
 ## Safety properties
 

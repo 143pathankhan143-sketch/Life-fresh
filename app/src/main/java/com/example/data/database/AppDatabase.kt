@@ -437,6 +437,13 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
     }
 }
 
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v15 had no archive for chat sessions. Existing sessions are active.
+        db.execSQL("ALTER TABLE `ai_chat_sessions` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -447,7 +454,7 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         SyncConflictEntity::class,
         SyncCheckpointEntity::class
     ], 
-    version = 15, 
+    version = 16, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -479,7 +486,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12,
                         MIGRATION_12_13,
                         MIGRATION_13_14,
-                        MIGRATION_14_15
+                        MIGRATION_14_15,
+                        MIGRATION_15_16
                     )
                     // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
                     // It silently erases the entire database whenever an on-disk

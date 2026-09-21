@@ -347,7 +347,8 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                 )
                             }.sortedBy { it.timestamp },
                             timestamp = swm.session.updatedTimestamp,
-                            isPinned = swm.session.isPinned
+                            isPinned = swm.session.isPinned,
+                            isArchived = swm.session.isArchived
                         )
                     }
                 }
@@ -406,6 +407,15 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         if (uid.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
             aiChatRepository.updateSessionPinStatus(uid, sessionId, isPinned)
+        }
+    }
+
+    fun archiveSession(sessionId: String, isArchived: Boolean) {
+        if (!BuildConfig.AI_FEATURES_ENABLED) return
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (uid.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            aiChatRepository.updateSessionArchived(uid, sessionId, isArchived)
         }
     }
 

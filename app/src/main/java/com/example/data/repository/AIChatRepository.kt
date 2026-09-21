@@ -53,6 +53,11 @@ class AIChatRepository(private val aiChatDao: AIChatDao) {
         aiChatDao.updateSessionPinStatus(ownerUid, sessionId, isPinned, System.currentTimeMillis())
     }
 
+    suspend fun updateSessionArchived(ownerUid: String, sessionId: String, isArchived: Boolean) {
+        if (ownerUid.isBlank() || sessionId.isBlank()) return
+        aiChatDao.updateSessionArchived(ownerUid, sessionId, isArchived, System.currentTimeMillis())
+    }
+
     suspend fun updateSessionTitle(ownerUid: String, sessionId: String, title: String) {
         if (ownerUid.isBlank() || sessionId.isBlank()) return
         aiChatDao.updateSessionTitle(ownerUid, sessionId, title, System.currentTimeMillis())
