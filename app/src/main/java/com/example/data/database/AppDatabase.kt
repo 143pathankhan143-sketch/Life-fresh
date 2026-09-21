@@ -429,6 +429,14 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v14 never stored how long the AI took to answer. Old rows stay at 0
+        // (0 = unknown, the UI simply does not show a time for them).
+        db.execSQL("ALTER TABLE `ai_chat_messages` ADD COLUMN `responseDurationMs` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -439,7 +447,7 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         SyncConflictEntity::class,
         SyncCheckpointEntity::class
     ], 
-    version = 14, 
+    version = 15, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -470,7 +478,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_10_11,
                         MIGRATION_11_12,
                         MIGRATION_12_13,
-                        MIGRATION_13_14
+                        MIGRATION_13_14,
+                        MIGRATION_14_15
                     )
                     // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
                     // It silently erases the entire database whenever an on-disk

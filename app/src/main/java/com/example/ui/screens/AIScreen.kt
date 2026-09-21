@@ -1,6 +1,10 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -23,12 +27,15 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,8 +52,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,7 +97,7 @@ fun AIScreen(
     }
     val sessions by sessionsFlow.collectAsStateWithLifecycle()
     val activeSessionId = viewModel?.activeSessionId?.value
-    var showHistoryDialog by remember { mutableStateOf(false) }
+    var showHistoryPanel by remember { mutableStateOf(false) }
     var pendingDeleteSession by remember { mutableStateOf<ChatSession?>(null) }
 
     val listState = rememberLazyListState()
@@ -98,11 +105,16 @@ fun AIScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Automatically scroll to latest message, thinking state or pending lead card
+    // Automatically scroll to the latest message, the thinking state, the
+    // pending lead card - and follow the growing text while a reply is
+    // streaming in.
     val hasPendingLeadCard = uiState.pendingLeadAction != null
-    LaunchedEffect(uiState.messages.size, uiState.isThinking, hasPendingLeadCard) {
+    val streamingLength = uiState.messages.lastOrNull()?.let {
+        if (it.isStreaming) it.content.length else 0
+    } ?: 0
+    LaunchedEffect(uiState.messages.size, uiState.isThinking, hasPendingLeadCard, streamingLength) {
         val totalItems = uiState.messages.size +
-            (if (uiState.isThinking) 1 else 0) +
+            (if (uiState.isThinking && streamingLength == 0) 1 else 0) +
             (if (hasPendingLeadCard) 1 else 0)
         if (totalItems > 0) {
             coroutineScope.launch {
@@ -111,17 +123,25 @@ fun AIScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
             .testTag("ai_chat_screen")
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
     ) {
         AIChatHeader(
             hasMessages = uiState.messages.isNotEmpty(),
             onExit = onExit,
             onClearChat = { chatViewModel.clearConversation() },
-            onOpenHistory = { showHistoryDialog = true }
+            onOpenHistory = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                showHistoryPanel = true
+            }
         )
 
         Box(
@@ -153,7 +173,8 @@ fun AIScreen(
                             ChatRole.USER -> UserMessageBubble(message)
                             ChatRole.ASSISTANT -> AssistantMessageBubble(
                                 message = message,
-                                canRetry = uiState.canRetry && message.id == uiState.messages.lastOrNull()?.id,
+                                showRetry = !uiState.isThinking &&
+                                    message.id == uiState.messages.lastOrNull()?.id,
                                 onRetry = { chatViewModel.retry() },
                                 onNavigateToSettings = onNavigateToSettings
                             )
@@ -161,7 +182,8 @@ fun AIScreen(
                         }
                     }
 
-                    if (uiState.isThinking) {
+                    // Hide "Thinking..." once the streamed text starts appearing
+                    if (uiState.isThinking && streamingLength == 0) {
                         item(key = "thinking_state_item") {
                             AIThinkingBubble()
                         }
@@ -205,17 +227,23 @@ fun AIScreen(
         )
     }
 
-    if (showHistoryDialog) {
-        AIChatHistoryDialog(
-            sessions = sessions,
-            activeSessionId = activeSessionId,
-            onOpenSession = { session ->
-                showHistoryDialog = false
-                chatViewModel.openSession(session.id, session.messages)
-            },
-            onRequestDelete = { session -> pendingDeleteSession = session },
-            onDismiss = { showHistoryDialog = false }
-        )
+        // Half-screen history panel sliding in from the left (ChatGPT-style)
+        if (showHistoryPanel) {
+            AIChatHistoryPanel(
+                sessions = sessions,
+                activeSessionId = activeSessionId,
+                onOpenSession = { session ->
+                    showHistoryPanel = false
+                    chatViewModel.openSession(session.id, session.messages)
+                },
+                onRequestDelete = { session -> pendingDeleteSession = session },
+                onNewChat = {
+                    showHistoryPanel = false
+                    chatViewModel.clearConversation()
+                },
+                onDismiss = { showHistoryPanel = false }
+            )
+        }
     }
 
     pendingDeleteSession?.let { session ->
@@ -236,7 +264,7 @@ fun AIScreen(
                         // If the deleted session was on screen, start fresh
                         if (session.id == activeSessionId) chatViewModel.clearConversation()
                         pendingDeleteSession = null
-                        showHistoryDialog = false
+                        showHistoryPanel = false
                     },
                     modifier = Modifier.testTag("history_delete_confirm")
                 ) {
@@ -324,7 +352,7 @@ private fun AIChatHeader(
                             .testTag("btn_clear_chat")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.RestartAlt,
+                            imageVector = Icons.Filled.Edit,
                             contentDescription = "New Chat",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
@@ -350,23 +378,62 @@ private fun AIChatHeader(
 }
 
 @Composable
-private fun AIChatHistoryDialog(
+private fun AIChatHistoryPanel(
     sessions: List<ChatSession>,
     activeSessionId: String?,
     onOpenSession: (ChatSession) -> Unit,
     onRequestDelete: (ChatSession) -> Unit,
+    onNewChat: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
+    val scope = rememberCoroutineScope()
+    val panelOffset = remember { Animatable(0f) }
+    var isClosing by remember { mutableStateOf(false) }
+
+    fun requestClose() {
+        if (isClosing) return
+        isClosing = true
+        scope.launch {
+            panelOffset.animateTo(
+                0f,
+                tween(durationMillis = 200, easing = FastOutSlowInEasing)
+            )
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        panelOffset.snapTo(0f)
+        panelOffset.animateTo(
+            1f,
+            tween(durationMillis = 280, easing = FastOutSlowInEasing)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Dimmed background - tap anywhere to close
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .testTag("history_dialog")
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+                .clickable { requestClose() }
+        )
+
+        // Half-screen panel sliding in from the left (ChatGPT-style)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.85f)
+                .align(Alignment.CenterStart)
+                .offset { IntOffset(((1f - panelOffset.value) * it.width).toInt(), 0) }
+                .background(MaterialTheme.colorScheme.surface)
+                .testTag("history_panel")
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -380,18 +447,36 @@ private fun AIChatHistoryDialog(
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
-                        onClick = onDismiss,
+                        onClick = requestClose,
                         modifier = Modifier
                             .size(36.dp)
                             .testTag("history_close_btn")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = Icons.Filled.Close,
                             contentDescription = "Close",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+
+                OutlinedButton(
+                    onClick = onNewChat,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("history_new_chat_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("New Chat")
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 if (sessions.isEmpty()) {
                     Text(
@@ -402,9 +487,7 @@ private fun AIChatHistoryDialog(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 360.dp),
+                        modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(sessions, key = { it.id }) { session ->
@@ -451,7 +534,7 @@ private fun AIChatHistoryDialog(
                                         .testTag("history_delete_btn")
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Delete,
+                                        imageVector = Icons.Filled.Delete,
                                         contentDescription = "Delete chat",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(16.dp)
@@ -469,6 +552,17 @@ private fun AIChatHistoryDialog(
 internal fun formatSessionDate(timestamp: Long): String {
     val format = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
     return format.format(Date(timestamp))
+}
+
+/** "3.2 s" for short replies, "1 min 05 s" for longer ones. */
+private fun formatReplyDuration(ms: Long): String {
+    if (ms <= 0) return ""
+    val secs = ms / 1000
+    return if (secs < 60) {
+        "${secs}.${(ms % 1000) / 100} s"
+    } else {
+        "${secs / 60} min ${secs % 60} s"
+    }
 }
 
 @Composable
@@ -618,10 +712,40 @@ private fun UserMessageBubble(message: ChatMessage) {
 @Composable
 private fun AssistantMessageBubble(
     message: ChatMessage,
-    canRetry: Boolean,
+    showRetry: Boolean,
     onRetry: () -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+
+    fun copyMessage() {
+        try {
+            val clipboard =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboard?.setPrimaryClip(
+                ClipData.newPlainText("LifeFresh AI", message.content)
+            )
+            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+        } catch (_: Throwable) {
+            Toast.makeText(context, "Copy nahi ho paya", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun shareMessage() {
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message.content)
+            }
+            context.startActivity(
+                Intent.createChooser(intent, "Share")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: Throwable) {
+            Toast.makeText(context, "Share nahi ho paya", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -684,7 +808,7 @@ private fun AssistantMessageBubble(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (canRetry) {
+                            if (showRetry) {
                                 OutlinedButton(
                                     onClick = onRetry,
                                     shape = RoundedCornerShape(10.dp),
@@ -757,10 +881,91 @@ private fun AssistantMessageBubble(
                             }
                         }
                     }
+
+                    // Blinking cursor while the reply is still streaming in
+                    if (message.isStreaming) {
+                        StreamingCursor()
+                    }
+                }
+
+                // Meta row: reply time + copy + share (visible, like ChatGPT)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    if (!message.isStreaming && message.responseDurationMs > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.testTag("ai_reply_duration")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Schedule,
+                                contentDescription = "Reply time",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = formatReplyDuration(message.responseDurationMs),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                    if (!message.isStreaming) {
+                        IconButton(
+                            onClick = copyMessage,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("ai_msg_copy_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "Copy reply",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = shareMessage,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("ai_msg_share_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = "Share reply",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** ChatGPT-style blinking block cursor shown at the end of a streaming reply. */
+@Composable
+private fun StreamingCursor() {
+    val infiniteTransition = rememberInfiniteTransition(label = "stream_cursor")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 550, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cursor_alpha"
+    )
+    Text(
+        text = "▍",
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 23.sp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+        modifier = Modifier.padding(start = 2.dp)
+    )
 }
 
 @Composable
@@ -1205,6 +1410,9 @@ private fun AIChatComposer(
                         },
                         modifier = Modifier
                             .weight(1f)
+                            // Let the field shrink below its intrinsic width so
+                            // the mic + send buttons never overlap on narrow screens.
+                            .widthIn(min = 0.dp)
                             .testTag("message_input"),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
@@ -1252,50 +1460,56 @@ private fun AIChatComposer(
                         )
                     }
 
-                    // Mic button: start listening, or stop (transcript -> box).
-                    IconButton(
-                        onClick = onMicClick,
-                        enabled = !isThinking && !isConverting,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isListening) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                            )
-                            .testTag("mic_button")
+                    // Mic + send buttons (smaller, with spacing - no overlap)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
-                            contentDescription = if (isListening) "Stop voice input" else "Voice input",
-                            tint = if (isListening) MaterialTheme.colorScheme.onError
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                alpha = if (isThinking) 0.35f else 0.8f
-                            ),
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
+                        // Mic button: start listening, or stop (transcript -> box).
+                        IconButton(
+                            onClick = onMicClick,
+                            enabled = !isThinking && !isConverting,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isListening) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                )
+                                .testTag("mic_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                                contentDescription = if (isListening) "Stop voice input" else "Voice input",
+                                tint = if (isListening) MaterialTheme.colorScheme.onError
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                    alpha = if (isThinking) 0.35f else 0.8f
+                                ),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
 
-                    // Send button: normal send, or direct send while listening.
-                    IconButton(
-                        onClick = onSendClick,
-                        enabled = isSendEnabled,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSendEnabled) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        // Send button: normal send, or direct send while listening.
+                        IconButton(
+                            onClick = onSendClick,
+                            enabled = isSendEnabled,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSendEnabled) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                )
+                                .testTag("send_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                modifier = Modifier.size(14.dp)
                             )
-                            .testTag("send_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            modifier = Modifier.size(15.dp)
-                        )
+                        }
                     }
                 }
             }
@@ -1314,7 +1528,8 @@ data class MockMessage(
     val isError: Boolean = false,
     val isOfflineWarning: Boolean = false,
     val isConfirmation: Boolean = false,
-    val actionCardType: String? = null
+    val actionCardType: String? = null,
+    val responseDurationMs: Long = 0
 )
 
 data class ChatSession(
@@ -1324,5 +1539,3 @@ data class ChatSession(
     val timestamp: Long = System.currentTimeMillis(),
     val isPinned: Boolean = false
 )
-
-

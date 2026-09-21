@@ -342,7 +342,8 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     isError = msg.isError,
                                     isOfflineWarning = msg.isOfflineWarning,
                                     isConfirmation = msg.isConfirmation,
-                                    actionCardType = msg.actionCardType
+                                    actionCardType = msg.actionCardType,
+                                    responseDurationMs = msg.responseDurationMs
                                 )
                             }.sortedBy { it.timestamp },
                             timestamp = swm.session.updatedTimestamp,
@@ -391,7 +392,8 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 isError = message.isError,
                 isOfflineWarning = message.isOfflineWarning,
                 isConfirmation = message.isConfirmation,
-                actionCardType = message.actionCardType
+                actionCardType = message.actionCardType,
+                responseDurationMs = message.responseDurationMs
             )
             aiChatRepository.insertMessage(msgEntity)
             aiChatRepository.updateSessionTimestamp(uid, sessionId)

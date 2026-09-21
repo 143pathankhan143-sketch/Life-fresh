@@ -1,6 +1,7 @@
 package com.example.ai.chat.repository
 
 import com.example.ai.chat.config.AIConfig
+import com.example.ai.chat.lead.LeadAction
 import com.example.ai.chat.lead.LeadActionParser
 import com.example.ai.chat.lead.ParsedLeadReply
 import com.example.ai.chat.model.ChatMessage
@@ -18,11 +19,11 @@ import java.util.Locale
 
 /** Action kinds that need a user confirmation card before anything happens. */
 private val CARD_ACTION_KINDS = setOf(
-    com.example.ai.chat.lead.LeadAction.Kind.CONFIRM,
-    com.example.ai.chat.lead.LeadAction.Kind.DRAFT,
-    com.example.ai.chat.lead.LeadAction.Kind.STATUS,
-    com.example.ai.chat.lead.LeadAction.Kind.UPDATE,
-    com.example.ai.chat.lead.LeadAction.Kind.DELETE
+    LeadAction.Kind.CONFIRM,
+    LeadAction.Kind.DRAFT,
+    LeadAction.Kind.STATUS,
+    LeadAction.Kind.UPDATE,
+    LeadAction.Kind.DELETE
 )
 
 interface AIChatRepository {
@@ -57,7 +58,7 @@ interface AIChatRepository {
      * (ARCHIVE, WHATSAPP). Card-based types (CONFIRM, DRAFT, STATUS, UPDATE,
      * DELETE) go through [ChatUiState.pendingLeadAction] instead.
      */
-    fun setDirectActionHandler(handler: ((com.example.ai.chat.lead.LeadAction) -> Unit)?)
+    fun setDirectActionHandler(handler: ((LeadAction) -> Unit)?)
 }
 
 class DefaultAIChatRepository(
@@ -78,7 +79,7 @@ class DefaultAIChatRepository(
     private var crmSnapshotProvider: (() -> String)? = null
 
     @Volatile
-    private var directActionHandler: ((com.example.ai.chat.lead.LeadAction) -> Unit)? = null
+    private var directActionHandler: ((LeadAction) -> Unit)? = null
 
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
@@ -88,6 +89,14 @@ class DefaultAIChatRepository(
     private var nextRequestId = 0L
     private var conversationGeneration = 0L
     private var activeRequestId: Long? = null
+
+    /**
+     * Accumulates the RAW streamed text of the active request (including the
+     * hidden action block). Only one request can be active at a time, so a
+     * single buffer is safe.
+     */
+    private val streamingRawBuffer = StringBuilder()
+    private var requestStartedAtMs = 0L
 
     override suspend fun sendMessage(text: String) {
         val trimmed = text.trim()
@@ -105,26 +114,38 @@ class DefaultAIChatRepository(
                 )
                 updated
             }
-            applyResultIfCurrent(token, safelyRoute(messages))
+            routeStreaming(token, messages)
         } finally {
             finishRequest(token)
         }
     }
 
     override suspend fun retry() {
-        val token = beginRequest(requireRetryableError = true) ?: return
+        val token = beginRequest() ?: return
         try {
             val messages = synchronized(stateLock) {
                 if (!isCurrent(token)) return
-                val clean = _uiState.value.messages.filterNot { it.isError }
-                if (clean.none { it.role == ChatRole.USER }) return
+                val current = _uiState.value.messages
+                val last = current.lastOrNull() ?: return
+                if (last.role != ChatRole.ASSISTANT) return
+                // After an error reply: drop the error message. After a normal
+                // reply: drop that reply - the same last user question is then
+                // asked again (regenerate).
+                var base = if (last.isError) current.filterNot { it.isError }
+                else current.dropLast(1)
+                // A partial streamed reply may sit right before the error -
+                // drop it too so the real last user question is re-asked.
+                if (base.lastOrNull()?.role == ChatRole.ASSISTANT) {
+                    base = base.dropLast(1)
+                }
+                if (base.lastOrNull()?.role != ChatRole.USER) return
                 _uiState.value = _uiState.value.copy(
-                    messages = clean, isThinking = true, errorMessage = null,
+                    messages = base, isThinking = true, errorMessage = null,
                     canRetry = false, activeProvider = null, pendingLeadAction = null
                 )
-                clean
+                base
             }
-            applyResultIfCurrent(token, safelyRoute(messages))
+            routeStreaming(token, messages)
         } finally {
             finishRequest(token)
         }
@@ -148,19 +169,39 @@ class DefaultAIChatRepository(
         }
     }
 
-    private fun beginRequest(requireRetryableError: Boolean = false): RequestToken? =
+    private fun beginRequest(): RequestToken? =
         synchronized(stateLock) {
             if (activeRequestId != null || _uiState.value.isThinking) return@synchronized null
-            if (requireRetryableError && !_uiState.value.canRetry) return@synchronized null
             nextRequestId++
             activeRequestId = nextRequestId
+            requestStartedAtMs = System.currentTimeMillis()
+            streamingRawBuffer.setLength(0)
             RequestToken(nextRequestId, conversationGeneration)
         }
 
     private fun isCurrent(token: RequestToken): Boolean =
         activeRequestId == token.id && conversationGeneration == token.conversationGeneration
 
-    private suspend fun safelyRoute(messages: List<ChatMessage>): AIProviderResult = try {
+    /**
+     * Runs the streaming request: tokens arrive through [onToken] and are
+     * appended to (or create) the in-flight assistant message; when the
+     * provider finishes, [applyResultIfCurrent] finalizes it.
+     */
+    private suspend fun routeStreaming(token: RequestToken, messages: List<ChatMessage>) {
+        val startedAtMs = requestStartedAtMs
+        val onToken: (String) -> Unit = { delta ->
+            synchronized(stateLock) {
+                if (isCurrent(token)) appendStreamingToken(delta)
+            }
+        }
+        val result = safelyRouteStreaming(messages, onToken)
+        applyResultIfCurrent(token, result, startedAtMs)
+    }
+
+    private suspend fun safelyRouteStreaming(
+        messages: List<ChatMessage>,
+        onToken: (String) -> Unit
+    ): AIProviderResult = try {
         // The snapshot is rebuilt for every request so the model always sees
         // the current leads (a failing provider never breaks the chat).
         val snapshot = try {
@@ -168,7 +209,7 @@ class DefaultAIChatRepository(
         } catch (t: Throwable) {
             ""
         }
-        router.routeChat(messages, fullSystemInstruction + snapshot)
+        router.routeChatStreaming(messages, fullSystemInstruction + snapshot, onToken)
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (t: Throwable) {
@@ -179,16 +220,57 @@ class DefaultAIChatRepository(
         )
     }
 
-    private fun applyResultIfCurrent(token: RequestToken, result: AIProviderResult) {
-        var directAction: com.example.ai.chat.lead.LeadAction? = null
+    /**
+     * Appends one streamed delta to the in-flight assistant message.
+     * Must be called with [stateLock] held.
+     */
+    private fun appendStreamingToken(delta: String) {
+        streamingRawBuffer.append(delta)
+        val display = streamVisibleText(streamingRawBuffer.toString())
+        val messages = _uiState.value.messages
+        val lastIdx = messages.lastIndex
+        val last = messages.getOrNull(lastIdx)
+        val updated: List<ChatMessage> =
+            if (last != null && last.role == ChatRole.ASSISTANT && last.isStreaming) {
+                val list = messages.toMutableList()
+                list[lastIdx] = last.copy(content = display)
+                list
+            } else {
+                messages + ChatMessage(role = ChatRole.ASSISTANT, content = display, isStreaming = true)
+            }
+        _uiState.value = _uiState.value.copy(messages = updated)
+    }
+
+    /**
+     * Strips the hidden LEAD_* action block from the raw stream while it is
+     * still arriving, so the block (or part of it) is never visible to the
+     * user. The final parse of the complete text decides the real visible
+     * text; this only protects the live view.
+     */
+    private fun streamVisibleText(raw: String): String {
+        var display = raw
+        val idx = display.indexOf("[LEAD_")
+        if (idx >= 0) display = display.substring(0, idx)
+        // Also drop a partial trailing tag prefix (for example a stream that
+        // split "[LEAD_CONFIRM]" across two tokens).
+        val tag = "[LEAD_"
+        var cut = 0
+        while (cut < tag.length && display.endsWith(tag.substring(0, cut + 1))) cut++
+        if (cut > 0) display = display.substring(0, display.length - cut)
+        return display
+    }
+
+    private fun applyResultIfCurrent(token: RequestToken, result: AIProviderResult, startedAtMs: Long) {
+        var directAction: LeadAction? = null
         synchronized(stateLock) {
             if (!isCurrent(token)) return
             when (result) {
                 is AIProviderResult.Success -> {
-                    // The reply may end with a hidden action block. It is stripped
-                    // from the visible text; card-based types become a pending
-                    // confirmation card, direct types (ARCHIVE, WHATSAPP) are
-                    // dispatched to the handler after the lock is released.
+                    // The reply may end with a hidden action block. It is
+                    // stripped from the visible text; card-based types become a
+                    // pending confirmation card, direct types (ARCHIVE,
+                    // WHATSAPP) are dispatched to the handler after the lock
+                    // is released.
                     val parsed = LeadActionParser.parse(result.text)
                     val visibleText = when (parsed) {
                         is ParsedLeadReply.Normal -> parsed.text
@@ -196,26 +278,37 @@ class DefaultAIChatRepository(
                     }
                     val action = (parsed as? ParsedLeadReply.WithAction)?.action
                     directAction = action?.takeIf {
-                        it.kind == com.example.ai.chat.lead.LeadAction.Kind.ARCHIVE ||
-                            it.kind == com.example.ai.chat.lead.LeadAction.Kind.WHATSAPP
+                        it.kind == LeadAction.Kind.ARCHIVE ||
+                            it.kind == LeadAction.Kind.WHATSAPP
                     }
-                    val message = ChatMessage(
-                        role = ChatRole.ASSISTANT, content = visibleText,
+                    val messages = finalizeStreamingMessage(
+                        rawFullText = result.text,
+                        visibleText = visibleText,
+                        durationMs = System.currentTimeMillis() - startedAtMs,
                         providerName = result.providerName
                     )
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + message, isThinking = false,
+                        messages = messages, isThinking = false,
                         errorMessage = null, canRetry = false, activeProvider = result.providerName,
                         pendingLeadAction = action?.takeIf { it.kind in CARD_ACTION_KINDS }
                     )
                 }
                 is AIProviderResult.Failure -> {
-                    val message = ChatMessage(
+                    // Keep any partial text that already arrived on screen
+                    // (an empty bubble is dropped); the error message follows
+                    // it so the user can Retry.
+                    val messages = finalizeStreamingMessage(
+                        rawFullText = null,
+                        visibleText = null,
+                        durationMs = 0L,
+                        providerName = null
+                    )
+                    val errorMessage = ChatMessage(
                         role = ChatRole.ASSISTANT, content = result.errorMessage,
                         isError = true, providerName = result.providerName
                     )
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + message, isThinking = false,
+                        messages = messages + errorMessage, isThinking = false,
                         errorMessage = result.errorMessage, canRetry = result.isRetryable,
                         activeProvider = result.providerName
                     )
@@ -233,11 +326,62 @@ class DefaultAIChatRepository(
         }
     }
 
+    /**
+     * Turns the in-flight streaming assistant message into its final form and
+     * returns the new message list. Must be called with [stateLock] held.
+     *
+     * - Success ([rawFullText] != null): the message content becomes the
+     *   parsed [visibleText], streaming stops and the reply time is stored.
+     * - Failure: the partial visible text already shown is kept (if any); an
+     *   empty bubble is dropped entirely.
+     */
+    private fun finalizeStreamingMessage(
+        rawFullText: String?,
+        visibleText: String?,
+        durationMs: Long,
+        providerName: String?
+    ): List<ChatMessage> {
+        val messages = _uiState.value.messages
+        val lastIdx = messages.lastIndex
+        val last = messages.getOrNull(lastIdx)
+
+        if (last == null || last.role != ChatRole.ASSISTANT || !last.isStreaming) {
+            // Defensive: no streaming message exists (no token ever arrived
+            // on the success path).
+            if (rawFullText != null) {
+                return messages + ChatMessage(
+                    role = ChatRole.ASSISTANT,
+                    content = (visibleText ?: rawFullText).ifBlank { rawFullText },
+                    providerName = providerName,
+                    responseDurationMs = durationMs
+                )
+            }
+            return messages
+        }
+
+        val list = messages.toMutableList()
+        if (rawFullText != null) {
+            list[lastIdx] = last.copy(
+                content = (visibleText ?: rawFullText).ifBlank { rawFullText },
+                isStreaming = false,
+                providerName = providerName ?: last.providerName,
+                responseDurationMs = durationMs
+            )
+        } else if (last.content.isNotBlank()) {
+            // Failure with partial text: keep what the user already saw.
+            list[lastIdx] = last.copy(isStreaming = false)
+        } else {
+            // Failure without any partial text: drop the empty bubble.
+            list.removeAt(lastIdx)
+        }
+        return list
+    }
+
     override fun setCrmSnapshotProvider(provider: (() -> String)?) {
         crmSnapshotProvider = provider
     }
 
-    override fun setDirectActionHandler(handler: ((com.example.ai.chat.lead.LeadAction) -> Unit)?) {
+    override fun setDirectActionHandler(handler: ((LeadAction) -> Unit)?) {
         directActionHandler = handler
     }
 

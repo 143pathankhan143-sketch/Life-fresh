@@ -76,7 +76,9 @@ class AIChatViewModel(
         // 2) Mirror every new message into Room (fire-and-forget; CRMViewModel
         //    owns its own IO scope and guards on signed-in uid).
         repository.uiState.collect { state ->
-            val newOnes = state.messages.filter { it.id !in persistedMessageIds }
+            // Streaming messages are skipped: only their FINAL text (after
+            // isStreaming becomes false) is ever persisted.
+            val newOnes = state.messages.filter { it.id !in persistedMessageIds && !it.isStreaming }
             if (newOnes.isEmpty()) return@collect
             val sessionId = crm.ensureActiveSession(
                 titleHint = newOnes.firstOrNull { it.role == ChatRole.USER }?.content
@@ -195,7 +197,8 @@ class AIChatViewModel(
         role = if (sender == Sender.USER) ChatRole.USER else ChatRole.ASSISTANT,
         content = text,
         timestamp = timestamp,
-        isError = isError
+        isError = isError,
+        responseDurationMs = responseDurationMs
     )
 
     private fun ChatMessage.toMockMessage(timestamp: Long = this.timestamp): MockMessage = MockMessage(
@@ -205,6 +208,7 @@ class AIChatViewModel(
         timestamp = timestamp,
         isError = isError,
         isConfirmation = false,
-        actionCardType = null
+        actionCardType = null,
+        responseDurationMs = responseDurationMs
     )
 }

@@ -166,6 +166,30 @@ phone?") from it and is instructed never to claim an answer changed data.
 - The AI still replies in TEXT (TTS/voice reply is intentionally not part
   of this step).
 
+## Chat UI improvements (step 6)
+- Composer: mic + send buttons are 30dp with 4dp spacing and the textbox
+  uses `widthIn(min = 0.dp)` so the two buttons never overlap on narrow screens.
+- New chat button in the header uses the pencil icon (`Icons.Filled.Edit`).
+- Chat history is a half-screen panel sliding in from the left (scrim tap or
+  X closes it). Top of the panel: "New Chat" button (pencil icon, English
+  label). Existing delete (with confirm) per session stays.
+- Every AI reply shows how long the AI took (e.g. "3.2 s" / "1 min 05 s")
+  under the bubble; stored per message in Room
+  (`ai_chat_messages.responseDurationMs`, DB v15 migration).
+- AI replies stream in token-by-token (ChatGPT-style, SSE via Groq
+  `stream: true` / Gemini `:streamGenerateContent?alt=sse`) with a blinking
+  cursor; if the body is not SSE the provider falls back to the classic
+  one-shot response automatically. Partial streamed text is never persisted;
+  the provider fallback never switches provider mid-stream.
+- Every completed AI reply has visible Copy + Share buttons under the text
+  (copy → clipboard + "Copied" toast; share → system chooser).
+- Retry button on the last AI reply (error or normal): error reply is dropped
+  (or partial streamed text + error dropped) and the last user question is
+  re-asked.
+
+New testTags: `history_panel`, `history_new_chat_btn`, `ai_reply_duration`,
+`ai_msg_copy_btn`, `ai_msg_share_btn`.
+
 ## Safety properties
 
 - Malformed/missing marker or JSON → the reply is shown as normal text,
