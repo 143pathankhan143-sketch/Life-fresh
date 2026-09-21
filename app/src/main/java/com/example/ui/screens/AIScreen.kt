@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -52,7 +53,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -419,13 +419,17 @@ private fun AIChatHistoryPanel(
                 .clickable { requestClose() }
         )
 
-        // Half-screen panel sliding in from the left (ChatGPT-style)
+        // Half-screen panel sliding in from the left (ChatGPT-style).
+        // graphicsLayer: the receiver exposes the laid-out size in px, so the
+        // panel can slide exactly its own width in/out of the screen.
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(0.85f)
                 .align(Alignment.CenterStart)
-                .offset { size -> IntOffset(((1f - panelOffset.value) * size.width).toInt(), 0) }
+                .graphicsLayer {
+                    translationX = (1f - panelOffset.value) * size.width
+                }
                 .background(MaterialTheme.colorScheme.surface)
                 .testTag("history_panel")
         ) {
