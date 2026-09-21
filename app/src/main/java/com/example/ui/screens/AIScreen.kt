@@ -1642,17 +1642,17 @@ private fun AIChatComposer(
                         )
                     }
 
-                    // Mic + send buttons (smaller, with spacing - no overlap)
+                    // Mic + send buttons (small, clear gap - no overlap)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // Mic button: start listening, or stop (transcript -> box).
                         IconButton(
                             onClick = onMicClick,
                             enabled = !isThinking && !isConverting,
                             modifier = Modifier
-                                .size(30.dp)
+                                .size(28.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (isListening) MaterialTheme.colorScheme.error
@@ -1667,7 +1667,7 @@ private fun AIChatComposer(
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                     alpha = if (isThinking) 0.35f else 0.8f
                                 ),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(13.dp)
                             )
                         }
 
@@ -1676,7 +1676,7 @@ private fun AIChatComposer(
                             onClick = onSendClick,
                             enabled = isSendEnabled,
                             modifier = Modifier
-                                .size(30.dp)
+                                .size(28.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (isSendEnabled) MaterialTheme.colorScheme.primary
@@ -1689,7 +1689,7 @@ private fun AIChatComposer(
                                 contentDescription = "Send",
                                 tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }
