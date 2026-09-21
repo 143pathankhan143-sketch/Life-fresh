@@ -96,6 +96,7 @@ object AIConfig {
         "- Answering questions never changes data. Never claim that anything was modified by an answer.\n" +
         "- If a person is not in the snapshot, say that no such lead is saved. Never invent names or numbers.\n" +
         "- If a name matches more than one lead, ask for the phone number to be sure before acting.\n" +
+        "- If the user asks for today's plan, top calls or 'kaunse calls karne hain', rank from the snapshot: (1) reminders due today, (2) overdue reminders, (3) pending clients without reminders. Reply with at most 3-5 names/numbers and a one-line reason each.\n" +
         "\n" +
         "LEAD STATUS PROTOCOL (changing status):\n" +
         "When the user asks to mark a lead complete or pending in ANY wording (for example 'Rahul complete karo', 'Rahul ko pending karo', 'mark amit complete', 'Rahul ka lead khatam karo'), use the snapshot to identify the lead (prefer the phone number when given), and when the lead is clear end your reply with exactly one hidden block on its own line:\n" +
@@ -104,5 +105,22 @@ object AIConfig {
         "\n" +
         "DRAFT COMPLETION:\n" +
         "The snapshot lists incomplete drafts (partial leads). When the user asks to see their drafts, list them from the snapshot.\n" +
-        "When the user asks to complete or continue a draft in ANY wording (for example 'Rahul ka draft complete karo', 'wala draft khatam karo', 'continue the draft'), reuse the details that draft already has - do not re-ask for them - ask only for what is missing, and when name and a valid mobile number are known emit the LEAD_CONFIRM block exactly as before. The app matches it to that draft and finishes it."
+        "When the user asks to complete or continue a draft in ANY wording (for example 'Rahul ka draft complete karo', 'wala draft khatam karo', 'continue the draft'), reuse the details that draft already has - do not re-ask for them - ask only for what is missing, and when name and a valid mobile number are known emit the LEAD_CONFIRM block exactly as before. The app matches it to that draft and finishes it.\n" +
+        "\n" +
+        "LEAD UPDATE PROTOCOL (changing an existing lead):\n" +
+        "When the user asks to change an existing lead in ANY wording (for example 'Rahul ka number ... karo', 'Rahul me high BP add karo', 'Rahul ke notes me likho ...', 'Rahul ko kal subah 10 baje remind karo', 'Rahul ka reminder badlo', 'Rahul ka reminder hata do'), use the snapshot to identify the lead (prefer the phone number) and, when clear, end your reply with exactly one hidden block with ONLY the keys that are changing:\n" +
+        "[LEAD_UPDATE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\",\"setMobile\":\"<new digits or empty>\",\"setName\":\"<new name or empty>\",\"addDiseases\":[\"<issue>\"],\"note\":\"<text to append or empty>\",\"setReminderDate\":\"<yyyy-MM-dd or empty>\",\"setReminderTime\":\"<HH:mm or empty>\",\"removeReminder\":false}\n" +
+        "Leave unchanged keys empty (or removeReminder false). For a new/changed reminder use setReminderDate (+ setReminderTime only when the user gave a time); to delete the reminder set removeReminder to true. The app shows a confirmation card listing the changes; only the user's tap applies them. Never claim a change happened.\n" +
+        "\n" +
+        "DELETE AND ARCHIVE PROTOCOL:\n" +
+        "- When the user asks to delete or remove a lead in ANY wording (for example 'Rahul delete karo', 'Rahul hata do') and the lead is NOT archived, emit (this is a soft delete - it moves the lead to Archived automatically, no card is shown):\n" +
+        "[LEAD_ARCHIVE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\"}\n" +
+        "- Only when the user explicitly asks for PERMANENT deletion (wording like 'archived se bhi delete karo', 'hamesha ke liye delete karo', 'permanently delete karo') and the lead IS archived, emit (the app shows a simple confirmation):\n" +
+        "[LEAD_DELETE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\"}\n" +
+        "- Never emit LEAD_DELETE for a lead that is not archived (use LEAD_ARCHIVE instead). Never emit LEAD_ARCHIVE for a lead that is already archived - just tell the user it is already archived.\n" +
+        "\n" +
+        "WHATSAPP PROTOCOL:\n" +
+        "When the user asks to WhatsApp or message a lead on WhatsApp in ANY wording (for example 'Rahul ko WhatsApp karo', 'Rahul ko message karo'), use the snapshot to find the lead's phone number and emit:\n" +
+        "[LEAD_WHATSAPP]{\"name\":\"<name>\",\"mobile\":\"<digits only>\"}\n" +
+        "The app opens WhatsApp for that number. If the lead has no phone number in the snapshot, say so instead of emitting the block."
 }

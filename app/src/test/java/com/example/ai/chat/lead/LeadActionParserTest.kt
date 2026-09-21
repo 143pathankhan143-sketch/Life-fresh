@@ -1,6 +1,7 @@
 package com.example.ai.chat.lead
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -158,5 +159,87 @@ class LeadActionParserTest {
         assertEquals(LeadAction.Kind.STATUS, parsed.action.kind)
         assertEquals("9812345678", parsed.action.mobile)
         assertEquals("Pending", parsed.action.status)
+    }
+
+    @Test
+    fun `update block is parsed with all change fields`() {
+        val reply = """Rahul ka number badal deta hoon.
+[LEAD_UPDATE]{"name":"Rahul","mobile":"9876543210","setMobile":"9812345678","setName":"","addDiseases":["High BP"],"note":"kal subah call karna hai","setReminderDate":"2026-09-30","setReminderTime":"10:00","removeReminder":false}"""
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.UPDATE, parsed.action.kind)
+        assertEquals("Rahul", parsed.action.name)
+        assertEquals("9876543210", parsed.action.mobile)
+        assertEquals("9812345678", parsed.action.setMobile)
+        assertEquals("", parsed.action.setName)
+        assertEquals(listOf("High BP"), parsed.action.addDiseases)
+        assertEquals("kal subah call karna hai", parsed.action.note)
+        assertEquals("2026-09-30", parsed.action.setReminderDate)
+        assertEquals("10:00", parsed.action.setReminderTime)
+        assertFalse(parsed.action.removeReminder)
+        assertEquals("Rahul ka number badal deta hoon.", parsed.visibleText)
+    }
+
+    @Test
+    fun `update block with no changes is not an action`() {
+        val reply = "[LEAD_UPDATE]{\"name\":\"Rahul\",\"mobile\":\"9876543210\",\"setMobile\":\"\",\"setName\":\"\",\"addDiseases\":[],\"note\":\"\",\"setReminderDate\":\"\",\"removeReminder\":false}"
+        val parsed = LeadActionParser.parse(reply)
+        assertTrue(parsed is ParsedLeadReply.Normal)
+    }
+
+    @Test
+    fun `update block with only remove reminder is an action`() {
+        val reply = "[LEAD_UPDATE]{\"name\":\"Rahul\",\"mobile\":\"9876543210\",\"removeReminder\":true}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.UPDATE, parsed.action.kind)
+        assertTrue(parsed.action.removeReminder)
+        assertTrue(parsed.action.setMobile.isEmpty())
+    }
+
+    @Test
+    fun `update block without name and mobile is not an action`() {
+        val reply = "[LEAD_UPDATE]{\"name\":\"\",\"mobile\":\"\",\"setMobile\":\"9812345678\"}"
+        val parsed = LeadActionParser.parse(reply)
+        assertTrue(parsed is ParsedLeadReply.Normal)
+    }
+
+    @Test
+    fun `archive block is parsed with name`() {
+        val reply = """Rahul ko archive kar do.
+[LEAD_ARCHIVE]{"name":"Rahul","mobile":""}"""
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.ARCHIVE, parsed.action.kind)
+        assertEquals("Rahul", parsed.action.name)
+        assertTrue(parsed.action.mobile.isEmpty())
+        assertEquals("Rahul ko archive kar do.", parsed.visibleText)
+    }
+
+    @Test
+    fun `delete block is parsed with mobile only`() {
+        val reply = "[LEAD_DELETE]{\"name\":\"\",\"mobile\":\"9876543210\"}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.DELETE, parsed.action.kind)
+        assertEquals("9876543210", parsed.action.mobile)
+    }
+
+    @Test
+    fun `archive and delete blocks without any identifier are not actions`() {
+        assertTrue(LeadActionParser.parse("[LEAD_ARCHIVE]{\"name\":\"\",\"mobile\":\"\"}") is ParsedLeadReply.Normal)
+        assertTrue(LeadActionParser.parse("[LEAD_DELETE]{\"name\":\"\",\"mobile\":\"\"}") is ParsedLeadReply.Normal)
+    }
+
+    @Test
+    fun `whatsapp block is parsed with mobile`() {
+        val reply = "[LEAD_WHATSAPP]{\"name\":\"Rahul\",\"mobile\":\"9876543210\"}"
+        val parsed = LeadActionParser.parse(reply) as ParsedLeadReply.WithAction
+        assertEquals(LeadAction.Kind.WHATSAPP, parsed.action.kind)
+        assertEquals("Rahul", parsed.action.name)
+        assertEquals("9876543210", parsed.action.mobile)
+    }
+
+    @Test
+    fun `whatsapp block without mobile is not an action`() {
+        val reply = "[LEAD_WHATSAPP]{\"name\":\"Rahul\",\"mobile\":\"\"}"
+        val parsed = LeadActionParser.parse(reply)
+        assertTrue(parsed is ParsedLeadReply.Normal)
     }
 }

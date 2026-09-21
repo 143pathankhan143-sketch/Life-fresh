@@ -43,6 +43,19 @@ class AIChatViewModel(
             persistenceStarted = true
             // The AI gets a fresh read-only CRM snapshot before every request.
             repository.setCrmSnapshotProvider { viewModel.buildCrmSnapshot() }
+            // Direct (no-card) actions: ARCHIVE and WHATSAPP run straight away
+            // by design; the result is posted back into the chat as a message.
+            repository.setDirectActionHandler { action ->
+                when (action.kind) {
+                    LeadAction.Kind.ARCHIVE -> viewModelScope.launch {
+                        val msg = viewModel.archiveLeadFromAIChat(action)
+                        repository.addLocalAssistantMessage(msg)
+                    }
+                    LeadAction.Kind.WHATSAPP ->
+                        viewModel.openWhatsAppForLeadFromAIChat(action)
+                    else -> {}
+                }
+            }
             viewModelScope.launch { startPersistence(viewModel) }
         }
     }
@@ -116,11 +129,17 @@ class AIChatViewModel(
             return
         }
         val job = viewModelScope.launch {
-            val message = if (action.kind == LeadAction.Kind.STATUS) {
-                crm.updateLeadStatusFromAIChat(action)
-            } else {
-                val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
-                crm.saveLeadFromAIChat(effective)
+            val message = when {
+                action.kind == LeadAction.Kind.STATUS ->
+                    crm.updateLeadStatusFromAIChat(action)
+                action.kind == LeadAction.Kind.UPDATE ->
+                    crm.updateLeadFromAIChat(action)
+                action.kind == LeadAction.Kind.DELETE ->
+                    crm.deleteLeadFromAIChat(action)
+                else -> {
+                    val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
+                    crm.saveLeadFromAIChat(effective)
+                }
             }
             repository.addLocalAssistantMessage(message)
         }

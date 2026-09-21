@@ -102,6 +102,52 @@ phone?") from it and is instructed never to claim an answer changed data.
   the model asks for the phone number). Complete cancels the alarm;
   Pending reschedules it when a reminder exists.
 
+## Lead update (step 4)
+
+- "Rahul ka number ... karo" / "Rahul me high BP add karo" / "Rahul ke
+  notes me ... likho" / "Rahul ka reminder badlo" / "Rahul ka reminder hata
+  do" → the model emits a `LEAD_UPDATE` block with ONLY the changing keys
+  (`setMobile`, `setName`, `addDiseases`, `note` = append,
+  `setReminderDate` + `setReminderTime`, `removeReminder`). A block with
+  no change at all is not an action (parsed as normal text).
+- The app shows a confirmation card listing every change
+  ("Update karo" / "Cancel"). `CRMViewModel.updateLeadFromAIChat` applies
+  the valid changes and skips the invalid ones with a Hinglish warning
+  (bad number, duplicate number, past/duplicate reminder). The alarm is
+  rescheduled or cancelled accordingly. Notes append (capped at 1000
+  chars); wellness issues merge (capped at 10, de-duplicated).
+
+## Delete & archive (step 4)
+
+- "Rahul delete karo" (active lead) → `LEAD_ARCHIVE` - executed DIRECTLY,
+  no card: the lead moves to Archived, the alarm is cancelled, and the chat
+  replies "📦 'X' archived me chala gaya...".
+- "archived se bhi delete karo" → `LEAD_DELETE` → a light confirmation
+  card ("Haan, delete karo" / "Cancel"). `CRMViewModel.deleteLeadFromAIChat`
+  permanently deletes only when the matched lead IS archived.
+  **App-side guard:** a `LEAD_DELETE` targeting a non-archived lead is
+  converted to an archive, so chat can never permanently delete a live lead.
+- Archiving an already-archived lead is answered "pehle se archived me hai".
+- Matching for all of the above: mobile (exact digits) first, then a unique
+  exact name; ambiguous names are rejected so the model asks for the phone.
+
+## Daily brief (step 4)
+
+- New empty-state suggestion chip: "Aaj ke top 3 calls kaun se hain?".
+- The prompt's CRM AWARENESS section ranks from the snapshot: (1) reminders
+  due today, (2) overdue reminders, (3) pending clients without reminders -
+  at most 3-5 clients, one line each. Archived leads are excluded from the
+  counts, the ranking and the recent-clients list; they appear in the
+  snapshot with a `[ARCHIVED]` marker (plus reminder time and lastCall).
+
+## WhatsApp (step 4)
+
+- "Rahul ko WhatsApp karo" → `LEAD_WHATSAPP{"name","mobile"}` - executed
+  DIRECTLY (a block without a number is not an action): the app opens
+  `https://wa.me/91<10 digits>` (11-15 digit numbers used as-is) via
+  ACTION_VIEW + FLAG_ACTIVITY_NEW_TASK. If WhatsApp is not installed, a
+  toast shows the number instead of crashing.
+
 ## Safety properties
 
 - Malformed/missing marker or JSON → the reply is shown as normal text,
@@ -110,4 +156,4 @@ phone?") from it and is instructed never to claim an answer changed data.
 - A new user message, or clearing/opening a session, dismisses a pending card.
 - All existing testTags are unchanged; new ones: `ai_lead_action_card`,
   `ai_lead_save_confirm`, `ai_lead_save_draft`, `ai_lead_save_cancel`,
-  `ai_lead_status_confirm`.
+  `ai_lead_status_confirm`, `ai_lead_update_confirm`, `ai_lead_delete_confirm`.

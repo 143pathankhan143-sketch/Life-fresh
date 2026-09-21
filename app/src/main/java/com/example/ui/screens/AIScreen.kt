@@ -502,6 +502,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(20.dp))
 
         val suggestions = listOf(
+            "Aaj ke top 3 calls kaun se hain?",
             "What can you help me with?",
             "How to organize client follow-ups?",
             "नमस्ते! आप कैसे मदद कर सकते हैं?"
@@ -789,6 +790,18 @@ private fun formatReminderDisplay(action: LeadAction): String {
     return if (action.reminderTime.isNotBlank()) "$pretty, ${action.reminderTime}" else pretty
 }
 
+/** Same as above, but for the UPDATE card (setReminderDate/setReminderTime). */
+private fun formatUpdateReminderDisplay(action: LeadAction): String {
+    val pretty = try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(action.setReminderDate)
+        if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed)
+        else action.setReminderDate
+    } catch (e: Exception) {
+        action.setReminderDate
+    }
+    return if (action.setReminderTime.isNotBlank()) "$pretty, ${action.setReminderTime}" else pretty
+}
+
 @Composable
 private fun PendingLeadActionCard(
     action: LeadAction,
@@ -798,6 +811,8 @@ private fun PendingLeadActionCard(
 ) {
     val isDraft = action.kind == LeadAction.Kind.DRAFT
     val isStatus = action.kind == LeadAction.Kind.STATUS
+    val isUpdate = action.kind == LeadAction.Kind.UPDATE
+    val isDelete = action.kind == LeadAction.Kind.DELETE
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -814,75 +829,147 @@ private fun PendingLeadActionCard(
             Text(
                 text = when {
                     isStatus -> "Status update karein?"
+                    isUpdate -> "Changes apply karein?"
+                    isDelete -> "Delete karein?"
                     isDraft -> "Draft save karein?"
                     else -> "Lead save karein?"
                 },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
-            Text(
-                text = if (isStatus) {
-                    "Client: ${action.name.ifBlank { "Unknown" }}"
-                } else {
-                    "Naam: ${action.name.ifBlank { "Unknown" }}"
-                },
-                style = MaterialTheme.typography.bodyMedium
-            )
-            if (action.mobile.isNotBlank()) {
+
+            if (isUpdate) {
+                // UPDATE card: client + every change, one row each.
                 Text(
-                    text = "Mobile: ${action.mobile}",
+                    text = "Client: ${action.name.ifBlank { "Unknown" }}",
                     style = MaterialTheme.typography.bodyMedium
                 )
-            }
-            if (action.diseases.isNotEmpty()) {
+                if (action.setMobile.isNotBlank()) {
+                    Text(
+                        text = "Naya number: ${action.setMobile}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.setName.isNotBlank()) {
+                    Text(
+                        text = "Naya naam: ${action.setName}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.addDiseases.isNotEmpty()) {
+                    Text(
+                        text = "Naya wellness: ${action.addDiseases.joinToString(", ")}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.note.isNotBlank()) {
+                    Text(
+                        text = "Note add: ${action.note}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                when {
+                    action.removeReminder ->
+                        Text(
+                            text = "Reminder: hata dena",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    action.setReminderDate.isNotBlank() ->
+                        Text(
+                            text = "Naya reminder: ${formatUpdateReminderDisplay(action)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                }
+            } else if (isDelete) {
+                // DELETE card: light confirmation only, not a scary dialog.
                 Text(
-                    text = "Wellness: ${action.diseases.joinToString(", ")}",
+                    text = "Client: ${action.name.ifBlank { "Unknown" }}",
                     style = MaterialTheme.typography.bodyMedium
                 )
-            }
-            if (action.note.isNotBlank()) {
                 Text(
-                    text = "Note: ${action.note}",
+                    text = "Yeh lead hamesha ke liye delete ho jayega. Wapas nahi aa sakta.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = if (isStatus) {
+                        "Client: ${action.name.ifBlank { "Unknown" }}"
+                    } else {
+                        "Naam: ${action.name.ifBlank { "Unknown" }}"
+                    },
                     style = MaterialTheme.typography.bodyMedium
                 )
+                if (action.mobile.isNotBlank()) {
+                    Text(
+                        text = "Mobile: ${action.mobile}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.diseases.isNotEmpty()) {
+                    Text(
+                        text = "Wellness: ${action.diseases.joinToString(", ")}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.note.isNotBlank()) {
+                    Text(
+                        text = "Note: ${action.note}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.reminderDate.isNotBlank()) {
+                    Text(
+                        text = "Reminder: ${formatReminderDisplay(action)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (isStatus) {
+                    Text(
+                        text = "Naya status: ${action.status}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
-            if (action.reminderDate.isNotBlank()) {
-                Text(
-                    text = "Reminder: ${formatReminderDisplay(action)}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            if (isStatus) {
-                Text(
-                    text = "Naya status: ${action.status}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+
             Row(
                 modifier = Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isStatus) {
-                    Button(
+                when {
+                    isStatus -> Button(
                         onClick = onSave,
                         modifier = Modifier.testTag("ai_lead_status_confirm")
                     ) {
                         Text("Update karo")
                     }
-                } else {
-                    if (!isDraft) {
-                        Button(
-                            onClick = onSave,
-                            modifier = Modifier.testTag("ai_lead_save_confirm")
-                        ) {
-                            Text("Save Lead")
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = onSaveAsDraft,
-                        modifier = Modifier.testTag("ai_lead_save_draft")
+                    isUpdate -> Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_update_confirm")
                     ) {
-                        Text("Draft me rakho")
+                        Text("Update karo")
+                    }
+                    isDelete -> OutlinedButton(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_delete_confirm")
+                    ) {
+                        Text("Haan, delete karo")
+                    }
+                    else -> {
+                        if (!isDraft) {
+                            Button(
+                                onClick = onSave,
+                                modifier = Modifier.testTag("ai_lead_save_confirm")
+                            ) {
+                                Text("Save Lead")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onSaveAsDraft,
+                            modifier = Modifier.testTag("ai_lead_save_draft")
+                        ) {
+                            Text("Draft me rakho")
+                        }
                     }
                 }
                 TextButton(

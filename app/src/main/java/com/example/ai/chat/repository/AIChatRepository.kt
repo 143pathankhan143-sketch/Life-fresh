@@ -16,6 +16,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Action kinds that need a user confirmation card before anything happens. */
+private val CARD_ACTION_KINDS = setOf(
+    com.example.ai.chat.lead.LeadAction.Kind.CONFIRM,
+    com.example.ai.chat.lead.LeadAction.Kind.DRAFT,
+    com.example.ai.chat.lead.LeadAction.Kind.STATUS,
+    com.example.ai.chat.lead.LeadAction.Kind.UPDATE,
+    com.example.ai.chat.lead.LeadAction.Kind.DELETE
+)
+
 interface AIChatRepository {
     val uiState: StateFlow<ChatUiState>
     suspend fun sendMessage(text: String)
@@ -43,6 +52,12 @@ interface AIChatRepository {
      * empty result) means the snapshot is simply not sent.
      */
     fun setCrmSnapshotProvider(provider: (() -> String)?)
+    /**
+     * Handles action types that execute directly without a confirmation card
+     * (ARCHIVE, WHATSAPP). Card-based types (CONFIRM, DRAFT, STATUS, UPDATE,
+     * DELETE) go through [ChatUiState.pendingLeadAction] instead.
+     */
+    fun setDirectActionHandler(handler: ((com.example.ai.chat.lead.LeadAction) -> Unit)?)
 }
 
 class DefaultAIChatRepository(
@@ -61,6 +76,9 @@ class DefaultAIChatRepository(
 
     @Volatile
     private var crmSnapshotProvider: (() -> String)? = null
+
+    @Volatile
+    private var directActionHandler: ((com.example.ai.chat.lead.LeadAction) -> Unit)? = null
 
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
@@ -162,17 +180,24 @@ class DefaultAIChatRepository(
     }
 
     private fun applyResultIfCurrent(token: RequestToken, result: AIProviderResult) {
+        var directAction: com.example.ai.chat.lead.LeadAction? = null
         synchronized(stateLock) {
             if (!isCurrent(token)) return
             when (result) {
                 is AIProviderResult.Success -> {
-                    // The reply may end with a hidden LEAD_CONFIRM / LEAD_DRAFT block.
-                    // It is stripped from the visible text and surfaced as a
-                    // confirmation card instead - nothing is saved on its own.
+                    // The reply may end with a hidden action block. It is stripped
+                    // from the visible text; card-based types become a pending
+                    // confirmation card, direct types (ARCHIVE, WHATSAPP) are
+                    // dispatched to the handler after the lock is released.
                     val parsed = LeadActionParser.parse(result.text)
                     val visibleText = when (parsed) {
                         is ParsedLeadReply.Normal -> parsed.text
                         is ParsedLeadReply.WithAction -> parsed.visibleText
+                    }
+                    val action = (parsed as? ParsedLeadReply.WithAction)?.action
+                    directAction = action?.takeIf {
+                        it.kind == com.example.ai.chat.lead.LeadAction.Kind.ARCHIVE ||
+                            it.kind == com.example.ai.chat.lead.LeadAction.Kind.WHATSAPP
                     }
                     val message = ChatMessage(
                         role = ChatRole.ASSISTANT, content = visibleText,
@@ -181,7 +206,7 @@ class DefaultAIChatRepository(
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + message, isThinking = false,
                         errorMessage = null, canRetry = false, activeProvider = result.providerName,
-                        pendingLeadAction = (parsed as? ParsedLeadReply.WithAction)?.action
+                        pendingLeadAction = action?.takeIf { it.kind in CARD_ACTION_KINDS }
                     )
                 }
                 is AIProviderResult.Failure -> {
@@ -197,10 +222,23 @@ class DefaultAIChatRepository(
                 }
             }
         }
+        // Direct actions (ARCHIVE, WHATSAPP) run here, OUTSIDE the lock, so the
+        // Room write can never deadlock with the UI update above.
+        directAction?.let { action ->
+            try {
+                directActionHandler?.invoke(action)
+            } catch (_: Throwable) {
+                // A failed direct action must never crash the chat.
+            }
+        }
     }
 
     override fun setCrmSnapshotProvider(provider: (() -> String)?) {
         crmSnapshotProvider = provider
+    }
+
+    override fun setDirectActionHandler(handler: ((com.example.ai.chat.lead.LeadAction) -> Unit)?) {
+        directActionHandler = handler
     }
 
     override fun dismissPendingLead() {

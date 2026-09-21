@@ -1155,31 +1155,45 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
     fun buildCrmSnapshot(): String {
         val leads = allLeadsList.value
         val full = leads.filter { !it.isDraft }
+        val active = full.filter { !it.archived }
         val drafts = leads.filter { it.isDraft }
-        val pending = full.count { it.status.equals("Pending", ignoreCase = true) }
-        val complete = full.count { it.status.equals("Complete", ignoreCase = true) }
+        val pending = active.count { it.status.equals("Pending", ignoreCase = true) }
+        val complete = active.count { it.status.equals("Complete", ignoreCase = true) }
         val todayStr = getSystemTodayDateStr()
-        val remToday = full.count { it.reminderDate == todayStr && it.reminderStatus == "Pending" }
+        val remToday = active.count { it.reminderDate == todayStr && it.reminderStatus == "Pending" }
+        val remOverdue = active.count {
+            it.reminderDate.isNotEmpty() && it.reminderDate < todayStr && it.reminderStatus == "Pending"
+        }
 
         val sb = StringBuilder()
         sb.append("CRM DATA SNAPSHOT (read-only context about the user's current leads, refreshed for every message. Answer questions from it; it never changes data):\n")
-        sb.append("Counts: total clients=").append(full.size)
+        sb.append("Counts: total clients=").append(active.size)
             .append(", pending=").append(pending)
             .append(", complete=").append(complete)
+            .append(", archived=").append(full.size - active.size)
             .append(", drafts=").append(drafts.size)
             .append(", reminders due today=").append(remToday)
+            .append(", overdue reminders=").append(remOverdue)
             .append('\n')
 
         val recent = full.sortedByDescending { it.timestamp }.take(15)
         if (recent.isNotEmpty()) {
-            sb.append("Recent clients (name | phone | status | reminderDate | wellness):\n")
+            sb.append("Recent clients (name | phone | status | reminderDate-time | wellness | lastCall):\n")
             recent.forEach { lead ->
                 sb.append(lead.name)
+                    .append(if (lead.archived) " [ARCHIVED]" else "")
                     .append(" | ").append(lead.mobile.ifEmpty { "-" })
                     .append(" | ").append(lead.status)
-                    .append(" | ").append(lead.reminderDate.ifEmpty { "-" })
+                    .append(" | ").append(
+                        when {
+                            lead.reminderDate.isEmpty() -> "-"
+                            lead.reminderTime.isNotEmpty() -> lead.reminderDate + " " + lead.reminderTime
+                            else -> lead.reminderDate
+                        }
+                    )
                 val wellness = diseasesCompact(lead.diseases)
                 if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                sb.append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
                 sb.append('\n')
             }
         }
@@ -1399,6 +1413,294 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             "✅ '${lead.name}' ka status ab $newStatus hai."
         } catch (error: Exception) {
             "Status update nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Matches an AI chat action (UPDATE/ARCHIVE/DELETE/WHATSAPP) to an
+     * existing lead: mobile first (exact digits), then a unique exact name.
+     * Returns Pair(lead, message) - the message is set when the user must be
+     * asked to clarify; Pair(null, "") means no match found.
+     */
+    private suspend fun findLeadForAI(
+        action: com.example.ai.chat.lead.LeadAction,
+        includeArchived: Boolean
+    ): Pair<LeadEntity?, String> {
+        val mobile = action.mobile.filter(Char::isDigit)
+        val leads = allLeadsList.value.filter { !it.isDraft && (includeArchived || !it.archived) }
+
+        val nameMatches = if (action.name.isNotBlank()) {
+            leads.filter { it.name.equals(action.name, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+
+        val lead = when {
+            mobile.isNotEmpty() -> leads.firstOrNull { it.mobile.filter(Char::isDigit) == mobile }
+            nameMatches.size == 1 -> nameMatches.first()
+            nameMatches.size > 1 ->
+                return Pair(
+                    null,
+                    "'${action.name}' ke naam se multiple leads hain. Phone number batayein taaki sahi lead par action ho."
+                )
+            else -> null
+        }
+        return Pair(lead, "")
+    }
+
+    /** Parses the stored diseases JSON array into a clean, de-duplicated list. */
+    private fun parseDiseaseList(diseasesJson: String): List<String> {
+        if (diseasesJson.isBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(diseasesJson)
+            (0 until arr.length()).map { arr.optString(it, "") }
+                .map { it.trim().replace(Regex("\\s+"), " ") }
+                .filter { it.isNotEmpty() }
+                .distinctBy { it.lowercase(Locale.getDefault()) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Applies a change set proposed by the AI chat (LEAD_UPDATE). Called only
+     * from the chat confirmation card after the user taps "Update karo".
+     * Invalid values (bad number, duplicate number, past/duplicate reminder)
+     * are skipped with a warning; the valid ones are still applied.
+     * Returns the chat message to show after the update attempt.
+     */
+    suspend fun updateLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead update ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = false)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) return "Lead nahi mila. Naam ya number dobara check karke try karo."
+
+        var updated = lead
+        var reminderChanged = false
+        val warnings = mutableListOf<String>()
+
+        // 1) Mobile number change (strict validation + duplicate check).
+        val newMobile = action.setMobile.filter(Char::isDigit)
+        if (newMobile.isNotEmpty()) {
+            when {
+                newMobile.length !in 10..15 ->
+                    warnings += " Number sahi nahi lag raha (10-15 digits), number waisa hi rakha."
+                allLeadsList.value.any {
+                    !it.isDraft && it.id != lead.id && it.mobile.filter(Char::isDigit) == newMobile
+                } -> warnings += " Yeh number doosre client ka hai, number waisa hi rakha."
+                else -> updated = updated.copy(mobile = newMobile)
+            }
+        }
+
+        // 2) Name change.
+        val newName = action.setName.trim()
+        if (newName.isNotEmpty()) {
+            updated = updated.copy(name = newName)
+        }
+
+        // 3) Append new diseases (skipping ones already present).
+        val toAdd = action.addDiseases
+            .map { it.trim().replace(Regex("\\s+"), " ") }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase(Locale.getDefault()) }
+            .filter { candidate ->
+                parseDiseaseList(updated.diseases).none { it.equals(candidate, ignoreCase = true) }
+            }
+        if (toAdd.isNotEmpty()) {
+            val merged = (parseDiseaseList(updated.diseases) + toAdd).take(10)
+            updated = updated.copy(diseases = JSONArray(merged).toString())
+        }
+
+        // 4) Append a note (capped so the stored field never overflows).
+        val newNote = action.note.trim()
+        if (newNote.isNotEmpty()) {
+            val base = updated.notes.trimEnd()
+            val appended = if (base.isEmpty()) newNote else "$base\n$newNote"
+            updated = updated.copy(notes = appended.take(1000))
+        }
+
+        // 5) Reminder: remove it, or set/change it (strict validation).
+        if (action.removeReminder) {
+            if (lead.reminderDate.isNotEmpty()) {
+                updated = updated.copy(
+                    reminderDate = "",
+                    reminderTime = "",
+                    reminderStatus = "Completed",
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            }
+        } else if (action.setReminderDate.isNotBlank()) {
+            val canonicalDate = parseStrictYMD(action.setReminderDate)
+            when {
+                canonicalDate == null ->
+                    warnings += " Reminder date samajh nahi aayi, reminder waisa hi rakha."
+                else -> {
+                    val time = normalizeReminderTime(action.setReminderTime.ifBlank { lead.reminderTime })
+                    val triggerMillis = reminderTriggerMillis(canonicalDate, time)
+                    if (triggerMillis != null && triggerMillis <= System.currentTimeMillis()) {
+                        warnings += " Reminder time past me hai, reminder waisa hi rakha."
+                    } else if (leadOperationService.hasDuplicateReminder(
+                            lead.id, canonicalDate, time, allLeadsList.value
+                        )
+                    ) {
+                        warnings += " Isi date-time pe doosra reminder pehle se hai, reminder waisa hi rakha."
+                    } else {
+                        updated = updated.copy(
+                            reminderDate = canonicalDate,
+                            reminderTime = time,
+                            reminderStatus = "Pending",
+                            reminderUpdatedAt = System.currentTimeMillis()
+                        )
+                        reminderChanged = true
+                    }
+                }
+            }
+        }
+
+        if (updated == lead) {
+            // Nothing valid was applied - report the warnings (or say so).
+            return if (warnings.isNotEmpty()) warnings.joinToString(" ")
+            else "Koi change nahi mila apply karne ke liye."
+        }
+
+        return try {
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            if (updated.reminderDate.isEmpty() && lead.reminderDate.isNotEmpty()) {
+                com.example.audio.ReminderScheduler.cancelReminder(
+                    getApplication(), updated.ownerUid, updated.id
+                )
+            } else if (reminderChanged) {
+                com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+            }
+            "✅ '${updated.name}' update ho gaya." + warnings.joinToString(" ")
+        } catch (error: Exception) {
+            "Update nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Moves a lead to Archived (soft delete) - the direct LEAD_ARCHIVE action,
+     * which runs without a confirmation card by design. The alarm is
+     * cancelled; the lead keeps all its fields and can be restored from the
+     * Archived chip in the Leads tab.
+     */
+    suspend fun archiveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead archive karne ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = false)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) {
+            // Not found among active leads - it may already be archived.
+            val mobile = action.mobile.filter(Char::isDigit)
+            val alreadyArchived = allLeadsList.value.firstOrNull {
+                it.archived && !it.isDraft &&
+                    (
+                        (mobile.isNotEmpty() && it.mobile.filter(Char::isDigit) == mobile) ||
+                            (action.name.isNotBlank() && it.name.equals(action.name, ignoreCase = true))
+                        )
+            }
+            return if (alreadyArchived != null) {
+                "'${alreadyArchived.name}' pehle se archived me hai. Wapas chahiye ho to Leads tab me Archived chip se restore karo."
+            } else {
+                "Lead nahi mila. Naam ya number dobara check karke try karo."
+            }
+        }
+
+        return try {
+            val updated = lead.copy(archived = true)
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            com.example.audio.ReminderScheduler.cancelReminder(
+                getApplication(), updated.ownerUid, updated.id
+            )
+            "📦 '${lead.name}' archived me chala gaya. Permanent delete sirf 'archived se bhi delete karo' se hoga; wapas chahiye ho to Leads tab me Archived chip se restore karo."
+        } catch (error: Exception) {
+            "Archive nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Permanently deletes a lead proposed by the AI chat (LEAD_DELETE), shown
+     * in the chat only as a light confirmation. Safety guard: if the matched
+     * lead is NOT archived, it is archived instead (soft delete), so a
+     * permanent deletion through chat can never touch a live lead.
+     */
+    suspend fun deleteLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead delete karne ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = true)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) {
+            return "Lead nahi mila (active aur archived dono me). Naam ya number dobara check karke try karo."
+        }
+
+        if (!lead.archived) {
+            // Guard: chat never permanently deletes a live lead - archive it.
+            return try {
+                val updated = lead.copy(archived = true)
+                repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                com.example.audio.ReminderScheduler.cancelReminder(
+                    getApplication(), updated.ownerUid, updated.id
+                )
+                "📦 '$(lead.name)' abhi archived nahi tha, isliye permanent delete ki jagah archived kar diya. Wapas chahiye ho to Leads tab me Archived chip se restore karo."
+            } catch (error: Exception) {
+                "Archive nahi ho saka: ${error.message.orEmpty()}"
+            }
+        }
+
+        return try {
+            repository.deleteLeadById(lead.id, lead.ownerUid.ifBlank { uid })
+            com.example.audio.ReminderScheduler.cancelReminder(
+                getApplication(), lead.ownerUid, lead.id
+            )
+            if (ringingLead.value?.id == lead.id) {
+                dismissActiveAlarm()
+            }
+            "🗑️ '${lead.name}' hamesha ke liye delete ho gaya."
+        } catch (error: Exception) {
+            "Delete nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Opens WhatsApp for the lead's number - the direct LEAD_WHATSAPP action,
+     * which runs without a confirmation card by design. 10-digit numbers get
+     * the Indian country code; other lengths (11-15 digits) are used as-is.
+     */
+    fun openWhatsAppForLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction) {
+        val mobile = action.mobile.filter(Char::isDigit).take(15)
+        if (mobile.length < 10) {
+            android.widget.Toast.makeText(
+                getApplication(),
+                "WhatsApp ke liye number nahi mila",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        val withCountryCode = if (mobile.length == 10) "91$mobile" else mobile
+        try {
+            val intent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://wa.me/$withCountryCode")
+            )
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            getApplication<Application>().startActivity(intent)
+        } catch (error: Exception) {
+            // WhatsApp not installed - at least show the number.
+            android.widget.Toast.makeText(
+                getApplication(),
+                "WhatsApp khol nahi saka. Number: $withCountryCode",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
     }
 
