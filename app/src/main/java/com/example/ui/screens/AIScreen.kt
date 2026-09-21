@@ -425,7 +425,7 @@ private fun AIChatHistoryPanel(
                 .fillMaxHeight()
                 .fillMaxWidth(0.85f)
                 .align(Alignment.CenterStart)
-                .offset { IntOffset(((1f - panelOffset.value) * it.width).toInt(), 0) }
+                .offset { size -> IntOffset(((1f - panelOffset.value) * size.width).toInt(), 0) }
                 .background(MaterialTheme.colorScheme.surface)
                 .testTag("history_panel")
         ) {
@@ -447,7 +447,7 @@ private fun AIChatHistoryPanel(
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
-                        onClick = requestClose,
+                        onClick = { requestClose() },
                         modifier = Modifier
                             .size(36.dp)
                             .testTag("history_close_btn")
@@ -915,7 +915,7 @@ private fun AssistantMessageBubble(
                     }
                     if (!message.isStreaming) {
                         IconButton(
-                            onClick = copyMessage,
+                            onClick = { copyMessage() },
                             modifier = Modifier
                                 .size(28.dp)
                                 .testTag("ai_msg_copy_btn")
@@ -928,7 +928,7 @@ private fun AssistantMessageBubble(
                             )
                         }
                         IconButton(
-                            onClick = shareMessage,
+                            onClick = { shareMessage() },
                             modifier = Modifier
                                 .size(28.dp)
                                 .testTag("ai_msg_share_btn")
