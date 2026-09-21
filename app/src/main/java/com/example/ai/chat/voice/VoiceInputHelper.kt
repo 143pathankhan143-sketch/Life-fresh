@@ -3,10 +3,13 @@ package com.example.ai.chat.voice
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.util.Locale
+
+// The listener interface is NESTED inside SpeechRecognizer - there is no
+// top-level android.speech.RecognitionListener class.
+private typealias RecognitionListener = SpeechRecognizer.RecognitionListener
 
 /**
  * Thin wrapper around the Android built-in [SpeechRecognizer] for the AI chat
@@ -132,6 +135,7 @@ class VoiceInputHelper(context: Context) {
         override fun onBufferReceived(buffer: ByteArray?) {}
         override fun onEndOfSpeech() {}
         override fun onPartialResults(partialResults: Bundle?) {}
+        override fun onEvent(event: Int, params: Bundle?) {}
 
         override fun onResults(results: Bundle?) {
             val text = try {
