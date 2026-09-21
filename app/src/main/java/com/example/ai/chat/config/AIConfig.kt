@@ -27,15 +27,45 @@ object AIConfig {
         "gemini-3.1-pro-preview"
     )
 
+    /**
+     * Current Groq text-generation models, ordered by preference
+     * (strongest for the hidden-block protocol first, then fast/cheap).
+     *
+     * IMPORTANT: Groq removes model endpoints without long notice. Only
+     * models from the CURRENT "Production" list on
+     * https://console.groq.com/docs/models belong here - deprecated or
+     * preview models (e.g. old Llama 4 Scout/Maverick, qwen3-32b, kimi-k2)
+     * must NEVER be added. If Groq chat starts failing with HTTP 404
+     * "model not found", update this list from that page.
+     */
+    val GROQ_TEXT_MODELS: List<String> = listOf(
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
+    )
+
     @Volatile
     var customGeminiApiKeyProvider: (() -> String)? = null
 
+    @Volatile
+    var customGroqApiKeyProvider: (() -> String)? = null
+
     val groqApiKey: String
-        get() = try {
-            val key = BuildConfig.GROQ_API_KEY
-            if (key.isNotBlank() && key != "DEFAULT_GROQ_API_KEY" && key != "null") key.trim() else ""
-        } catch (e: Throwable) {
-            ""
+        get() {
+            val custom = try {
+                customGroqApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            if (custom.isNotBlank()) return custom
+
+            return try {
+                val key = BuildConfig.GROQ_API_KEY
+                if (key.isNotBlank() && key != "DEFAULT_GROQ_API_KEY" && key != "null") key.trim() else ""
+            } catch (e: Throwable) {
+                ""
+            }
         }
 
     val geminiApiKey: String

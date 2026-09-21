@@ -111,6 +111,143 @@ class AIServiceRepository {
         }
     }
 
+    /**
+     * Tests a custom Groq API key (settings "Test key"):
+     * 1) probe the models endpoint with the Bearer key to verify validity,
+     * 2) run a tiny "Say 'Connected'" chat completion on the first Groq
+     *    model from AIConfig.GROQ_TEXT_MODELS that the account can access.
+     */
+    suspend fun testGroqKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val probeUrl = "https://api.groq.com/openai/v1/models"
+            val probeRequest = Request.Builder()
+                .url(probeUrl)
+                .addHeader("Authorization", "Bearer $trimmed")
+                .get()
+                .build()
+
+            okHttpClient.newCall(probeRequest).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val code = response.code
+
+                if (code == 400 || code == 401 || code == 403) {
+                    val errMsg = try {
+                        JSONObject(body).optJSONObject("error")?.optString("message")
+                    } catch (_: Throwable) { null } ?: "API Key is invalid or not recognized by Groq."
+                    return@withContext Result.failure(Exception(errMsg))
+                }
+
+                if (response.isSuccessful) {
+                    // Key is verified! Pick the first known production model
+                    // the account can actually use.
+                    val supportedModels = mutableListOf<String>()
+                    try {
+                        val dataArray = JSONObject(body).optJSONArray("data")
+                        if (dataArray != null) {
+                            for (i in 0 until dataArray.length()) {
+                                val id = dataArray.getJSONObject(i).optString("id")
+                                if (id.isNotBlank()) supportedModels.add(id)
+                            }
+                        }
+                    } catch (_: Throwable) {}
+
+                    val preferredOrder = AIConfig.GROQ_TEXT_MODELS
+                    val selectedModel = preferredOrder.firstOrNull { supportedModels.contains(it) }
+                        ?: preferredOrder.first()
+
+                    val answer = callSingleGroqModel(trimmed, selectedModel, "Say 'Connected'")
+                    return@withContext Result.success("Connected successfully ($selectedModel): $answer")
+                }
+
+                // Any other probe error: still try a direct completion below.
+                Log.w(TAG, "Groq probe returned HTTP $code, trying direct test")
+            }
+        } catch (e: Exception) {
+            if (e.message?.contains("API Key", ignoreCase = true) == true) {
+                return@withContext Result.failure(e)
+            }
+            Log.w(TAG, "Groq probe had issue, falling back to direct test: ${e.message}")
+        }
+
+        try {
+            val models = AIConfig.GROQ_TEXT_MODELS
+            var lastException: Exception? = null
+            for (model in models) {
+                try {
+                    val answer = callSingleGroqModel(trimmed, model, "Say 'Connected'")
+                    return@withContext Result.success("Connected successfully ($model): $answer")
+                } catch (e: Exception) {
+                    if (e.message?.startsWith("API Key Invalid") == true) {
+                        return@withContext Result.failure(e)
+                    }
+                    Log.w(TAG, "Groq call to $model failed: ${e.message}")
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Unable to reach Groq API after trying all models."))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun callSingleGroqModel(apiKey: String, model: String, prompt: String): String {
+        val requestJson = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 512)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val requestBody = requestJson.toString().toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url("https://api.groq.com/openai/v1/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        okHttpClient.newCall(request).execute().use { response ->
+            val bodyString = response.body?.string().orEmpty()
+            val code = response.code
+
+            if (response.isSuccessful) {
+                val json = JSONObject(bodyString)
+                val choices = json.optJSONArray("choices")
+                if (choices != null && choices.length() > 0) {
+                    val text = choices.getJSONObject(0)
+                        .optJSONObject("message")
+                        ?.optString("content", "")
+                        ?.trim()
+                        .orEmpty()
+                    if (text.isNotBlank()) return text
+                }
+                return "Connected"
+            }
+
+            val parsedError = try {
+                JSONObject(bodyString).optJSONObject("error")?.optString("message")
+            } catch (_: Throwable) { null }
+
+            if (code == 400 || code == 401 || code == 403) {
+                throw Exception("API Key Invalid: ${parsedError ?: "HTTP $code"}")
+            }
+            if (code == 429) {
+                throw Exception("Quota Limit: ${parsedError ?: "Rate limit reached."}")
+            }
+            throw Exception("Groq returned HTTP $code for model $model: ${parsedError ?: "no details"}")
+        }
+    }
+
     private fun callSingleGeminiModel(apiKey: String, model: String, prompt: String): String {
         val requestJson = JSONObject().apply {
             val partsArray = JSONArray().apply {

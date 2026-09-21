@@ -405,6 +405,11 @@ fun AIAssistantConfigCard(
     var isTestingKey by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isSuccessStatus by remember { mutableStateOf(true) }
+    var groqKey by remember { mutableStateOf(AIQuotaManager.getCustomGroqKey(context) ?: "") }
+    var groqKeyVisible by remember { mutableStateOf(false) }
+    var isTestingGroqKey by remember { mutableStateOf(false) }
+    var groqStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isGroqSuccessStatus by remember { mutableStateOf(true) }
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -448,7 +453,7 @@ fun AIAssistantConfigCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Personal Gemini key (BYOK) for unlimited chats",
+                        text = "Personal Gemini / Groq keys (BYOK) for unlimited chats",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -676,6 +681,195 @@ fun AIAssistantConfigCard(
                 )
                 Text(
                     text = "Get your free Gemini API key from Google AI Studio to unlock unlimited AI queries.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // ---------------- Groq key section (same flow as Gemini) ----------------
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 2.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Text(
+                text = "Groq API Key (Optional - fast fallback provider)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            OutlinedTextField(
+                value = groqKey,
+                onValueChange = {
+                    groqKey = it
+                    groqStatusMessage = null
+                },
+                label = { Text("Custom Groq API Key") },
+                placeholder = { Text("Paste gsk_... key here") },
+                singleLine = true,
+                visualTransformation = if (groqKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { groqKeyVisible = !groqKeyVisible }) {
+                        Icon(
+                            imageVector = if (groqKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (groqKeyVisible) "Hide Key" else "Show Key"
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_custom_groq_key")
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(
+                    onClick = {
+                        val trimmed = groqKey.trim()
+                        if (trimmed.isNotBlank()) {
+                            AIQuotaManager.saveCustomGroqKey(context, trimmed)
+                            isUnlimited = AIQuotaManager.isUnlimited(context)
+                            remainingQuota = AIQuotaManager.getRemainingQuota(context)
+                            groqStatusMessage = "Groq API key saved! Fast fallback replies enabled."
+                            isGroqSuccessStatus = true
+                        } else {
+                            groqStatusMessage = "Please paste a valid key first."
+                            isGroqSuccessStatus = false
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .testTag("btn_save_groq_key")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Save", style = MaterialTheme.typography.labelMedium)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val trimmed = groqKey.trim()
+                        if (trimmed.isBlank()) {
+                            groqStatusMessage = "Please enter an API key to test."
+                            isGroqSuccessStatus = false
+                        } else {
+                            isTestingGroqKey = true
+                            groqStatusMessage = "Testing key connectivity..."
+                            isGroqSuccessStatus = true
+                            coroutineScope.launch {
+                                val repository = com.example.data.repository.AIServiceRepository()
+                                val testResult = repository.testGroqKey(trimmed)
+                                isTestingGroqKey = false
+                                testResult.fold(
+                                    onSuccess = {
+                                        groqStatusMessage = "Key Valid & Connected!"
+                                        isGroqSuccessStatus = true
+                                    },
+                                    onFailure = { error ->
+                                        val reason = error.message?.takeIf { it.isNotBlank() } ?: "Unknown error"
+                                        groqStatusMessage = "Key test failed: $reason"
+                                        isGroqSuccessStatus = false
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    enabled = !isTestingGroqKey,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .height(42.dp)
+                        .testTag("btn_test_groq_key")
+                ) {
+                    if (isTestingGroqKey) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Test Key", style = MaterialTheme.typography.labelMedium)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        groqKey = ""
+                        AIQuotaManager.saveCustomGroqKey(context, null)
+                        isUnlimited = AIQuotaManager.isUnlimited(context)
+                        remainingQuota = AIQuotaManager.getRemainingQuota(context)
+                        groqStatusMessage = "Groq key cleared."
+                        isGroqSuccessStatus = true
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .height(42.dp)
+                        .testTag("btn_clear_groq_key")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            if (!groqStatusMessage.isNullOrBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.testTag("txt_groq_key_status_message")
+                ) {
+                    Icon(
+                        imageVector = if (isGroqSuccessStatus) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = if (isGroqSuccessStatus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = groqStatusMessage!!,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = if (isGroqSuccessStatus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .padding(top = 2.dp)
+                )
+                Text(
+                    text = "Get your free Groq API key from console.groq.com. If Gemini is slow or unavailable, Groq gives fast replies automatically.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

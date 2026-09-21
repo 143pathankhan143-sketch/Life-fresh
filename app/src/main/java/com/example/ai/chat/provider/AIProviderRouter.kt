@@ -15,7 +15,7 @@ class AIProviderRouter(
         if (configuredProviders.isEmpty()) {
             return AIProviderResult.Failure(
                 providerName = "Router",
-                errorMessage = "LifeFresh AI is not configured yet. Add a Gemini API key in Settings to start chatting.",
+                errorMessage = "LifeFresh AI is not configured yet. Add a Gemini or Groq API key in Settings to start chatting.",
                 isRetryable = false
             )
         }

@@ -19,6 +19,9 @@ open class LifeFreshApplication : Application() {
         AIConfig.customGeminiApiKeyProvider = {
             AIQuotaManager.getCustomGeminiKey(this) ?: ""
         }
+        AIConfig.customGroqApiKeyProvider = {
+            AIQuotaManager.getCustomGroqKey(this) ?: ""
+        }
     }
 
     override fun attachBaseContext(base: Context) {

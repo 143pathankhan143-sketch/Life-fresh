@@ -24,7 +24,7 @@ class GroqProvider(
         .readTimeout(45, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build(),
-    private val modelName: String = "openai/gpt-oss-120b"
+    private val modelName: String = AIConfig.GROQ_TEXT_MODELS.first()
 ) : AIProvider {
     override val name: String = "Groq"
     override val isConfigured: Boolean
@@ -67,57 +67,98 @@ class GroqProvider(
                 })
             }
 
-            val requestJson = JSONObject().apply {
-                put("model", modelName)
-                put("messages", jsonMessages)
-                put("temperature", 0.7)
-                put("max_tokens", 3072)
-            }
-            val request = Request.Builder()
-                .url("https://api.groq.com/openai/v1/chat/completions")
-                .addHeader("Authorization", "Bearer $apiKey")
-                .addHeader("Content-Type", "application/json")
-                .post(requestJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-                .build()
+            val mediaType = "application/json; charset=utf-8".toMediaType()
 
-            client.newCall(request).execute().use { response ->
-                val responseBodyString = response.body?.string().orEmpty()
-                if (!response.isSuccessful) {
+            // Fallback chain: try the preferred model first, then the rest of
+            // the current production list. Single source of truth:
+            // AIConfig.GROQ_TEXT_MODELS (never add deprecated/preview models).
+            val models = AIConfig.GROQ_TEXT_MODELS
+                .let { if (it.contains(modelName)) it else listOf(modelName) + it }
+                .distinct()
+
+            var lastFailure: AIProviderResult.Failure? = null
+
+            for (model in models) {
+                val requestJson = JSONObject().apply {
+                    put("model", model)
+                    put("messages", jsonMessages)
+                    put("temperature", 0.7)
+                    put("max_tokens", 3072)
+                }
+                val request = Request.Builder()
+                    .url("https://api.groq.com/openai/v1/chat/completions")
+                    .addHeader("Authorization", "Bearer $apiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(requestJson.toString().toRequestBody(mediaType))
+                    .build()
+
+                val failure: AIProviderResult.Failure = client.newCall(request).execute().use { response ->
+                    val responseBodyString = response.body?.string().orEmpty()
                     val code = response.code
-                    val isRateLimit = code == 429
-                    val isAuthError = code == 401 || code == 403
-                    Log.w(TAG, "Groq HTTP error code=$code")
-                    return@withContext AIProviderResult.Failure(
+
+                    if (response.isSuccessful) {
+                        if (responseBodyString.isNotBlank()) {
+                            val choices = JSONObject(responseBodyString).optJSONArray("choices")
+                            if (choices != null && choices.length() > 0) {
+                                val content = choices.getJSONObject(0)
+                                    .optJSONObject("message")
+                                    ?.optString("content", "")
+                                    ?.trim()
+                                if (!content.isNullOrBlank()) {
+                                    return@withContext AIProviderResult.Success(content, name)
+                                }
+                            }
+                        }
+                    } else {
+                        val parsedError = try {
+                            JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
+                        } catch (_: Throwable) {
+                            null
+                        }
+                        val isRateLimit = code == 429
+                        val isAuthError = code == 400 || code == 401 || code == 403
+                        Log.w(TAG, "Groq model $model returned HTTP $code (${parsedError ?: ""})")
+
+                        // Invalid key / account problem: retrying other models
+                        // or the next request is pointless - fail fast.
+                        if (isAuthError) {
+                            return@withContext AIProviderResult.Failure(
+                                providerName = name,
+                                errorMessage = "Groq API Key Invalid: ${parsedError ?: "HTTP $code"}",
+                                isRetryable = false,
+                                isRateLimitOrTimeout = false
+                            )
+                        }
+
+                        // Rate limits are per-account, and timeouts affect all
+                        // models equally - stop trying the rest.
+                        if (isRateLimit) {
+                            return@withContext AIProviderResult.Failure(
+                                providerName = name,
+                                errorMessage = "Groq rate limit reached: ${parsedError ?: "Please try again later."}",
+                                isRetryable = true,
+                                isRateLimitOrTimeout = true
+                            )
+                        }
+                    }
+
+                    AIProviderResult.Failure(
                         providerName = name,
-                        errorMessage = if (isRateLimit) "Groq rate limit exceeded." else "Groq service is unavailable.",
-                        isRetryable = !isAuthError,
-                        isRateLimitOrTimeout = isRateLimit
-                    )
-                }
-                if (responseBodyString.isBlank()) {
-                    return@withContext AIProviderResult.Failure(
-                        providerName = name,
-                        errorMessage = "Empty response from Groq.",
-                        isRetryable = true
+                        errorMessage = "Groq model $model is unavailable (HTTP $code).",
+                        isRetryable = true,
+                        isRateLimitOrTimeout = false
                     )
                 }
 
-                val choices = JSONObject(responseBodyString).optJSONArray("choices")
-                if (choices != null && choices.length() > 0) {
-                    val content = choices.getJSONObject(0)
-                        .optJSONObject("message")
-                        ?.optString("content", "")
-                        ?.trim()
-                    if (!content.isNullOrBlank()) {
-                        return@withContext AIProviderResult.Success(content, name)
-                    }
-                }
-                AIProviderResult.Failure(
-                    providerName = name,
-                    errorMessage = "No response content generated by Groq.",
-                    isRetryable = true
-                )
+                lastFailure = failure
+                Log.w(TAG, "Groq model $model failed. Trying next fallback model...")
             }
+
+            return@withContext lastFailure ?: AIProviderResult.Failure(
+                providerName = name,
+                errorMessage = "Unable to reach Groq API after trying all fallback models.",
+                isRetryable = true
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: SocketTimeoutException) {

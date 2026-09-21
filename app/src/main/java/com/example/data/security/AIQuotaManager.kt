@@ -13,6 +13,7 @@ object AIQuotaManager {
     const val MAX_DAILY_FREE_QUOTA = 20
     private const val PREFS_NAME = "daily_ai_usage_prefs"
     private const val KEY_CUSTOM_GEMINI_KEY = "custom_gemini_api_key"
+    private const val KEY_CUSTOM_GROQ_KEY = "custom_groq_api_key"
     private const val KEY_USAGE_COUNT = "daily_usage_count"
     private const val KEY_LAST_USAGE_DATE = "last_usage_date"
 
@@ -40,16 +41,16 @@ object AIQuotaManager {
     @Volatile
     private var cachedCustomGeminiKey: String? = null
     @Volatile
-    private var isCacheInitialized: Boolean = false
+    private var isGeminiCacheInitialized: Boolean = false
 
     fun getCustomGeminiKey(context: Context): String? {
-        if (isCacheInitialized) {
+        if (isGeminiCacheInitialized) {
             return cachedCustomGeminiKey
         }
         val key = getPrefs(context).getString(KEY_CUSTOM_GEMINI_KEY, null)?.trim()
         val result = if (!key.isNullOrBlank()) key else null
         cachedCustomGeminiKey = result
-        isCacheInitialized = true
+        isGeminiCacheInitialized = true
         return result
     }
 
@@ -57,12 +58,43 @@ object AIQuotaManager {
         val cleanKey = key?.trim()
         val result = if (!cleanKey.isNullOrBlank()) cleanKey else null
         cachedCustomGeminiKey = result
-        isCacheInitialized = true
+        isGeminiCacheInitialized = true
         getPrefs(context).edit().apply {
             if (result == null) {
                 remove(KEY_CUSTOM_GEMINI_KEY)
             } else {
                 putString(KEY_CUSTOM_GEMINI_KEY, result)
+            }
+            apply()
+        }
+    }
+
+    @Volatile
+    private var cachedCustomGroqKey: String? = null
+    @Volatile
+    private var isGroqCacheInitialized: Boolean = false
+
+    fun getCustomGroqKey(context: Context): String? {
+        if (isGroqCacheInitialized) {
+            return cachedCustomGroqKey
+        }
+        val key = getPrefs(context).getString(KEY_CUSTOM_GROQ_KEY, null)?.trim()
+        val result = if (!key.isNullOrBlank()) key else null
+        cachedCustomGroqKey = result
+        isGroqCacheInitialized = true
+        return result
+    }
+
+    fun saveCustomGroqKey(context: Context, key: String?) {
+        val cleanKey = key?.trim()
+        val result = if (!cleanKey.isNullOrBlank()) cleanKey else null
+        cachedCustomGroqKey = result
+        isGroqCacheInitialized = true
+        getPrefs(context).edit().apply {
+            if (result == null) {
+                remove(KEY_CUSTOM_GROQ_KEY)
+            } else {
+                putString(KEY_CUSTOM_GROQ_KEY, result)
             }
             apply()
         }
@@ -83,8 +115,8 @@ object AIQuotaManager {
     }
 
     fun canExecuteAI(context: Context): Boolean {
-        // 1. If user has custom Gemini API key configured, ALWAYS return true (unlimited)
-        if (!getCustomGeminiKey(context).isNullOrBlank()) {
+        // 1. If user has any BYOK key (Gemini or Groq) configured, ALWAYS return true (unlimited)
+        if (isUnlimited(context)) {
             return true
         }
 
@@ -110,7 +142,9 @@ object AIQuotaManager {
     }
 
     fun isUnlimited(context: Context): Boolean {
-        return !getCustomGeminiKey(context).isNullOrBlank()
+        // Any BYOK key (Gemini or Groq) unlocks unlimited queries.
+        return !getCustomGeminiKey(context).isNullOrBlank() ||
+            !getCustomGroqKey(context).isNullOrBlank()
     }
 
     fun getDailyUsageCount(context: Context): Int {
