@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -20,15 +25,18 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -40,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.horizontalScroll
@@ -48,6 +57,7 @@ import androidx.compose.ui.text.font.FontFamily
 import com.example.ai.chat.formatter.AIMessageFormatter
 import com.example.ai.chat.formatter.FormattedBlock
 import com.example.ai.chat.lead.LeadAction
+import com.example.ai.chat.voice.VoiceInputHelper
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.viewmodel.AIChatViewModel
@@ -179,6 +189,16 @@ fun AIScreen(
             onInputChange = { chatViewModel.onInputChanged(it) },
             onSend = {
                 chatViewModel.sendMessage()
+                keyboardController?.hide()
+                focusManager.clearFocus()
+            },
+            onVoiceTranscript = { text ->
+                // Mic stopped -> transcript goes into the textbox for review.
+                chatViewModel.onInputChanged(text)
+            },
+            onVoiceDirectSend = { text ->
+                // Send tapped while the mic was on -> straight to the AI.
+                chatViewModel.sendMessage(text)
                 keyboardController?.hide()
                 focusManager.clearFocus()
             }
@@ -1031,9 +1051,117 @@ private fun AIChatComposer(
     inputText: String,
     isThinking: Boolean,
     onInputChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onVoiceTranscript: (String) -> Unit = {},
+    onVoiceDirectSend: (String) -> Unit = {}
 ) {
-    val isSendEnabled = inputText.isNotBlank() && !isThinking
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Voice input (STT) - the phone's built-in speech service, no API key.
+    // Two ways to finish (like ChatGPT):
+    //  A) tap the mic again  -> transcript goes into the textbox
+    //  B) tap Send while the mic is on -> transcript goes straight to the AI
+    val voiceHelper = remember(context) { VoiceInputHelper(context) }
+    DisposableEffect(Unit) { onDispose { voiceHelper.shutdown() } }
+    var isListening by remember { mutableStateOf(false) }
+    var isConverting by remember { mutableStateOf(false) }
+    var sendDirectlyNext by remember { mutableStateOf(false) }
+    var micPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    fun startVoiceListening() {
+        if (isListening || isConverting || isThinking) return
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        voiceHelper.start(
+            onResult = { text ->
+                isListening = false
+                isConverting = false
+                val direct = sendDirectlyNext
+                sendDirectlyNext = false
+                if (direct) onVoiceDirectSend(text) else onVoiceTranscript(text)
+            },
+            onError = { message ->
+                isListening = false
+                isConverting = false
+                sendDirectlyNext = false
+                // Empty message = silent reset (user pressed back, etc.)
+                if (message.isNotBlank()) {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+        isListening = voiceHelper.isListening
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        micPermissionGranted = granted
+        if (granted) {
+            startVoiceListening()
+        } else {
+            Toast.makeText(
+                context,
+                "Mic permission chahiye - Settings me 'Record audio' allow karo.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // Safety net: if the recognition callback ever gets lost (rare device
+    // quirk), never leave the composer stuck in the "converting" state.
+    LaunchedEffect(isConverting) {
+        if (isConverting) {
+            kotlinx.coroutines.delay(10_000)
+            if (isConverting) {
+                isListening = false
+                isConverting = false
+                sendDirectlyNext = false
+            }
+        }
+    }
+
+    val onMicClick: () -> Unit = {
+        when {
+            isThinking || isConverting -> {}
+            isListening -> {
+                // Option A: stop listening -> transcript goes to the textbox.
+                sendDirectlyNext = false
+                isConverting = true
+                voiceHelper.stop()
+            }
+            else -> {
+                if (micPermissionGranted) startVoiceListening()
+                else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    val isSendEnabled = !isThinking && !isConverting &&
+        (inputText.isNotBlank() || isListening)
+
+    val onSendClick: () -> Unit = {
+        when {
+            isThinking || isConverting -> {}
+            isListening -> {
+                // Option B: direct send while the mic is still on.
+                sendDirectlyNext = true
+                isConverting = true
+                voiceHelper.stop()
+            }
+            else -> {
+                if (inputText.isNotBlank()) onSend()
+            }
+        }
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -1061,10 +1189,14 @@ private fun AIChatComposer(
                 ) {
                     TextField(
                         value = inputText,
-                        onValueChange = onInputChange,
+                        onValueChange = { if (!isListening) onInputChange(it) },
                         placeholder = {
                             Text(
-                                text = "Message LifeFresh AI",
+                                text = when {
+                                    isListening -> "Bolo..."
+                                    isConverting -> "Sun liya, text ban raha hai..."
+                                    else -> "Message LifeFresh AI"
+                                },
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontSize = 14.5.sp
                                 ),
@@ -1093,15 +1225,60 @@ private fun AIChatComposer(
                         keyboardActions = KeyboardActions(
                             onSend = {
                                 if (isSendEnabled) {
-                                    onSend()
+                                    onSendClick()
                                 }
                             }
                         ),
                         maxLines = 4
                     )
 
+                    if (isListening) {
+                        Text(
+                            text = "Bolo...",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
+
+                    if (isConverting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(horizontal = 8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    // Mic button: start listening, or stop (transcript -> box).
                     IconButton(
-                        onClick = onSend,
+                        onClick = onMicClick,
+                        enabled = !isThinking && !isConverting,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isListening) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            )
+                            .testTag("mic_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                            contentDescription = if (isListening) "Stop voice input" else "Voice input",
+                            tint = if (isListening) MaterialTheme.colorScheme.onError
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (isThinking) 0.35f else 0.8f
+                            ),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    // Send button: normal send, or direct send while listening.
+                    IconButton(
+                        onClick = onSendClick,
                         enabled = isSendEnabled,
                         modifier = Modifier
                             .size(34.dp)

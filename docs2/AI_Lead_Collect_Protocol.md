@@ -148,6 +148,24 @@ phone?") from it and is instructed never to claim an answer changed data.
   ACTION_VIEW + FLAG_ACTIVITY_NEW_TASK. If WhatsApp is not installed, a
   toast shows the number instead of crashing.
 
+## Voice input / STT (step 5)
+
+- Mic button (`mic_button`) in the AI chat composer. First use triggers the
+  system `RECORD_AUDIO` permission dialog (manifest permission already
+  existed). Uses the phone's built-in `SpeechRecognizer` (`VoiceInputHelper`)
+  - no API key, no extra library, device locale (Hindi/English/Hinglish).
+- Two ways to finish (ChatGPT-style):
+  - **Stop to review:** tap the mic again → transcript lands in the textbox,
+    user edits, then sends normally.
+  - **Direct send:** tap Send while the mic is still on → transcript is sent
+    straight to the AI without appearing in the textbox.
+- Empty transcript sends nothing (friendly toast). Back-press during
+  listening resets silently. A 10s safety net releases a stuck
+  "converting" state. All voice code is try/catch-wrapped - a missing
+  voice engine never crashes the app.
+- The AI still replies in TEXT (TTS/voice reply is intentionally not part
+  of this step).
+
 ## Safety properties
 
 - Malformed/missing marker or JSON → the reply is shown as normal text,
@@ -156,4 +174,5 @@ phone?") from it and is instructed never to claim an answer changed data.
 - A new user message, or clearing/opening a session, dismisses a pending card.
 - All existing testTags are unchanged; new ones: `ai_lead_action_card`,
   `ai_lead_save_confirm`, `ai_lead_save_draft`, `ai_lead_save_cancel`,
-  `ai_lead_status_confirm`, `ai_lead_update_confirm`, `ai_lead_delete_confirm`.
+  `ai_lead_status_confirm`, `ai_lead_update_confirm`, `ai_lead_delete_confirm`,
+  `mic_button`.
