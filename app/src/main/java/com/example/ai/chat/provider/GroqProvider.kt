@@ -74,7 +74,10 @@ class GroqProvider(
                     put("model", model)
                     put("messages", jsonMessages)
                     put("temperature", 0.7)
-                    put("max_tokens", 3072)
+                    // Reasoning models (gpt-oss) spend part of max_tokens on
+                    // internal thinking - 3072 caused silently truncated
+                    // replies. 8192 leaves headroom for the visible answer.
+                    put("max_tokens", 8192)
                     // Stream tokens so the chat UI can show the reply as it is
                     // generated (ChatGPT-style). readStream() degrades to the
                     // classic one-shot JSON response automatically.

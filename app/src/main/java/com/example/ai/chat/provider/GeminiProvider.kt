@@ -261,7 +261,11 @@ class GeminiProvider(
                 // NOTE: temperature is intentionally NOT set - Google's Gemini 3
                 // migration notes say explicit temperature values can cause
                 // looping/performance degradation on 3.x models.
-                put("maxOutputTokens", 3072)
+                // NOTE: thinking tokens count towards maxOutputTokens on 3.x
+                // models. 3072 caused replies to be silently cut off
+                // (finishReason MAX_TOKENS) when thinking used most of the
+                // budget - 8192 leaves real headroom for the visible answer.
+                put("maxOutputTokens", 8192)
                 put("thinkingConfig", JSONObject().apply {
                     put("thinkingLevel", "low")
                 })
@@ -304,7 +308,11 @@ class GeminiProvider(
                     val parts = content.optJSONArray("parts") ?: continue
                     val partText = StringBuilder()
                     for (i in 0 until parts.length()) {
-                        partText.append(parts.getJSONObject(i).optString("text", "").orEmpty())
+                        val part = parts.getJSONObject(i)
+                        // Thinking/reasoning parts are internal to the model -
+                        // never show them in the chat.
+                        if (part.optBoolean("thought", false)) continue
+                        partText.append(part.optString("text", "").orEmpty())
                     }
                     if (partText.isNotEmpty()) {
                         text.append(partText)
@@ -329,7 +337,10 @@ class GeminiProvider(
                     if (parts != null && parts.length() > 0) {
                         val partText = StringBuilder()
                         for (i in 0 until parts.length()) {
-                            partText.append(parts.getJSONObject(i).optString("text", "").orEmpty())
+                            val part = parts.getJSONObject(i)
+                            // Thinking/reasoning parts are internal - skip.
+                            if (part.optBoolean("thought", false)) continue
+                            partText.append(part.optString("text", "").orEmpty())
                         }
                         val fullText = partText.toString().trim()
                         if (fullText.isNotEmpty()) {
