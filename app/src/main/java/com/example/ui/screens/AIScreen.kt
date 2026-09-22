@@ -78,6 +78,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @Composable
 fun AIScreen(
@@ -261,10 +263,10 @@ fun AIScreen(
     pendingDeleteSession?.let { session ->
         AlertDialog(
             onDismissRequest = { pendingDeleteSession = null },
-            title = { Text("Delete this chat?") },
+            title = { Text(stringResource(R.string.ai_delete_chat_title)) },
             text = {
                 Text(
-                    text = "\"${session.title}\" will be removed permanently.",
+                    text = stringResource(R.string.ai_delete_chat_msg, session.title),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -281,14 +283,14 @@ fun AIScreen(
                     modifier = Modifier.testTag("history_delete_confirm")
                 ) {
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.common_delete),
                         color = MaterialTheme.colorScheme.error
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDeleteSession = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -298,7 +300,7 @@ fun AIScreen(
         var draftTitle by remember(session) { mutableStateOf(session.title) }
         AlertDialog(
             onDismissRequest = { pendingRenameSession = null },
-            title = { Text("Rename chat") },
+            title = { Text(stringResource(R.string.ai_rename_chat)) },
             text = {
                 OutlinedTextField(
                     value = draftTitle,
@@ -307,7 +309,7 @@ fun AIScreen(
                         .fillMaxWidth()
                         .testTag("rename_input"),
                     singleLine = true,
-                    label = { Text("Chat name") }
+                    label = { Text(stringResource(R.string.ai_rename_label)) }
                 )
             },
             confirmButton = {
@@ -321,12 +323,12 @@ fun AIScreen(
                     },
                     modifier = Modifier.testTag("rename_confirm_btn")
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.common_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingRenameSession = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -381,7 +383,7 @@ private fun AIChatHeader(
                     )
                 }
                 Text(
-                    text = "LifeFresh AI",
+                    text = stringResource(R.string.ai_title),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-0.2).sp
@@ -496,7 +498,7 @@ private fun AIChatHistoryPanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Chat History",
+                        text = stringResource(R.string.ai_chat_history),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
@@ -530,14 +532,14 @@ private fun AIChatHistoryPanel(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("New Chat")
+                    Text(stringResource(R.string.ai_new_chat))
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 if (sessions.isEmpty()) {
                     Text(
-                        text = "No past chats yet. Start a conversation and it will appear here.",
+                        text = stringResource(R.string.ai_no_chats),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
@@ -563,7 +565,7 @@ private fun AIChatHistoryPanel(
                         if (archivedSessions.isNotEmpty()) {
                             item(key = "archived_header") {
                                 Text(
-                                    text = "ARCHIVED",
+                                    text = stringResource(R.string.ai_archived),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.SemiBold
                                     ),
@@ -686,7 +688,7 @@ private fun HistorySessionRow(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Rename") },
+                    text = { Text(stringResource(R.string.ai_rename)) },
                     leadingIcon = {
                         Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     },
@@ -711,7 +713,7 @@ private fun HistorySessionRow(
                 )
                 DropdownMenuItem(
                     text = {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
                     },
                     leadingIcon = {
                         Icon(
@@ -777,7 +779,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "How can I help you today?",
+            text = stringResource(R.string.ai_help_prompt),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.3).sp
@@ -789,7 +791,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Ask anything about your leads, follow-ups & CRM",
+            text = stringResource(R.string.ai_sub_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
@@ -949,7 +951,7 @@ private fun AssistantMessageBubble(
                     modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = "LifeFresh AI",
+                    text = stringResource(R.string.ai_title),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 11.5.sp
@@ -1006,7 +1008,7 @@ private fun AssistantMessageBubble(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Retry",
+                                        text = stringResource(R.string.ai_error_retry),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }
@@ -1028,7 +1030,7 @@ private fun AssistantMessageBubble(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Open AI Settings",
+                                        text = stringResource(R.string.ai_open_settings),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }
@@ -1248,53 +1250,53 @@ private fun PendingLeadActionCard(
             if (isUpdate) {
                 // UPDATE card: client + every change, one row each.
                 Text(
-                    text = "Client: ${action.name.ifBlank { "Unknown" }}",
+                    text = stringResource(R.string.ai_client_prefix, action.name.ifBlank { stringResource(R.string.ai_unknown) }),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 if (action.setMobile.isNotBlank()) {
                     Text(
-                        text = "Naya number: ${action.setMobile}",
+                        text = stringResource(R.string.ai_new_number, action.setMobile),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.setName.isNotBlank()) {
                     Text(
-                        text = "Naya naam: ${action.setName}",
+                        text = stringResource(R.string.ai_new_name, action.setName),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.addDiseases.isNotEmpty()) {
                     Text(
-                        text = "Naya wellness: ${action.addDiseases.joinToString(", ")}",
+                        text = stringResource(R.string.ai_new_wellness, action.addDiseases.joinToString(", ")),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.note.isNotBlank()) {
                     Text(
-                        text = "Note add: ${action.note}",
+                        text = stringResource(R.string.ai_note_add, action.note),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 when {
                     action.removeReminder ->
                         Text(
-                            text = "Reminder: hata dena",
+                            text = stringResource(R.string.ai_reminder_remove),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     action.setReminderDate.isNotBlank() ->
                         Text(
-                            text = "Naya reminder: ${formatUpdateReminderDisplay(action)}",
+                            text = stringResource(R.string.ai_new_reminder, formatUpdateReminderDisplay(action)),
                             style = MaterialTheme.typography.bodyMedium
                         )
                 }
             } else if (isDelete) {
                 // DELETE card: light confirmation only, not a scary dialog.
                 Text(
-                    text = "Client: ${action.name.ifBlank { "Unknown" }}",
+                    text = stringResource(R.string.ai_client_prefix, action.name.ifBlank { stringResource(R.string.ai_unknown) }),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "Yeh lead hamesha ke liye delete ho jayega. Wapas nahi aa sakta.",
+                    text = stringResource(R.string.ai_delete_forever),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1309,31 +1311,31 @@ private fun PendingLeadActionCard(
                 )
                 if (action.mobile.isNotBlank()) {
                     Text(
-                        text = "Mobile: ${action.mobile}",
+                        text = stringResource(R.string.ai_mobile_prefix, action.mobile),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.diseases.isNotEmpty()) {
                     Text(
-                        text = "Wellness: ${action.diseases.joinToString(", ")}",
+                        text = stringResource(R.string.ai_wellness_prefix, action.diseases.joinToString(", ")),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.note.isNotBlank()) {
                     Text(
-                        text = "Note: ${action.note}",
+                        text = stringResource(R.string.ai_note_prefix, action.note),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (action.reminderDate.isNotBlank()) {
                     Text(
-                        text = "Reminder: ${formatReminderDisplay(action)}",
+                        text = stringResource(R.string.ai_reminder_prefix, formatReminderDisplay(action)),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 if (isStatus) {
                     Text(
-                        text = "Naya status: ${action.status}",
+                        text = stringResource(R.string.ai_new_status, action.status),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -1348,19 +1350,19 @@ private fun PendingLeadActionCard(
                         onClick = onSave,
                         modifier = Modifier.testTag("ai_lead_status_confirm")
                     ) {
-                        Text("Update karo")
+                        Text(stringResource(R.string.ai_update))
                     }
                     isUpdate -> Button(
                         onClick = onSave,
                         modifier = Modifier.testTag("ai_lead_update_confirm")
                     ) {
-                        Text("Update karo")
+                        Text(stringResource(R.string.ai_update))
                     }
                     isDelete -> OutlinedButton(
                         onClick = onSave,
                         modifier = Modifier.testTag("ai_lead_delete_confirm")
                     ) {
-                        Text("Haan, delete karo")
+                        Text(stringResource(R.string.ai_confirm_delete))
                     }
                     else -> {
                         if (!isDraft) {
@@ -1368,14 +1370,14 @@ private fun PendingLeadActionCard(
                                 onClick = onSave,
                                 modifier = Modifier.testTag("ai_lead_save_confirm")
                             ) {
-                                Text("Save Lead")
+                                Text(stringResource(R.string.ai_save_lead))
                             }
                         }
                         OutlinedButton(
                             onClick = onSaveAsDraft,
                             modifier = Modifier.testTag("ai_lead_save_draft")
                         ) {
-                            Text("Draft me rakho")
+                            Text(stringResource(R.string.ai_save_draft))
                         }
                     }
                 }
@@ -1383,7 +1385,7 @@ private fun PendingLeadActionCard(
                     onClick = onDismiss,
                     modifier = Modifier.testTag("ai_lead_save_cancel")
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         }
@@ -1422,7 +1424,7 @@ private fun AIThinkingBubble() {
                 modifier = Modifier.size(13.dp)
             )
             Text(
-                text = "Thinking...",
+                text = stringResource(R.string.ai_thinking),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
@@ -1580,9 +1582,9 @@ private fun AIChatComposer(
                         placeholder = {
                             Text(
                                 text = when {
-                                    isListening -> "Bolo..."
-                                    isConverting -> "Sun liya, text ban raha hai..."
-                                    else -> "Message LifeFresh AI"
+                                    isListening -> stringResource(R.string.ai_bolo)
+                                    isConverting -> stringResource(R.string.ai_converting)
+                                    else -> stringResource(R.string.ai_placeholder)
                                 },
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontSize = 14.5.sp
@@ -1624,7 +1626,7 @@ private fun AIChatComposer(
 
                     if (isListening) {
                         Text(
-                            text = "Bolo...",
+                            text = stringResource(R.string.ai_bolo),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.error

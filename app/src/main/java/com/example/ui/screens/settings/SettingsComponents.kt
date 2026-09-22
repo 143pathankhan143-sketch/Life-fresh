@@ -447,13 +447,13 @@ fun AIAssistantConfigCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "AI Assistant Configuration",
+                        text = stringResource(R.string.settings_ai_config),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Personal Gemini / Groq keys (BYOK) for unlimited chats",
+                        text = stringResource(R.string.settings_ai_config_sub),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -513,8 +513,8 @@ fun AIAssistantConfigCard(
                     customKey = it
                     statusMessage = null
                 },
-                label = { Text("Custom Gemini API Key (Optional for Unlimited)") },
-                placeholder = { Text("Paste AIzaSy... key here") },
+                label = { Text(stringResource(R.string.settings_gemini_key)) },
+                placeholder = { Text(stringResource(R.string.settings_gemini_key_ph)) },
                 singleLine = true,
                 visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -562,7 +562,7 @@ fun AIAssistantConfigCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Save", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_save), style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -613,7 +613,7 @@ fun AIAssistantConfigCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Test Key", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_test_key), style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -641,7 +641,7 @@ fun AIAssistantConfigCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_clear), style = MaterialTheme.typography.labelMedium)
                 }
             }
 
@@ -680,7 +680,7 @@ fun AIAssistantConfigCard(
                         .padding(top = 2.dp)
                 )
                 Text(
-                    text = "Get your free Gemini API key from Google AI Studio to unlock unlimited AI queries.",
+                    text = stringResource(R.string.settings_gemini_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -693,7 +693,7 @@ fun AIAssistantConfigCard(
             )
 
             Text(
-                text = "Groq API Key (Optional - fast fallback provider)",
+                text = stringResource(R.string.settings_groq_key),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -705,8 +705,8 @@ fun AIAssistantConfigCard(
                     groqKey = it
                     groqStatusMessage = null
                 },
-                label = { Text("Custom Groq API Key") },
-                placeholder = { Text("Paste gsk_... key here") },
+                label = { Text(stringResource(R.string.settings_groq_key2)) },
+                placeholder = { Text(stringResource(R.string.settings_groq_key_ph)) },
                 singleLine = true,
                 visualTransformation = if (groqKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -753,7 +753,7 @@ fun AIAssistantConfigCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Save", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_save), style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -804,7 +804,7 @@ fun AIAssistantConfigCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Test Key", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_test_key), style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -832,7 +832,7 @@ fun AIAssistantConfigCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_clear), style = MaterialTheme.typography.labelMedium)
                 }
             }
 
@@ -869,7 +869,7 @@ fun AIAssistantConfigCard(
                         .padding(top = 2.dp)
                 )
                 Text(
-                    text = "Get your free Groq API key from console.groq.com. If Gemini is slow or unavailable, Groq gives fast replies automatically.",
+                    text = stringResource(R.string.settings_groq_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

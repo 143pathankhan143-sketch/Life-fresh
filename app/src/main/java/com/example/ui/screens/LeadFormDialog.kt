@@ -51,6 +51,8 @@ import com.example.leads.domain.LeadValidator
 import org.json.JSONArray
 import java.util.*
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 private val WELLNESS_CATEGORY_ALIASES = mapOf(
     "heart problem" to "Heart Disease",
@@ -487,7 +489,7 @@ fun LeadFormDialog(
                                 name = it 
                                 if (it.trim().isNotEmpty()) nameError = null
                             },
-                            label = "Name *",
+                            label = stringResource(R.string.form_name_label),
                             placeholder = "Enter full name",
                             leadingIcon = Icons.Default.Person,
                             isError = nameError != null,
@@ -512,7 +514,7 @@ fun LeadFormDialog(
                                 mobile = it 
                                 if (it.trim().isNotEmpty()) mobileError = null
                             },
-                            label = "Mobile Number *",
+                            label = stringResource(R.string.form_mobile_label),
                             placeholder = "e.g. 9876543210",
                             leadingIcon = Icons.Default.Phone,
                             isError = mobileError != null,
@@ -560,7 +562,7 @@ fun LeadFormDialog(
                                     )
                                     Column {
                                         Text(
-                                            text = "Disease Category *",
+                                            text = stringResource(R.string.form_disease_category),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (diseaseError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                             fontWeight = FontWeight.SemiBold
@@ -647,7 +649,7 @@ fun LeadFormDialog(
                                         Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = "Wellness Category",
+                                        text = stringResource(R.string.form_wellness_category),
                                         style =
                                             MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
@@ -675,7 +677,7 @@ fun LeadFormDialog(
                                     PremiumFilledTextField(
                                         value = searchQuery,
                                         onValueChange = { searchQuery = it },
-                                        label = "Search Wellness Categories",
+                                        label = stringResource(R.string.form_search_wellness),
                                         placeholder =
                                             "e.g. thyroid, weakness, back pain",
                                         leadingIcon = Icons.Default.Search,
@@ -910,7 +912,7 @@ fun LeadFormDialog(
                                     ),
                                     shape = RoundedCornerShape(24.dp)
                                 ) {
-                                    Text("Done")
+                                    Text(stringResource(R.string.common_done))
                                 }
                             },
                             dismissButton = {
@@ -922,7 +924,7 @@ fun LeadFormDialog(
                                         "cancel_disease_dialog"
                                     )
                                 ) {
-                                    Text("Cancel")
+                                    Text(stringResource(R.string.common_cancel))
                                 }
                             }
                         )
@@ -937,7 +939,7 @@ fun LeadFormDialog(
                                     otherDisease = it 
                                     if (it.trim().isNotEmpty()) otherDiseaseError = null
                                 },
-                                label = "Specify Other Disease *",
+                                label = stringResource(R.string.form_other_disease),
                                 placeholder = "Specify wellness issue",
                                 leadingIcon = Icons.Default.Notes,
                                 isError = otherDiseaseError != null,
@@ -957,7 +959,7 @@ fun LeadFormDialog(
                             PremiumFilledTextField(
                                 value = relation,
                                 onValueChange = {},
-                                label = "Client Relation *",
+                                label = stringResource(R.string.form_relation),
                                 placeholder = "Select relation",
                                 leadingIcon = Icons.Default.People,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = relationExpanded) },
@@ -995,7 +997,7 @@ fun LeadFormDialog(
                                     otherRelation = it 
                                     if (it.trim().isNotEmpty()) otherRelationError = null
                                 },
-                                label = "Specify Other Relation *",
+                                label = stringResource(R.string.form_other_relation),
                                 placeholder = "Specify client relation",
                                 leadingIcon = Icons.Default.Notes,
                                 isError = otherRelationError != null,
@@ -1034,7 +1036,7 @@ fun LeadFormDialog(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Set Reminder (Optional)",
+                                    text = stringResource(R.string.form_set_reminder),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
@@ -1184,7 +1186,7 @@ fun LeadFormDialog(
                             PremiumFilledTextField(
                                 value = reminderNote,
                                 onValueChange = { reminderNote = it },
-                                label = "Reminder Note",
+                                label = stringResource(R.string.profile_reminder_note),
                                 placeholder = "e.g. Wellness Coaching Session",
                                 modifier = Modifier.fillMaxWidth(),
                                 testTag = "lead_form_reminder_note"
@@ -1207,7 +1209,7 @@ fun LeadFormDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "Status *",
+                            text = stringResource(R.string.form_status_label),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
@@ -1217,7 +1219,7 @@ fun LeadFormDialog(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             StatusChip(
-                                label = "Pending",
+                                label = stringResource(R.string.form_status_pending),
                                 selected = (status == "Pending"),
                                 selectedColor = Color(0xFFFB8C00), // Amber
                                 icon = Icons.Default.Schedule,
@@ -1226,7 +1228,7 @@ fun LeadFormDialog(
                                 testTag = "status_pending"
                             )
                             StatusChip(
-                                label = "Completed",
+                                label = stringResource(R.string.form_status_completed),
                                 selected = (status == "Complete"),
                                 selectedColor = Color(0xFF43A047), // Green
                                 icon = Icons.Default.CheckCircle,
@@ -1241,7 +1243,7 @@ fun LeadFormDialog(
                     PremiumFilledTextField(
                         value = notes,
                         onValueChange = { notes = it },
-                        label = "Quick Notes",
+                        label = stringResource(R.string.form_quick_notes),
                         placeholder = "Add any notes about this wellness client...",
                         singleLine = false,
                         minLines = 3,
@@ -1270,7 +1272,7 @@ fun LeadFormDialog(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
                             Text(
-                                text = "Cancel",
+                                text = stringResource(R.string.common_cancel),
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

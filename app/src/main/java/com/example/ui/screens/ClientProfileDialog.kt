@@ -48,6 +48,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -258,7 +259,7 @@ fun ClientProfileDialog(
                         }
 
                         Text(
-                            text = "Client Profile",
+                            text = stringResource(R.string.profile_dialog_title),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
@@ -385,7 +386,7 @@ fun ClientProfileDialog(
                         ) {
                             ProfileActionButton(
                                 icon = Icons.Default.Phone,
-                                label = "Call",
+                                label = stringResource(R.string.profile_call),
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
@@ -401,7 +402,7 @@ fun ClientProfileDialog(
 
                             ProfileActionButton(
                                 painter = painterResource(id = R.drawable.ic_whatsapp),
-                                label = "WhatsApp",
+                                label = stringResource(R.string.profile_whatsapp),
                                 containerColor = Color(0xFF25D366).copy(alpha = 0.15f),
                                 contentColor = Color(0xFF128C7E),
                                 onClick = {
@@ -430,7 +431,7 @@ fun ClientProfileDialog(
 
                             ProfileActionButton(
                                 icon = Icons.Default.Edit,
-                                label = "Edit",
+                                label = stringResource(R.string.common_edit),
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                 onClick = onEditClick
@@ -453,7 +454,7 @@ fun ClientProfileDialog(
 
                             ProfileActionButton(
                                 icon = Icons.Default.Delete,
-                                label = "Delete",
+                                label = stringResource(R.string.common_delete),
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                 onClick = { showDeleteConfirm = true }
@@ -466,17 +467,17 @@ fun ClientProfileDialog(
                         ProfileSectionCard(title = "Personal Information", icon = Icons.Outlined.Person) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 ProfileDetailRow(
-                                    label = "Full Name",
+                                    label = stringResource(R.string.profile_full_name),
                                     value = lead.name,
                                     icon = Icons.Outlined.Badge
                                 )
                                 ProfileDetailRow(
-                                    label = "Mobile Number",
+                                    label = stringResource(R.string.profile_mobile_number),
                                     value = lead.mobile,
                                     icon = Icons.Outlined.Phone
                                 )
                                 ProfileDetailRow(
-                                    label = "Client Relation",
+                                    label = stringResource(R.string.profile_relation),
                                     value = if (lead.relation == "Other" && lead.otherRelation.isNotEmpty()) "Other (${lead.otherRelation})" else lead.relation,
                                     icon = Icons.Outlined.People
                                 )
@@ -562,13 +563,13 @@ fun ClientProfileDialog(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "No reminder scheduled",
+                                        text = stringResource(R.string.profile_no_reminder_scheduled),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Add a follow-up reminder for this client.",
+                                        text = stringResource(R.string.profile_add_reminder_sub),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -584,7 +585,7 @@ fun ClientProfileDialog(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Add Reminder", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.profile_add_reminder), style = MaterialTheme.typography.labelLarge)
                                     }
                                 }
                             } else {
@@ -671,7 +672,7 @@ fun ClientProfileDialog(
                                                 color = finalTextColor
                                             )
                                             Text(
-                                                text = "Status: ${lead.reminderStatus}",
+                                                text = stringResource(R.string.profile_status_prefix, lead.reminderStatus),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -683,13 +684,13 @@ fun ClientProfileDialog(
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
                                         ProfileDetailRow(
-                                            label = "Reminder Date",
+                                            label = stringResource(R.string.profile_reminder_date),
                                             value = formatDateStr(lead.reminderDate),
                                             icon = Icons.Outlined.CalendarToday,
                                             modifier = Modifier.weight(1f)
                                         )
                                         ProfileDetailRow(
-                                            label = "Reminder Time",
+                                            label = stringResource(R.string.profile_reminder_time),
                                             value = if (lead.reminderTime.isEmpty()) "Not specified" else formatTime12Hour(lead.reminderTime),
                                             icon = Icons.Outlined.AccessTime,
                                             modifier = Modifier.weight(1f)
@@ -719,7 +720,7 @@ fun ClientProfileDialog(
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Text(
-                                                    text = "Reminder Note",
+                                                    text = stringResource(R.string.profile_reminder_note),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.primary
@@ -765,7 +766,7 @@ fun ClientProfileDialog(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "No coaching notes added yet.",
+                                        text = stringResource(R.string.profile_no_notes_yet),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -781,7 +782,7 @@ fun ClientProfileDialog(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Add Note", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.profile_add_note), style = MaterialTheme.typography.labelLarge)
                                     }
                                 }
                             } else {
@@ -858,8 +859,8 @@ fun ClientProfileDialog(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Client Profile?") },
-            text = { Text("Are you sure you want to permanently delete '${lead.name}'? All data, coaching history, and active reminders will be removed.") },
+            title = { Text(stringResource(R.string.profile_delete_title)) },
+            text = { Text(stringResource(R.string.profile_delete_msg, lead.name)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -870,12 +871,12 @@ fun ClientProfileDialog(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.common_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -1324,7 +1325,7 @@ fun ClientAddReminderDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = "Client: ${lead.name}",
+                    text = stringResource(R.string.ai_client_prefix, lead.name),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1495,8 +1496,8 @@ fun ClientAddReminderDialog(
                 OutlinedTextField(
                     value = reminderNote,
                     onValueChange = { reminderNote = it },
-                    label = { Text("Reminder Note (Optional)") },
-                    placeholder = { Text("e.g., Call regarding diet plan") },
+                    label = { Text(stringResource(R.string.profile_reminder_note_optional)) },
+                    placeholder = { Text(stringResource(R.string.profile_reminder_example)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("input_reminder_note"),
@@ -1563,7 +1564,7 @@ fun ClientAddReminderDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text("Save Reminder")
+                Text(stringResource(R.string.profile_save_reminder))
             }
         },
         dismissButton = {
@@ -1573,7 +1574,7 @@ fun ClientAddReminderDialog(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.testTag("btn_cancel_reminder")
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -1620,7 +1621,7 @@ fun ClientAddNoteDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = "Client: ${lead.name}",
+                    text = stringResource(R.string.ai_client_prefix, lead.name),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1629,8 +1630,8 @@ fun ClientAddNoteDialog(
                 OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Coaching Notes") },
-                    placeholder = { Text("Enter client consultation notes, wellness goals, dietary observations, etc.") },
+                    label = { Text(stringResource(R.string.profile_coaching_notes)) },
+                    placeholder = { Text(stringResource(R.string.profile_notes_placeholder)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 140.dp, max = 280.dp)
@@ -1686,7 +1687,7 @@ fun ClientAddNoteDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text("Save Note")
+                Text(stringResource(R.string.profile_save_note))
             }
         },
         dismissButton = {
@@ -1696,7 +1697,7 @@ fun ClientAddNoteDialog(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.testTag("btn_cancel_note")
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

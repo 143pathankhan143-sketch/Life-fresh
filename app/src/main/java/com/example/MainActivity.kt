@@ -703,17 +703,17 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
             onDismissRequest = {},
             title = {
                 Text(
-                    text = "Guest data found on this device",
+                    text = stringResource(R.string.main_guest_data_found),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "We found $guestDataLeadCount guest lead${if (guestDataLeadCount == 1) "" else "s"}, including any saved notes and reminders attached to those leads."
+                        text = stringResource(R.string.main_guest_data_count, guestDataLeadCount)
                     )
                     Text(
-                        text = "Choose whether to move this local guest workspace into your signed-in account or keep it separate on this device.",
+                        text = stringResource(R.string.main_guest_data_choose),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!guestDataTransferError.isNullOrBlank()) {
@@ -750,7 +750,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     enabled = !guestDataTransferBusy,
                     modifier = Modifier.testTag("btn_move_guest_data")
                 ) {
-                    Text("Move / Sync to My Account")
+                    Text(stringResource(R.string.main_move_sync))
                 }
             },
             dismissButton = {
@@ -767,7 +767,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     enabled = !guestDataTransferBusy,
                     modifier = Modifier.testTag("btn_keep_guest_data_separate")
                 ) {
-                    Text("Keep Guest Data Separate")
+                    Text(stringResource(R.string.main_keep_guest))
                 }
             },
             modifier = Modifier.testTag("guest_data_transition_dialog")
@@ -780,17 +780,17 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         AlertDialog(
             onDismissRequest = { viewModel.skipCloudRestore() },
             title = {
-                Text(text = "Cloud Backup Found", fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.main_backup_found), fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(text = "A cloud backup is available for your account.\n\nWould you like to restore your data to this device?")
+                Text(text = stringResource(R.string.main_backup_restore_prompt))
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.performCloudRestore() },
                     modifier = Modifier.testTag("btn_restore_confirm")
                 ) {
-                    Text("Restore")
+                    Text(stringResource(R.string.main_restore))
                 }
             },
             dismissButton = {
@@ -798,7 +798,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     onClick = { viewModel.skipCloudRestore() },
                     modifier = Modifier.testTag("btn_restore_skip")
                 ) {
-                    Text("Skip")
+                    Text(stringResource(R.string.main_skip))
                 }
             },
             modifier = Modifier.testTag("cloud_restore_dialog")
@@ -816,10 +816,10 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         AlertDialog(
             onDismissRequest = { viewModel.dismissExactAlarmPrompt() },
             title = {
-                Text(text = "Reminder Alarms Disabled", fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.main_alarms_disabled), fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(text = "LifeFresh QuickNote Pro cannot ring reminder alarms until Exact Alarm permission is enabled.")
+                Text(text = stringResource(R.string.main_alarms_disabled_sub))
             },
             confirmButton = {
                 Button(
@@ -844,7 +844,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     },
                     modifier = Modifier.testTag("btn_enable_exact_alarm")
                 ) {
-                    Text("Enable Exact Alarms")
+                    Text(stringResource(R.string.main_enable_exact))
                 }
             },
             dismissButton = {
@@ -852,7 +852,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     onClick = { viewModel.dismissExactAlarmPrompt() },
                     modifier = Modifier.testTag("btn_dismiss_exact_alarm")
                 ) {
-                    Text("Remind Me Later")
+                    Text(stringResource(R.string.main_remind_later))
                 }
             },
             modifier = Modifier.testTag("exact_alarm_onboarding_dialog")
@@ -873,7 +873,7 @@ fun ChangelogDialog(viewModel: com.example.ui.viewmodel.CRMViewModel) {
         title = {
             Column {
                 Text(
-                    text = "What’s New in LifeFresh QuickNote Pro",
+                    text = stringResource(R.string.what_new_heading),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -925,7 +925,7 @@ fun ChangelogDialog(viewModel: com.example.ui.viewmodel.CRMViewModel) {
                 onClick = { viewModel.dismissChangelog() },
                 modifier = Modifier.testTag("btn_close_changelog")
             ) {
-                Text("Close")
+                Text(stringResource(R.string.common_close))
             }
         },
         modifier = Modifier.testTag("changelog_dialog")

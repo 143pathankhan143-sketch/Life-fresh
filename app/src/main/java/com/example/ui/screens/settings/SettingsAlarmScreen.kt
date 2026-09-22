@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.viewmodel.CRMViewModel
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +88,7 @@ fun SettingsAlarmScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Alarm Settings",
+                        text = stringResource(R.string.settings_alarm_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -174,7 +176,7 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Notification Permission",
+                                    text = stringResource(R.string.settings_notif_permission),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -236,7 +238,7 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Exact Alarm Permission",
+                                    text = stringResource(R.string.settings_exact_alarm_permission),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -254,7 +256,7 @@ fun SettingsAlarmScreen(
 
                     if (!isExactAlarmGranted) {
                         Text(
-                            text = "Reminder alarms will not ring until Exact Alarm permission is enabled.",
+                            text = stringResource(R.string.settings_exact_alarm_sub),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier
@@ -298,13 +300,13 @@ fun SettingsAlarmScreen(
                                 )
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
-                                        text = "Background Battery Optimization",
+                                        text = stringResource(R.string.settings_battery_opt),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Disable battery restrictions so reminder alarms trigger immediately even when the device is locked in deep sleep.",
+                                        text = stringResource(R.string.settings_battery_opt_sub),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                     )
@@ -340,7 +342,7 @@ fun SettingsAlarmScreen(
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     modifier = Modifier.testTag("battery_optimization_exempt_button")
                                 ) {
-                                    Text("Exempt", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.settings_exempt), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -369,7 +371,7 @@ fun SettingsAlarmScreen(
                                 value = if (alarmSourceUseCustom) "Use Custom Alarm Audio" else "Use Default Alarm",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Alarm Source") },
+                                label = { Text(stringResource(R.string.settings_alarm_source)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -382,7 +384,7 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { sourceDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Use Default Alarm") },
+                                    text = { Text(stringResource(R.string.settings_default_alarm)) },
                                     onClick = {
                                         if (alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(false)
@@ -393,7 +395,7 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.testTag("source_default_item")
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Use Custom Alarm Audio") },
+                                    text = { Text(stringResource(R.string.settings_custom_alarm_audio)) },
                                     onClick = {
                                         if (!alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(true)
@@ -428,7 +430,7 @@ fun SettingsAlarmScreen(
                                     },
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Alarm Sound Selection") },
+                                    label = { Text(stringResource(R.string.settings_alarm_sound)) },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = soundDropdownExpanded) },
                                     shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier
@@ -558,10 +560,10 @@ fun SettingsAlarmScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Custom Audio File", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(stringResource(R.string.settings_custom_audio_file), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
                                     Text(
-                                        text = "Current: $customAudioName",
+                                        text = stringResource(R.string.settings_current_audio, customAudioName),
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -584,7 +586,7 @@ fun SettingsAlarmScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                Text("Select Audio", fontSize = 12.sp, color = Color.White)
+                                                Text(stringResource(R.string.settings_select_audio), fontSize = 12.sp, color = Color.White)
                                             }
                                         }
 
@@ -606,7 +608,7 @@ fun SettingsAlarmScreen(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                    Text("Remove", fontSize = 12.sp, color = Color.White)
+                                                    Text(stringResource(R.string.common_remove), fontSize = 12.sp, color = Color.White)
                                                 }
                                             }
                                         }
@@ -624,7 +626,7 @@ fun SettingsAlarmScreen(
                                 value = activeAlarmVolume.capitalize(),
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Alarm Volume") },
+                                label = { Text(stringResource(R.string.settings_alarm_volume)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = volumeDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -637,7 +639,7 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { volumeDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Low") },
+                                    text = { Text(stringResource(R.string.alarm_low)) },
                                     onClick = {
                                         if (activeAlarmVolume != "low") {
                                             viewModel.setAlarmVolume("low")
@@ -647,7 +649,7 @@ fun SettingsAlarmScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Medium") },
+                                    text = { Text(stringResource(R.string.alarm_medium)) },
                                     onClick = {
                                         if (activeAlarmVolume != "medium") {
                                             viewModel.setAlarmVolume("medium")
@@ -657,7 +659,7 @@ fun SettingsAlarmScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("High") },
+                                    text = { Text(stringResource(R.string.alarm_high)) },
                                     onClick = {
                                         if (activeAlarmVolume != "high") {
                                             viewModel.setAlarmVolume("high")
@@ -682,7 +684,7 @@ fun SettingsAlarmScreen(
                                 },
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Reminder Ring Mode") },
+                                label = { Text(stringResource(R.string.settings_ring_mode)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ringModeDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -695,7 +697,7 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { ringModeDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Continuous Ringing") },
+                                    text = { Text(stringResource(R.string.settings_ring_continuous)) },
                                     onClick = {
                                         if (activeRingMode != "continuous") {
                                             viewModel.setReminderRingMode("continuous")
@@ -706,7 +708,7 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.testTag("ring_mode_continuous_item")
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Auto Stop After 2 Minutes") },
+                                    text = { Text(stringResource(R.string.settings_ring_auto_stop)) },
                                     onClick = {
                                         if (activeRingMode != "auto_stop") {
                                             viewModel.setReminderRingMode("auto_stop")

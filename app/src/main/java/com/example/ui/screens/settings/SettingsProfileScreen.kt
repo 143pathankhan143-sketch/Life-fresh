@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.BuildConfig
 import com.google.firebase.auth.FirebaseUser
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @Composable
 fun SettingsProfileScreen(
@@ -50,7 +52,7 @@ fun SettingsProfileScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "My Profile",
+            text = stringResource(R.string.profile_my_profile),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -98,13 +100,13 @@ fun SettingsProfileScreen(
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "Guest Mode Active",
+                                text = stringResource(R.string.profile_guest_active),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = warningText
                             )
                             Text(
-                                text = "You are currently exploring as a guest. Your CRM data is stored locally. Sign in with a Google or email account to sync across devices and access cloud backups.",
+                                text = stringResource(R.string.profile_guest_sub),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = warningText.copy(alpha = 0.9f)
                             )
@@ -166,21 +168,21 @@ fun SettingsProfileScreen(
 
                     ProfileDetailRow(
                         icon = Icons.Default.Email,
-                        label = "Email Address",
+                        label = stringResource(R.string.settings_email_address),
                         value = emailStr,
                         testTag = "profile_row_email"
                     )
 
                     ProfileDetailRow(
                         icon = Icons.Default.Badge,
-                        label = "Display Name",
+                        label = stringResource(R.string.settings_display_name),
                         value = displayNameStr,
                         testTag = "profile_row_name"
                     )
 
                     ProfileDetailRow(
                         icon = Icons.Default.Login,
-                        label = "Login Method",
+                        label = stringResource(R.string.settings_login_method),
                         value = loginMethodStr,
                         testTag = "profile_row_login_method"
                     )
@@ -198,7 +200,7 @@ fun SettingsProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Profile Actions",
+                        text = stringResource(R.string.profile_actions),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -209,7 +211,7 @@ fun SettingsProfileScreen(
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Edit Profile", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.profile_edit_profile), fontWeight = FontWeight.Bold)
                     }
 
                     if (usesPasswordProvider && !isAnonymous) {
@@ -220,11 +222,11 @@ fun SettingsProfileScreen(
                         ) {
                             Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Change Password", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.profile_change_password), fontWeight = FontWeight.Bold)
                         }
                     } else if (isGoogle) {
                         Text(
-                            text = "Password security is managed by your Google Account.",
+                            text = stringResource(R.string.profile_google_managed),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -232,7 +234,7 @@ fun SettingsProfileScreen(
                 }
             }
         } else {
-            Text("No logged in profile details available.", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.profile_no_details), style = MaterialTheme.typography.bodyMedium)
         }
 
         // AI Assistant Configuration (BYOK & Quota Indicator)

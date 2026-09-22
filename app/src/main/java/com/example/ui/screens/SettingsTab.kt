@@ -627,7 +627,7 @@ fun SettingsTab(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Backup & Restore",
+                        text = stringResource(R.string.settings_backup_restore),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -658,7 +658,7 @@ fun SettingsTab(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "CLOUD PROTECTION & SYNC",
+                                text = stringResource(R.string.settings_cloud_protection),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.2.sp
@@ -707,14 +707,14 @@ fun SettingsTab(
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = "Cloud Features Locked",
+                                            text = stringResource(R.string.settings_cloud_locked),
                                             style = MaterialTheme.typography.titleLarge,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             textAlign = TextAlign.Center
                                         )
                                         Text(
-                                            text = "Sign in with Google or Email to securely protect and sync your workspace.",
+                                            text = stringResource(R.string.settings_cloud_locked_sub),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center
@@ -760,11 +760,11 @@ fun SettingsTab(
                                         colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("btn_sign_in_continue")
                                     ) {
-                                        Text("Sign In to Continue", fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(stringResource(R.string.settings_signin_continue), fontWeight = FontWeight.Bold, color = Color.White)
                                     }
 
                                     Text(
-                                        text = "Local backup tools are still available below.",
+                                        text = stringResource(R.string.settings_local_available),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -821,7 +821,7 @@ fun SettingsTab(
                                         )
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = "Backup Complete",
+                                                text = stringResource(R.string.settings_backup_complete),
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = LifeFreshGreen
@@ -864,7 +864,7 @@ fun SettingsTab(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "Cloud Protection",
+                                            text = stringResource(R.string.settings_cloud_protection2),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -874,7 +874,7 @@ fun SettingsTab(
                                             color = LifeFreshGreen.copy(alpha = 0.15f)
                                         ) {
                                             Text(
-                                                text = "Connected",
+                                                text = stringResource(R.string.settings_connected),
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = LifeFreshGreen,
@@ -884,7 +884,7 @@ fun SettingsTab(
                                     }
 
                                     Text(
-                                        text = "Your CRM workspace is securely connected to the cloud vault.",
+                                        text = stringResource(R.string.settings_cloud_connected),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -896,7 +896,7 @@ fun SettingsTab(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text(
-                                            text = "Account",
+                                            text = stringResource(R.string.settings_account),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -933,7 +933,7 @@ fun SettingsTab(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Automatic Cloud Sync",
+                                            text = stringResource(R.string.settings_auto_sync),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -1010,7 +1010,7 @@ fun SettingsTab(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Cloud Backup",
+                                            text = stringResource(R.string.settings_cloud_backup),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -1025,7 +1025,7 @@ fun SettingsTab(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                text = "Uploading Backup...",
+                                                text = stringResource(R.string.settings_uploading),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary
@@ -1053,7 +1053,7 @@ fun SettingsTab(
                                             )
 
                                             Text(
-                                                text = "Please keep the app open while the backup is being prepared.",
+                                                text = stringResource(R.string.settings_keep_open_backup),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1067,7 +1067,7 @@ fun SettingsTab(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Text("Last backup", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(stringResource(R.string.settings_last_backup), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 Text(lastBackupTimeStr, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface)
                                             }
 
@@ -1075,7 +1075,7 @@ fun SettingsTab(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Text("Database size", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(stringResource(R.string.settings_db_size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 Text("${allLeadsList.size} Leads included", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                                             }
 
@@ -1095,7 +1095,7 @@ fun SettingsTab(
                                                 enabled = !isOperationRunning,
                                                 modifier = Modifier.fillMaxWidth().height(40.dp).testTag("btn_backup_now_card")
                                             ) {
-                                                Text("Backup Now", fontWeight = FontWeight.Bold, color = Color.White)
+                                                Text(stringResource(R.string.settings_backup_now), fontWeight = FontWeight.Bold, color = Color.White)
                                             }
 
                                             OutlinedButton(
@@ -1121,7 +1121,7 @@ fun SettingsTab(
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Delete Cloud Backup", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                                Text(stringResource(R.string.settings_delete_cloud), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                                             }
                                         }
                                     }
@@ -1151,7 +1151,7 @@ fun SettingsTab(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Cloud Restore",
+                                            text = stringResource(R.string.settings_cloud_restore),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -1166,7 +1166,7 @@ fun SettingsTab(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                text = "Restoring from Cloud...",
+                                                text = stringResource(R.string.settings_restoring),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary
@@ -1194,7 +1194,7 @@ fun SettingsTab(
                                             )
 
                                             Text(
-                                                text = "Please keep the app open while records are being restored.",
+                                                text = stringResource(R.string.settings_keep_open_restore),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1208,7 +1208,7 @@ fun SettingsTab(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Text("Latest cloud backup", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(stringResource(R.string.settings_latest_backup), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 Text(lastSyncTimeVal ?: "Never Synced", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface)
                                             }
 
@@ -1216,7 +1216,7 @@ fun SettingsTab(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Text("Cloud records", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(stringResource(R.string.settings_cloud_records), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 val countText = totalCloudCustomersVal?.let { "$it Leads" } ?: "Not available"
                                                 Text(countText, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                                             }
@@ -1249,7 +1249,7 @@ fun SettingsTab(
                                                 enabled = !isOperationRunning,
                                                 modifier = Modifier.fillMaxWidth().height(40.dp).testTag("btn_restore_from_cloud")
                                             ) {
-                                                Text("Restore", fontWeight = FontWeight.Bold, color = Color.White)
+                                                Text(stringResource(R.string.settings_restore), fontWeight = FontWeight.Bold, color = Color.White)
                                             }
                                         }
                                     }
@@ -1275,7 +1275,7 @@ fun SettingsTab(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Text("View Sync Details", fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.settings_view_sync), fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1295,7 +1295,7 @@ fun SettingsTab(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "LOCAL BACKUP & FILES",
+                                text = stringResource(R.string.settings_local_backup),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.2.sp
@@ -1317,7 +1317,7 @@ fun SettingsTab(
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp)
                                     )
-                                    Text("Guide", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.settings_guide), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -1390,7 +1390,7 @@ fun SettingsTab(
                     // --- SECTION 3: DANGER ZONE ---
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "DANGER ZONE",
+                            text = stringResource(R.string.settings_danger_zone),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.2.sp
@@ -1421,7 +1421,7 @@ fun SettingsTab(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Delete Local Data",
+                                        text = stringResource(R.string.settings_delete_local),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.error
@@ -1448,7 +1448,7 @@ fun SettingsTab(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(imageVector = Icons.Default.DeleteForever, contentDescription = null, tint = Color.White)
-                                        Text("Delete Local Data", fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(stringResource(R.string.settings_delete_local), fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }
@@ -1614,14 +1614,14 @@ fun SettingsTab(
                                 .testTag("dialog_logout_forget_account_btn")
                         ) {
                             Text(
-                                text = "Forget This Account",
+                                text = stringResource(R.string.settings_forget_account),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
 
                         Text(
-                            text = "Next Google sign-in will show account chooser.",
+                            text = stringResource(R.string.settings_forget_account_sub),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -1640,7 +1640,7 @@ fun SettingsTab(
                             .testTag("dialog_logout_cancel_btn")
                     ) {
                         Text(
-                            text = "Cancel",
+                            text = stringResource(R.string.common_cancel),
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1673,7 +1673,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Permanently delete account?",
+                    text = stringResource(R.string.settings_delete_account_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
@@ -1687,7 +1687,7 @@ fun SettingsTab(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "This permanently removes your cloud CRM records, local CRM database, AI chats, sync history, reminders and Firebase sign-in account. Exported files already saved or shared outside the app cannot be removed.",
+                        text = stringResource(R.string.settings_delete_account_msg),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1699,7 +1699,7 @@ fun SettingsTab(
                                 deleteAccountPassword = it
                                 deleteAccountLocalError = null
                             },
-                            label = { Text("Current password") },
+                            label = { Text(stringResource(R.string.settings_current_password)) },
                             singleLine = true,
                             enabled = !isDeletingAccount,
                             visualTransformation = if (deleteAccountPasswordVisible) {
@@ -1719,7 +1719,7 @@ fun SettingsTab(
                         )
                     } else if (isGoogle) {
                         Text(
-                            text = "Google will ask you to verify the same account before deletion begins.",
+                            text = stringResource(R.string.settings_google_verify),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1731,7 +1731,7 @@ fun SettingsTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Text("Deleting account and associated data…", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.settings_deleting), style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
@@ -1802,7 +1802,7 @@ fun SettingsTab(
                     enabled = !isDeletingAccount,
                     modifier = Modifier.testTag("dialog_delete_account_cancel_btn")
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -1839,7 +1839,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Sync Engine Details",
+                    text = stringResource(R.string.settings_sync_details),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1851,15 +1851,15 @@ fun SettingsTab(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 ) {
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Pending mutations", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_pending_mutations), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${pendingUploadsCount.value}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.testTag("dialog_pending_mutations"))
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Conflict count", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_conflict_count), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${unresolvedConflictsCount.value}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.testTag("dialog_conflict_count"))
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Last sync", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_last_sync), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val lastSuccessTime = syncPreferences.getLastSuccessfulSyncAt()
                         val lastSuccessStr = if (lastSuccessTime > 0L) {
                             val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
@@ -1868,19 +1868,19 @@ fun SettingsTab(
                         Text(lastSuccessStr, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Last error", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_last_error), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(lastSyncError ?: "None", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Database version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_db_version), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("9", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Sync engine version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_sync_version), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("v1.0", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Worker state", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_worker_state), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(workerStateText, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
                     }
 
@@ -1913,7 +1913,7 @@ fun SettingsTab(
                         if (isCheckingConn) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
-                            Text("Check Connection", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.settings_check_connection), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -1923,7 +1923,7 @@ fun SettingsTab(
                     onClick = { showSyncDetailsDialog = false },
                     modifier = Modifier.testTag("dialog_done_button")
                 ) {
-                    Text("Done", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.common_done), fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -1958,7 +1958,7 @@ fun SettingsTab(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Updating secure database systems. Please do not close or exit the application.",
+                        text = stringResource(R.string.settings_updating_db),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -2009,7 +2009,7 @@ fun SettingsTab(
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen)
                 ) {
-                    Text("OK", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.common_ok), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         )
@@ -2052,7 +2052,7 @@ fun SettingsTab(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Operational changes have been synchronized successfully.",
+                        text = stringResource(R.string.settings_sync_success),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -2081,7 +2081,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                     modifier = Modifier.fillMaxWidth().height(44.dp)
                 ) {
-                    Text("Done", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.common_done), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         )
@@ -2136,7 +2136,7 @@ fun SettingsTab(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Retry guidance: Make sure you are signed in, have a functional internet connection, and try performing the operation again.",
+                            text = stringResource(R.string.settings_retry_guidance),
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(12.dp),
@@ -2152,7 +2152,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.fillMaxWidth().height(44.dp)
                 ) {
-                    Text("Acknowledge", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_acknowledge), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         )
@@ -2173,7 +2173,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Confirm Cloud Backup",
+                    text = stringResource(R.string.settings_confirm_backup),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2182,7 +2182,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "Are you sure you want to backup your entire local CRM database to the secure cloud vault? This will overwrite your existing cloud backup files.",
+                    text = stringResource(R.string.settings_confirm_backup_msg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2218,7 +2218,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Confirm Backup", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_confirm_backup_btn), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2229,7 +2229,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2250,7 +2250,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Delete Cloud Backup?",
+                    text = stringResource(R.string.settings_delete_cloud_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error,
@@ -2259,7 +2259,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "All cloud backup data stored in the cloud for this account will be permanently deleted and cannot be recovered. Your local device records will not be deleted.",
+                    text = stringResource(R.string.settings_delete_cloud_msg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2293,7 +2293,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.height(44.dp).testTag("btn_confirm_delete_cloud_backup")
                 ) {
-                    Text("Delete Cloud Backup", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_delete_cloud), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2304,7 +2304,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2325,7 +2325,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Confirm Cloud Restore",
+                    text = stringResource(R.string.settings_confirm_restore),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2338,7 +2338,7 @@ fun SettingsTab(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "You are about to restore your workspace from the secure cloud backup. Please note:",
+                        text = stringResource(R.string.settings_restore_intro),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2348,15 +2348,15 @@ fun SettingsTab(
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("•", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Cloud records will be merged and restored locally.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.settings_restore_note1), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("•", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Existing newer local changes should remain protected according to sync rules.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.settings_restore_note2), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("•", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("The operation cannot be interrupted casually.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.settings_restore_note3), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -2390,7 +2390,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Confirm Restore", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_confirm_restore_btn), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2401,7 +2401,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2422,7 +2422,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Confirm Local Export",
+                    text = stringResource(R.string.settings_confirm_export),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2431,7 +2431,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "Generate a secure JSON backup of your current database. The file will be exported directly to your Downloads directory.",
+                    text = stringResource(R.string.settings_confirm_export_msg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2484,7 +2484,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Confirm Export", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_confirm_export_btn), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2495,7 +2495,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2516,7 +2516,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Confirm Local Import",
+                    text = stringResource(R.string.settings_confirm_import),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2525,7 +2525,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "Importing will merge the client information inside a chosen JSON backup file into your local CRM database. Duplicate mobile numbers will be skipped.",
+                    text = stringResource(R.string.settings_confirm_import_msg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2541,7 +2541,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = LifeFreshGreen),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Browse Backup", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_browse_backup), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2552,7 +2552,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2573,7 +2573,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Delete Local Data?",
+                    text = stringResource(R.string.settings_delete_local_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error,
@@ -2582,7 +2582,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "This action is PERMANENT and IRREVERSIBLE. It will wipe all local client profiles, call histories, reminders, and custom settings. Please ensure you have backed up your database first.",
+                    text = stringResource(R.string.settings_delete_local_msg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2611,7 +2611,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.height(44.dp).testTag("reset_confirm_confirm")
                 ) {
-                    Text("Delete Local Data", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_delete_local), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -2622,7 +2622,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -2646,7 +2646,7 @@ fun SettingsTab(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Export JSON Backup",
+                            text = stringResource(R.string.settings_export_json),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
@@ -2660,7 +2660,7 @@ fun SettingsTab(
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Import JSON Backup",
+                            text = stringResource(R.string.settings_import_json),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
@@ -2674,7 +2674,7 @@ fun SettingsTab(
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Share Backup",
+                            text = stringResource(R.string.settings_share_backup),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
@@ -2692,7 +2692,7 @@ fun SettingsTab(
                     onClick = { showBackupHelpDialog = false },
                     modifier = Modifier.testTag("backup_help_close")
                 ) {
-                    Text("OK", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.common_ok), fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -2731,7 +2731,7 @@ fun SettingsTab(
                     OutlinedTextField(
                         value = editDisplayName,
                         onValueChange = { editDisplayName = it },
-                        label = { Text("Display Name") },
+                        label = { Text(stringResource(R.string.settings_display_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("edit_profile_name_input"),
                         enabled = !isSavingProfile
@@ -2740,7 +2740,7 @@ fun SettingsTab(
                         OutlinedTextField(
                             value = editEmailAddress,
                             onValueChange = { editEmailAddress = it },
-                            label = { Text("Email Address") },
+                            label = { Text(stringResource(R.string.settings_email_address)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("edit_profile_email_input"),
                             enabled = !isSavingProfile
@@ -2749,7 +2749,7 @@ fun SettingsTab(
                         OutlinedTextField(
                             value = emailStr,
                             onValueChange = {},
-                            label = { Text("Google Account Email") },
+                            label = { Text(stringResource(R.string.settings_google_email)) },
                             singleLine = true,
                             readOnly = true,
                             modifier = Modifier.fillMaxWidth().testTag("edit_profile_email_readonly")
@@ -2823,7 +2823,7 @@ fun SettingsTab(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Save")
+                        Text(stringResource(R.string.common_save))
                     }
                 }
             },
@@ -2832,7 +2832,7 @@ fun SettingsTab(
                     onClick = { showEditProfileDialog = false },
                     enabled = !isSavingProfile
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -2845,18 +2845,18 @@ fun SettingsTab(
                     showChangePasswordDialog = false
                 }
             },
-            title = { Text("Change Password", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.profile_change_password), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Verify your current password, then choose a new password for your LifeFresh email account.",
+                        text = stringResource(R.string.settings_change_password_sub),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedTextField(
                         value = currentProfilePassword,
                         onValueChange = { currentProfilePassword = it },
-                        label = { Text("Current Password") },
+                        label = { Text(stringResource(R.string.settings_current_password)) },
                         singleLine = true,
                         enabled = !isChangingPassword && !isSendingPasswordReset,
                         visualTransformation = if (currentProfilePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -2873,7 +2873,7 @@ fun SettingsTab(
                     OutlinedTextField(
                         value = newProfilePassword,
                         onValueChange = { newProfilePassword = it },
-                        label = { Text("New Password") },
+                        label = { Text(stringResource(R.string.settings_new_password)) },
                         singleLine = true,
                         enabled = !isChangingPassword && !isSendingPasswordReset,
                         visualTransformation = if (newProfilePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -2890,7 +2890,7 @@ fun SettingsTab(
                     OutlinedTextField(
                         value = confirmProfilePassword,
                         onValueChange = { confirmProfilePassword = it },
-                        label = { Text("Confirm New Password") },
+                        label = { Text(stringResource(R.string.settings_confirm_new_password)) },
                         singleLine = true,
                         enabled = !isChangingPassword && !isSendingPasswordReset,
                         visualTransformation = if (confirmProfilePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -2961,7 +2961,7 @@ fun SettingsTab(
                     if (isChangingPassword) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Update Password")
+                        Text(stringResource(R.string.settings_update_password))
                     }
                 }
             },
@@ -2970,7 +2970,7 @@ fun SettingsTab(
                     onClick = { showChangePasswordDialog = false },
                     enabled = !isChangingPassword && !isSendingPasswordReset
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -2990,7 +2990,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = "Request Account Deletion?",
+                    text = stringResource(R.string.settings_request_deletion_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error,
@@ -2999,7 +2999,7 @@ fun SettingsTab(
             },
             text = {
                 Text(
-                    text = "Are you sure you want to request deletion of your account (${currentUser?.email ?: "your account"})?\n\nYour account will enter a 7-day grace period. If you sign in again within the next 7 days, your deletion request will be cancelled and your account and data will remain intact.\n\nAfter 7 days, your account and cloud data will be permanently deleted.",
+                    text = stringResource(R.string.settings_request_deletion_msg, currentUser?.email ?: stringResource(R.string.settings_account)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -3026,7 +3026,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.height(44.dp).testTag("btn_confirm_request_account_deletion")
                 ) {
-                    Text("Request Account Deletion", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.settings_request_deletion), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -3037,7 +3037,7 @@ fun SettingsTab(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Cancel", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -3163,7 +3163,7 @@ fun LanguageSelectionDialog(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Preparing download...",
+                                        text = stringResource(R.string.lang_preparing),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3176,7 +3176,7 @@ fun LanguageSelectionDialog(
                                 }
                                 if (state.sessionId > 0) {
                                     TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                        Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                                        Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                             }
@@ -3201,7 +3201,7 @@ fun LanguageSelectionDialog(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Downloading ${state.language.nativeName}",
+                                            text = stringResource(R.string.lang_downloading, state.language.nativeName),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -3221,7 +3221,7 @@ fun LanguageSelectionDialog(
                                     }
                                     if (state.sessionId > 0) {
                                         TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                            Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                                            Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelSmall)
                                         }
                                     }
                                 }
@@ -3268,13 +3268,13 @@ fun LanguageSelectionDialog(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Installing ${state.language.nativeName}...",
+                                        text = stringResource(R.string.lang_installing, state.language.nativeName),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Please wait a moment",
+                                        text = stringResource(R.string.lang_wait),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -3295,13 +3295,13 @@ fun LanguageSelectionDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Confirmation Required",
+                                    text = stringResource(R.string.lang_confirm_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                                 Text(
-                                    text = "Google Play requires confirmation to download ${state.language.nativeName} over your network connection.",
+                                    text = stringResource(R.string.lang_confirm_msg, state.language.nativeName),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
@@ -3311,7 +3311,7 @@ fun LanguageSelectionDialog(
                                 ) {
                                     if (state.sessionId > 0) {
                                         TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                            Text("Cancel")
+                                            Text(stringResource(R.string.common_cancel))
                                         }
                                     }
                                 }
@@ -3331,7 +3331,7 @@ fun LanguageSelectionDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Download Failed",
+                                    text = stringResource(R.string.lang_failed),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.error
@@ -3347,7 +3347,7 @@ fun LanguageSelectionDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     TextButton(onClick = { onResetPlayInstall() }) {
-                                        Text("Dismiss", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(stringResource(R.string.common_dismiss), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     if (state.language != null) {
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -3359,7 +3359,7 @@ fun LanguageSelectionDialog(
                                         ) {
                                             Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Retry")
+                                            Text(stringResource(R.string.common_retry))
                                         }
                                     }
                                 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.example.BuildConfig
 import com.example.R
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun SettingsAboutScreen(
@@ -62,7 +63,7 @@ fun SettingsAboutScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "About & Support",
+            text = stringResource(R.string.settings_about_support),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -133,7 +134,7 @@ fun SettingsAboutScreen(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                         ) {
                             Text(
-                                text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                text = stringResource(R.string.app_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -146,7 +147,7 @@ fun SettingsAboutScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                 Text(
-                    text = "A private CRM workspace for leads, reminders and wellness follow-ups.",
+                    text = stringResource(R.string.settings_app_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -196,13 +197,13 @@ fun SettingsAboutScreen(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "What's New",
+                                text = stringResource(R.string.what_new_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "View recent updates and feature enhancements",
+                                text = stringResource(R.string.what_new_sub),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -251,13 +252,13 @@ fun SettingsAboutScreen(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Privacy Policy",
+                                text = stringResource(R.string.privacy_policy_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Learn how your offline data & privacy are protected",
+                                text = stringResource(R.string.privacy_policy_sub),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -306,13 +307,13 @@ fun SettingsAboutScreen(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Terms of Use",
+                                text = stringResource(R.string.terms_of_use_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Review terms of service & usage conditions",
+                                text = stringResource(R.string.terms_use_sub),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -361,13 +362,13 @@ fun SettingsAboutScreen(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Contact Support",
+                                text = stringResource(R.string.contact_support_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Get assistance or reach out for customer inquiries",
+                                text = stringResource(R.string.support_sub),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -391,7 +392,7 @@ fun SettingsAboutScreen(
                 .padding(top = 8.dp, bottom = 16.dp)
         ) {
             Text(
-                text = "Developed by",
+                text = stringResource(R.string.settings_developed_by),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
@@ -426,7 +427,7 @@ fun SettingsWhatsNewScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "What’s New",
+            text = stringResource(R.string.what_new_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -440,7 +441,7 @@ fun SettingsWhatsNewScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "What’s New in LifeFresh QuickNote Pro",
+            text = stringResource(R.string.what_new_heading),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -504,7 +505,7 @@ fun SettingsWhatsNewScreen(
                 .heightIn(min = 48.dp)
                 .testTag("btn_close_whats_new")
         ) {
-            Text("Close", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.common_close), fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -532,7 +533,7 @@ fun SettingsPrivacyScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Privacy Policy",
+            text = stringResource(R.string.privacy_policy_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -546,14 +547,14 @@ fun SettingsPrivacyScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Last Updated: July 2026",
+            text = stringResource(R.string.legal_last_updated, "July 2026"),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Text(
-            text = "LifeFresh QuickNote Pro is committed to protecting your privacy while delivering a powerful CRM workspace for lead and client management.",
+            text = stringResource(R.string.legal_privacy_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             lineHeight = 22.sp
@@ -579,7 +580,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "LifeFresh QuickNote Pro is a CRM workspace designed for managing leads, contact details, follow-up reminders, wellness notes, coaching notes, reports, and optional cloud features.",
+                    text = stringResource(R.string.legal_privacy_p1),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -595,7 +596,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users may enter and manage various types of information within the application, including:\n• Names and contact information\n• Lead and CRM records\n• Wellness-related notes\n• Follow-up reminders\n• Coaching notes\n• Activity records\n• Other information voluntarily entered by the user\n\nUsers should not enter information they do not have permission to store.",
+                    text = stringResource(R.string.legal_privacy_p2),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -611,7 +612,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "CRM information is primarily stored locally in the application’s Room database on the user’s device. Local data remains available without Cloud Sync, subject to device storage capacity, application uninstallation, device reset, and operating-system behavior.",
+                    text = stringResource(R.string.legal_privacy_p3),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -627,7 +628,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "The application supports Guest / Anonymous use as well as authenticated accounts. For signed-in accounts, authentication is processed securely via Google Firebase Authentication. Processed account data includes:\n• Email address\n• Display name (when available)\n• Authentication method\n• Account identifier required for account operation\n\nInternal account identifiers are used solely for account operations and are not exposed in the user interface.",
+                    text = stringResource(R.string.legal_privacy_p4),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -643,7 +644,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Signed-in, non-anonymous users may choose to use Cloud Backup, Cloud Restore, or Automatic Sync. When these features are enabled, eligible CRM records may be uploaded to and downloaded from Google Cloud Firestore. Automatic Sync is OFF by default. Guest users cannot use cloud operations. CRM information is not uploaded to cloud servers unless cloud features are intentionally used.",
+                    text = stringResource(R.string.legal_privacy_p5),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -659,7 +660,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "The application requests only necessary device permissions:\n• Notifications: To deliver reminder alerts and follow-up notices.\n• Exact Alarms: To trigger time-sensitive follow-up alarms.\n• Storage / Document Access: To import or export user-selected JSON backups and PDF reports.\n\nPermission availability may affect related functionality in the app.",
+                    text = stringResource(R.string.legal_privacy_p6),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -675,7 +676,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users can create JSON backups and export PDF reports. Exported files are saved to user-accessible device storage or shared through Android applications selected by the user. Once shared outside LifeFresh QuickNote Pro, the receiving application’s privacy practices apply.",
+                    text = stringResource(R.string.legal_privacy_p7),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -691,7 +692,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "The application integrates specific service providers to operate:\n• Google Firebase Authentication: For account login management.\n• Google Cloud Firestore: For optional cloud backup and sync.\n\nData is processed only as needed to provide selected functionality. The app does not include third-party advertising SDKs, ad networks, or analytics tracking tools.",
+                    text = stringResource(R.string.legal_privacy_p8),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -723,7 +724,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Reasonable technical safeguards are used, including Android application sandbox isolation, encrypted data transport, and Firebase security controls. However, no electronic storage or transmission system can be guaranteed completely secure.",
+                    text = stringResource(R.string.legal_privacy_p9),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -739,7 +740,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "The application is intended for professional business and productivity use and is not designed for children to independently submit personal information.",
+                    text = stringResource(R.string.legal_privacy_p10),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -755,7 +756,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "This Privacy Policy may be updated when application functionality or legal requirements change. Updated versions will be displayed in the app with a revised Last Updated date.",
+                    text = stringResource(R.string.legal_privacy_p11),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -771,7 +772,7 @@ fun SettingsPrivacyScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "For privacy inquiries or support, contact:\nlifefresh101@gmail.com",
+                    text = stringResource(R.string.legal_privacy_contact),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -788,7 +789,7 @@ fun SettingsPrivacyScreen(
                 .heightIn(min = 48.dp)
                 .testTag("btn_close_privacy")
         ) {
-            Text("Close", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.common_close), fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -816,7 +817,7 @@ fun SettingsTermsScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Terms of Use",
+            text = stringResource(R.string.terms_of_use_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -830,14 +831,14 @@ fun SettingsTermsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Last Updated: July 2026",
+            text = stringResource(R.string.legal_last_updated, "July 2026"),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Text(
-            text = "By accessing or using LifeFresh QuickNote Pro, you agree to comply with and be bound by these Terms of Use.",
+            text = stringResource(R.string.legal_terms_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             lineHeight = 22.sp
@@ -863,7 +864,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Using LifeFresh QuickNote Pro signifies that you accept and agree to these Terms of Use. If you do not agree, do not use the application.",
+                    text = stringResource(R.string.legal_terms_p1),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -879,7 +880,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "LifeFresh QuickNote Pro provides CRM record management, lead follow-ups, reminders, wellness notes, reports, and optional cloud features.",
+                    text = stringResource(R.string.legal_terms_p2),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -895,7 +896,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users are responsible for:\n• Entering accurate information.\n• Ensuring they have necessary permission to store and process third-party information.\n• Protecting account and device access credentials.\n• Using the application in compliance with applicable laws.",
+                    text = stringResource(R.string.legal_terms_p3),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -911,7 +912,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Wellness notes and reminders are provided solely for organizational and productivity purposes. The application does not provide medical diagnosis, treatment, or professional medical advice. Users should consult qualified healthcare professionals for medical decisions.",
+                    text = stringResource(R.string.legal_terms_p4),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -927,7 +928,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Cloud features require an eligible signed-in account and an active internet connection. Cloud Backup, Restore, and Sync availability may be affected by network conditions, authentication state, service availability, or technical maintenance. Uninterrupted synchronization is not guaranteed.",
+                    text = stringResource(R.string.legal_terms_p5),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -943,7 +944,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Reminders and alarms depend on Android OS permissions, battery optimization settings, device configurations, and system availability. Users should not rely on the application as the sole warning mechanism for critical or emergency reminders.",
+                    text = stringResource(R.string.legal_terms_p6),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -959,7 +960,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users remain responsible for maintaining appropriate backups (such as JSON exports). The developer cannot guarantee recovery from device failure, application removal, incorrect data imports, operating-system changes, or circumstances outside reasonable control.",
+                    text = stringResource(R.string.legal_terms_p7),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -975,7 +976,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users are responsible for deciding where JSON backups, PDF reports, and exported information are saved or shared. Users should avoid sharing sensitive information with unauthorized recipients.",
+                    text = stringResource(R.string.legal_terms_p8),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -991,7 +992,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Users are prohibited from:\n• Engaging in unlawful activity using the application.\n• Collecting or storing personal information without required authorization.\n• Harassment or harmful use.\n• Attempting to interfere with, reverse engineer, or misuse the application or cloud services, subject to applicable law.\n• Entering passwords, credentials, or illegal material into AI prompts.",
+                    text = stringResource(R.string.legal_terms_p9),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -1007,7 +1008,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Features may be improved, modified, suspended, or discontinued. Permanent availability of Cloud, AI, or third-party integrations is not guaranteed.",
+                    text = stringResource(R.string.legal_terms_p10),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -1023,7 +1024,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "The application is provided on an 'AS IS' and 'AS AVAILABLE' basis. To the extent permitted by applicable law, the developer is not liable for indirect or consequential losses caused by misuse, inaccurate entries, AI outputs, missed reminders, or circumstances outside reasonable control.",
+                    text = stringResource(R.string.legal_terms_p11),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -1039,7 +1040,7 @@ fun SettingsTermsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "For inquiries regarding these Terms, contact:\nlifefresh101@gmail.com",
+                    text = stringResource(R.string.legal_terms_contact),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -1056,7 +1057,7 @@ fun SettingsTermsScreen(
                 .heightIn(min = 48.dp)
                 .testTag("btn_close_terms")
         ) {
-            Text("Close", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.common_close), fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -1086,7 +1087,7 @@ fun SettingsSupportScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Contact Support",
+            text = stringResource(R.string.contact_support_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -1100,14 +1101,14 @@ fun SettingsSupportScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "How can we help?",
+            text = stringResource(R.string.support_how_help),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
 
         Text(
-            text = "For customer assistance, bug reports, feature requests or general questions, contact the LifeFresh support team.",
+            text = stringResource(R.string.support_how_help_sub),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 22.sp
@@ -1126,7 +1127,7 @@ fun SettingsSupportScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Email Support",
+                    text = stringResource(R.string.support_email),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1160,7 +1161,7 @@ fun SettingsSupportScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Send Email", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.support_send_email), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1179,7 +1180,7 @@ fun SettingsSupportScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Before contacting support",
+                    text = stringResource(R.string.support_before_contact),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1220,7 +1221,7 @@ fun SettingsSupportScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "App Information",
+                    text = stringResource(R.string.support_app_info),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1230,7 +1231,7 @@ fun SettingsSupportScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "App",
+                        text = stringResource(R.string.support_app),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1246,7 +1247,7 @@ fun SettingsSupportScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Version",
+                        text = stringResource(R.string.support_version),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1261,7 +1262,7 @@ fun SettingsSupportScreen(
         }
 
         Text(
-            text = "Support requests are handled through email. Response times may vary.",
+            text = stringResource(R.string.support_email_note),
             style = MaterialTheme.typography.bodySmall,
             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1276,7 +1277,7 @@ fun SettingsSupportScreen(
                 .heightIn(min = 48.dp)
                 .testTag("btn_close_support")
         ) {
-            Text("Close", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.common_close), fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))

@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.example.R
 
 class AlarmService : Service() {
     private var mediaPlayer: MediaPlayer? = null
@@ -70,8 +71,8 @@ class AlarmService : Service() {
         // Start minimal foreground immediately for system compliance
         createNotificationChannel()
         val genericNotif = NotificationCompat.Builder(serviceContext, CHANNEL_ID)
-            .setContentTitle("Reminder")
-            .setContentText("Checking reminder...")
+            .setContentTitle(serviceContext.getString(R.string.common_reminder))
+            .setContentText(serviceContext.getString(R.string.alarm_checking))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setOngoing(true)
@@ -233,8 +234,8 @@ class AlarmService : Service() {
         )
 
         val notification = NotificationCompat.Builder(serviceContext, CHANNEL_ID)
-            .setContentTitle("Reminder for ${lead.name}")
-            .setContentText(lead.reminderNote.ifEmpty { "Client wellness reminder alarm is ringing." })
+            .setContentTitle(serviceContext.getString(R.string.alarm_for, lead.name))
+            .setContentText(lead.reminderNote.ifEmpty { serviceContext.getString(R.string.alarm_ringing) })
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

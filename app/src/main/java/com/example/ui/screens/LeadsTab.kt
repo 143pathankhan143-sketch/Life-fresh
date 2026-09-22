@@ -379,7 +379,7 @@ fun LeadsTab(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    text = "Clear Search",
+                                    text = stringResource(R.string.leads_clear_search),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
@@ -395,7 +395,7 @@ fun LeadsTab(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("View All Clients", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                Text(stringResource(R.string.leads_view_all), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     } else if (activeFilter != "all") {
@@ -404,7 +404,7 @@ fun LeadsTab(
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Show All Clients", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.leads_show_all), style = MaterialTheme.typography.labelLarge)
                         }
                     } else {
                         Button(
@@ -417,7 +417,7 @@ fun LeadsTab(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("Add New Client", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.leads_add_new), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -594,14 +594,14 @@ fun LeadsTab(
             shape = RoundedCornerShape(24.dp),
             title = {
                 Text(
-                    text = "Delete Lead?",
+                    text = stringResource(R.string.leads_delete_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "Permanently delete ${lead.name} and their saved CRM details?",
+                    text = stringResource(R.string.leads_delete_msg, lead.name),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -624,7 +624,7 @@ fun LeadsTab(
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.testTag("delete_confirm_ok")
                 ) {
-                    Text("Delete", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_delete), style = MaterialTheme.typography.labelMedium)
                 }
             },
             dismissButton = {
@@ -633,7 +633,7 @@ fun LeadsTab(
                     enabled = !isDeleting,
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelMedium)
                 }
             }
         )
@@ -784,7 +784,7 @@ fun LeadCardItem(
                                         .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Text("Archived", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.leads_archived_badge), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -836,7 +836,7 @@ fun LeadCardItem(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Relation",
+                            text = stringResource(R.string.leads_relation),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Bold
@@ -849,7 +849,7 @@ fun LeadCardItem(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Wellness Issues",
+                            text = stringResource(R.string.leads_wellness_issues),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Bold
@@ -881,7 +881,7 @@ fun LeadCardItem(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Last Call: $formattedLastCall",
+                                text = stringResource(R.string.leads_last_call, formattedLastCall),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1105,7 +1105,7 @@ fun LeadCardItem(
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Text(
-                                            text = "Reactivate Reminder",
+                                            text = stringResource(R.string.leads_reactivate),
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                     }
@@ -1193,7 +1193,7 @@ fun LeadCardItem(
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Copy Lead Details") },
+                                text = { Text(stringResource(R.string.leads_copy_details)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onCopyText()
@@ -1225,7 +1225,7 @@ fun LeadCardItem(
                             )
 
                             DropdownMenuItem(
-                                text = { Text("Delete Lead") },
+                                text = { Text(stringResource(R.string.leads_delete)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onDelete()

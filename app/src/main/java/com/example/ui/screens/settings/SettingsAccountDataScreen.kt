@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @Composable
 fun SettingsAccountDataScreen(
@@ -46,7 +48,7 @@ fun SettingsAccountDataScreen(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Account & Data",
+            text = stringResource(R.string.settings_account_data),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -135,7 +137,7 @@ fun SettingsAccountDataScreen(
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
-                        text = "Account Deletion Policy",
+                        text = stringResource(R.string.settings_deletion_policy),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -226,7 +228,7 @@ fun SettingsAccountDataScreen(
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
-                        text = "Danger Zone",
+                        text = stringResource(R.string.settings_danger_zone),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = dangerPrimaryColor
@@ -234,7 +236,7 @@ fun SettingsAccountDataScreen(
                 }
 
                 Text(
-                    text = "Requesting account deletion begins a 7-day grace period. You can sign in anytime during the 7 days to cancel the request.",
+                    text = stringResource(R.string.settings_deletion_policy_sub),
                     style = MaterialTheme.typography.bodySmall,
                     color = dangerTextColor
                 )
@@ -264,7 +266,7 @@ fun SettingsAccountDataScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Request Account Deletion",
+                        text = stringResource(R.string.settings_request_deletion),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )

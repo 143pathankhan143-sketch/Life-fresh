@@ -40,6 +40,8 @@ import java.io.File
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,14 +150,14 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 )
 
                 Text(
-                    text = "CRM Report",
+                    text = stringResource(R.string.reports_pdf_name),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
                 Text(
-                    text = "Generate a professional PDF summary of your leads and CRM activity.",
+                    text = stringResource(R.string.reports_pdf_desc),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -183,10 +185,10 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     ) {
                         if (isDownloading) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Text("Preparing your PDF report...", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.reports_preparing), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         } else {
                             Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("Download Report", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.reports_download), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -211,10 +213,10 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     ) {
                         if (isSharing) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Text("Preparing your PDF report...", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.reports_preparing), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         } else {
                             Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("Share PDF", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.reports_share), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -251,13 +253,13 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     )
                     Column {
                         Text(
-                            text = "How PDF reports work",
+                            text = stringResource(R.string.reports_how_work),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Learn what is included and where your report is saved.",
+                            text = stringResource(R.string.reports_how_work_sub),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -309,7 +311,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
-                            text = "PDF Report Guide",
+                            text = stringResource(R.string.reports_guide_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -338,7 +340,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Contains active client profiles, mobile contacts, wellness notes, and follow-up schedules. Archived leads are strictly excluded to maintain a clean business summary.",
+                        text = stringResource(R.string.reports_content_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
@@ -372,7 +374,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Report files are stored in your device's Downloads folder (Files app > Downloads, or Internal Storage > Download).",
+                        text = stringResource(R.string.reports_saved_location),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
@@ -388,7 +390,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Open your device's Files app and search for \".pdf\" or \"LifeFresh_CRM_Report\".",
+                        text = stringResource(R.string.reports_find_file),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
@@ -411,7 +413,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                             color = MaterialTheme.colorScheme.error
                         )
                         Text(
-                            text = "To include archived clients in reports, restore them temporarily from the Leads tab first.",
+                            text = stringResource(R.string.reports_archived_note),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 17.sp
@@ -429,7 +431,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Close", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    Text(stringResource(R.string.common_close), style = MaterialTheme.typography.labelLarge, color = Color.White)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

@@ -11,6 +11,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.R
 
 object PdfGenerator {
 
@@ -100,11 +101,11 @@ object PdfGenerator {
         val rowHeight = 24f
 
         fun drawHeader(canvas: Canvas, pageNum: Int) {
-            canvas.drawText("LifeFresh Quick Note Pro - CRM Report", 30f, 35f, titlePaint)
+            canvas.drawText(context.getString(R.string.pdf_report_title), 30f, 35f, titlePaint)
             val sdf = SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.getDefault())
-            canvas.drawText("Generated on: ${sdf.format(Date())}", 30f, 50f, metaPaint)
+            canvas.drawText(context.getString(R.string.pdf_generated_on, sdf.format(Date())), 30f, 50f, metaPaint)
             val activeCount = leads.filter { !it.archived }.size
-            canvas.drawText("Total Active Leads: $activeCount", 30f, 62f, metaPaint)
+            canvas.drawText(context.getString(R.string.pdf_total_leads, activeCount), 30f, 62f, metaPaint)
             canvas.drawLine(30f, 75f, 565f, 75f, borderPaint)
         }
 
@@ -115,7 +116,7 @@ object PdfGenerator {
                 textAlign = Paint.Align.CENTER
                 isAntiAlias = true
             }
-            canvas.drawText("Page $pageNum", (pageWidth / 2).toFloat(), (pageHeight - 20).toFloat(), footerPaint)
+            canvas.drawText(context.getString(R.string.pdf_page, pageNum), (pageWidth / 2).toFloat(), (pageHeight - 20).toFloat(), footerPaint)
         }
 
         // Initialize first page header
@@ -138,10 +139,10 @@ object PdfGenerator {
                 if (isInsideTable) {
                     headBgPaint.color = headerColor
                     canvas.drawRect(30f, yPos, 565f, yPos + rowHeight, headBgPaint)
-                    canvas.drawText("Name", xName + 6f, yPos + 16f, headTextPaint)
-                    canvas.drawText("Mobile", xMobile + 6f, yPos + 16f, headTextPaint)
-                    canvas.drawText("Relation", xRelation + 6f, yPos + 16f, headTextPaint)
-                    canvas.drawText("Disease Issues", xDiseases + 6f, yPos + 16f, headTextPaint)
+                    canvas.drawText(context.getString(R.string.pdf_name), xName + 6f, yPos + 16f, headTextPaint)
+                    canvas.drawText(context.getString(R.string.pdf_mobile), xMobile + 6f, yPos + 16f, headTextPaint)
+                    canvas.drawText(context.getString(R.string.pdf_relation), xRelation + 6f, yPos + 16f, headTextPaint)
+                    canvas.drawText(context.getString(R.string.pdf_disease_issues), xDiseases + 6f, yPos + 16f, headTextPaint)
                     yPos += rowHeight
                 }
             }
@@ -151,17 +152,17 @@ object PdfGenerator {
         if (pendingLeads.isNotEmpty()) {
             checkNewPage(50f)
             sectionPaint.color = pendingAmberOrange
-            canvas.drawText("Pending Customers", 30f, yPos, sectionPaint)
+            canvas.drawText(context.getString(R.string.pdf_pending_customers), 30f, yPos, sectionPaint)
             yPos += 10f
 
             checkNewPage(rowHeight)
             // Table Header block
             headBgPaint.color = pendingAmberOrange
             canvas.drawRect(30f, yPos, 565f, yPos + rowHeight, headBgPaint)
-            canvas.drawText("Name", xName + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Mobile", xMobile + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Relation", xRelation + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Disease Issues", xDiseases + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_name), xName + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_mobile), xMobile + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_relation), xRelation + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_disease_issues), xDiseases + 6f, yPos + 16f, headTextPaint)
             yPos += rowHeight
 
             pendingLeads.forEachIndexed { idx, lead ->
@@ -212,17 +213,17 @@ object PdfGenerator {
         if (completeLeads.isNotEmpty()) {
             checkNewPage(50f)
             sectionPaint.color = lifeFreshGreen
-            canvas.drawText("Complete Customers", 30f, yPos, sectionPaint)
+            canvas.drawText(context.getString(R.string.pdf_complete_customers), 30f, yPos, sectionPaint)
             yPos += 10f
 
             checkNewPage(rowHeight)
             // Table Header block
             headBgPaint.color = lifeFreshGreen
             canvas.drawRect(30f, yPos, 565f, yPos + rowHeight, headBgPaint)
-            canvas.drawText("Name", xName + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Mobile", xMobile + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Relation", xRelation + 6f, yPos + 16f, headTextPaint)
-            canvas.drawText("Disease Issues", xDiseases + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_name), xName + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_mobile), xMobile + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_relation), xRelation + 6f, yPos + 16f, headTextPaint)
+            canvas.drawText(context.getString(R.string.pdf_disease_issues), xDiseases + 6f, yPos + 16f, headTextPaint)
             yPos += rowHeight
 
             completeLeads.forEachIndexed { idx, lead ->

@@ -62,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import com.example.data.repository.AIServiceRepository
 import com.example.data.security.AIQuotaManager
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 /**
  * Dedicated "AI API Keys" settings screen (Settings > AI API Keys).
@@ -137,7 +139,7 @@ fun SettingsApiKeysScreen(
                 )
             }
             Text(
-                text = "AI API Keys",
+                text = stringResource(R.string.settings_api_keys),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -173,7 +175,7 @@ fun SettingsApiKeysScreen(
                 )
                 Column {
                     Text(
-                        text = "Daily AI quota",
+                        text = stringResource(R.string.settings_daily_quota),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -430,7 +432,7 @@ fun SettingsApiKeysScreen(
     if (showAgentModeConfirm) {
         AlertDialog(
             onDismissRequest = { showAgentModeConfirm = false },
-            title = { Text("Agent Mode ON karo?") },
+            title = { Text(stringResource(R.string.settings_agent_mode_on)) },
             text = {
                 Text(
                     "Jab Agent Mode ON hoga, LifeFresh AI lead actions (save, draft, status, update) seedha khud execute karega - confirmation card nahi aayega.\n\n" +
@@ -448,12 +450,12 @@ fun SettingsApiKeysScreen(
                         showAgentModeConfirm = false
                     }
                 ) {
-                    Text("Turn On")
+                    Text(stringResource(R.string.common_turn_on))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAgentModeConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -535,7 +537,7 @@ private fun ApiKeySection(
             OutlinedTextField(
                 value = key,
                 onValueChange = onKeyChange,
-                placeholder = { Text("Paste $title here") },
+                placeholder = { Text(stringResource(R.string.settings_paste_key, title)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.None,
@@ -578,7 +580,7 @@ private fun ApiKeySection(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Save", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_save), style = MaterialTheme.typography.labelMedium)
                 }
 
                 Button(
@@ -603,7 +605,7 @@ private fun ApiKeySection(
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Test Key", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_test_key), style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -624,7 +626,7 @@ private fun ApiKeySection(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_clear), style = MaterialTheme.typography.labelMedium)
                 }
             }
 

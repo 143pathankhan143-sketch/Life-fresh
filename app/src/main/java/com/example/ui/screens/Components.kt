@@ -42,6 +42,8 @@ import com.example.ui.viewmodel.CRMViewModel
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.io.File
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @Composable
 fun PolicyDialog(
@@ -85,46 +87,46 @@ fun PolicyDialog(
                 when (type) {
                     "privacy" -> {
                         Text(
-                            text = "Last Updated: September 2026",
+                            text = stringResource(R.string.legal_last_updated, "September 2026"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(text = "Welcome to LifeFresh QuickNote Pro.")
-                        Text(text = "LifeFresh QuickNote Pro is designed to help users manage notes, leads, wellness coaching records, reminders, and productivity-related information.")
+                        Text(text = stringResource(R.string.legal_welcome))
+                        Text(text = stringResource(R.string.legal_intro))
 
-                        Text(text = "Health & Wellness Disclosures", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• Health condition tags (e.g., Diabetes, Hypertension, Thyroid) stored in client profiles are strictly user-managed business notes for relationship management and do NOT constitute medical diagnoses, clinical guidance, or healthcare advice.\n• Always consult certified healthcare professionals for medical treatment decisions.")
+                        Text(text = stringResource(R.string.legal_health_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_health_body))
 
-                        Text(text = "Children's Privacy (COPPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• This application is designed for professional business use and is not directed to children under the age of 13.\n• We do not knowingly collect or solicit personal information from children under 13.")
+                        Text(text = stringResource(R.string.legal_coppa_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_coppa_body))
 
-                        Text(text = "Data Retention & Account Deletion", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• Users retain full control over their data. All local records can be wiped at any time from Settings > Delete All Data, or by requesting account closure.\n• When an account is deleted, associated Cloud Firestore backups and sync records are permanently removed within 30 days.")
+                        Text(text = stringResource(R.string.legal_data_retention_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_data_retention_body))
 
-                        Text(text = "Data Storage & Privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• Your CRM contact data and notes are stored locally on your device in a secure Room database.\n• User CRM contact records are strictly private, stored securely, and never sold to third parties.")
+                        Text(text = stringResource(R.string.legal_data_privacy_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_data_privacy_body))
 
-                        Text(text = "Authentication & Cloud Sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• Google Authentication: Optional sign-in allows you to manage your identity securely across devices.\n• Firebase Cloud Sync: When enabled by the user, notes and lead records are synced securely with Firebase Cloud Firestore for backup and multi-device restoration.")
+                        Text(text = stringResource(R.string.legal_auth_sync_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_auth_sync_body))
 
-                        Text(text = "AI Services & Integrations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• AI Chat & Analysis: When using AI features (Groq and Google Gemini) with your own API key or configured models, only queries you explicitly submit are sent to AI providers.\n• Your private CRM contacts are never sold, exposed, or used for model training.")
+                        Text(text = stringResource(R.string.legal_ai_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_ai_body))
 
-                        Text(text = "Data Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "• Industry-standard security practices, including device sandbox isolation and HTTPS/TLS encryption in transit, protect your data at all times.")
+                        Text(text = stringResource(R.string.legal_security_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_security_body))
                     }
                     "terms" -> {
                         Text(
-                            text = "Last Updated: June 2026",
+                            text = stringResource(R.string.legal_last_updated, "June 2026"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(text = "By using Life Fresh Quick Note Pro, you agree to the following conditions:")
-                        Text(text = "1. Productivity & Records: The app is intended purely for business productivity log keeping.\n\n2. User Records Accuracy: Users hold full accountability for backing up, maintaining, and entering contact details correctly.\n\n3. No Liability for Losses: The developer is not responsible for any accidental storage failures, file deletion, or data losses resulting from app resets, OS upgrades, or factory wipes.")
+                        Text(text = stringResource(R.string.legal_terms_agree))
+                        Text(text = stringResource(R.string.legal_terms_body))
                     }
                     "support" -> {
-                        Text(text = "Need help?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "For customer assistance, bug reporting, customization requests, or professional inquiries, contact us:")
+                        Text(text = stringResource(R.string.legal_need_help), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(R.string.legal_contact_us))
                         
                         Card(
                             colors = CardDefaults.cardColors(
@@ -156,7 +158,7 @@ fun PolicyDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("policy_dialog_close")
             ) {
-                Text("Close")
+                Text(stringResource(R.string.common_close))
             }
         }
     )
@@ -255,7 +257,7 @@ fun AlarmRingingDialog(
                             color = MaterialTheme.colorScheme.error
                         )
                         Text(
-                            text = "Wellness Alert",
+                            text = stringResource(R.string.common_wellness_alert),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -307,7 +309,7 @@ fun AlarmRingingDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Wellness Client",
+                            text = stringResource(R.string.common_wellness_client),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -320,19 +322,19 @@ fun AlarmRingingDialog(
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
                     DetailRow(
-                        label = "Mobile",
+                        label = stringResource(R.string.common_mobile),
                         value = lead.mobile
                     )
                     DetailRow(
-                        label = "Issues",
+                        label = stringResource(R.string.common_issues),
                         value = parsedDiseases
                     )
                     DetailRow(
-                        label = "Scheduled Date",
+                        label = stringResource(R.string.common_scheduled_date),
                         value = if (lead.reminderDate.isEmpty()) "Today" else formatTime12Hour(lead.reminderDate).ifEmpty { lead.reminderDate }
                     )
                     DetailRow(
-                        label = "Scheduled Time",
+                        label = stringResource(R.string.common_scheduled_time),
                         value = if (lead.reminderTime.isEmpty()) "Not Specified" else formatTime12Hour(lead.reminderTime)
                     )
                 }
@@ -350,7 +352,7 @@ fun AlarmRingingDialog(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Reminder Note",
+                            text = stringResource(R.string.profile_reminder_note),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -393,7 +395,7 @@ fun AlarmRingingDialog(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Snooze Reminder",
+                            text = stringResource(R.string.common_snooze_reminder),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -444,7 +446,7 @@ fun AlarmRingingDialog(
                             .height(48.dp)
                             .testTag("alarm_dismiss_button")
                     ) {
-                        Text("Dismiss", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.common_dismiss), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Button(
@@ -463,7 +465,7 @@ fun AlarmRingingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                            Text("Complete", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                            Text(stringResource(R.string.common_complete), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = Color.White)
                         }
                     }
                 }
@@ -609,19 +611,19 @@ fun VoiceNoteRecorderDialog(
             ) {
                 if (isRecording) {
                     Text(
-                        text = "Recording: ${recordingDurationSeconds / 60}:${String.format(java.util.Locale.US, "%02d", recordingDurationSeconds % 60)}",
+                        text = stringResource(R.string.common_recording, "${recordingDurationSeconds / 60}:${String.format(java.util.Locale.US, "%02d", recordingDurationSeconds % 60)}"),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.error
                     )
                     Text(
-                        text = "Speak clearly into your device microphone.",
+                        text = stringResource(R.string.common_speak_clearly),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Text(
-                        text = "Record a quick voice note attached to your wellness record.",
+                        text = stringResource(R.string.common_voice_note_sub),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -659,7 +661,7 @@ fun VoiceNoteRecorderDialog(
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Stop & Save")
+                    Text(stringResource(R.string.common_stop_save))
                 }
             } else {
                 Button(
@@ -719,7 +721,7 @@ fun VoiceNoteRecorderDialog(
                 ) {
                     Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Start Recording")
+                    Text(stringResource(R.string.common_start_recording))
                 }
             }
         },
@@ -741,7 +743,7 @@ fun VoiceNoteRecorderDialog(
                 },
                 modifier = Modifier.testTag("btn_cancel_recording")
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

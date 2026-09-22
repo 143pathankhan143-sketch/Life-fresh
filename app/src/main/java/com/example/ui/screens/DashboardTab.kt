@@ -200,7 +200,7 @@ fun DashboardTab(
                             )
                             Spacer(modifier = Modifier.height(4.dp)) // On 8dp grid
                             Text(
-                                text = "Empowering health and wellness journeys",
+                                text = stringResource(R.string.dash_tagline),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
@@ -232,7 +232,7 @@ fun DashboardTab(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Overview",
+                            text = stringResource(R.string.dash_overview),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -331,7 +331,7 @@ fun DashboardTab(
                                     modifier = Modifier.size(36.dp)
                                 )
                                 Text(
-                                    text = "No leads yet",
+                                    text = stringResource(R.string.dash_no_leads),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -365,7 +365,7 @@ fun DashboardTab(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Reminders Summary",
+                            text = stringResource(R.string.dash_reminders_summary),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -411,7 +411,7 @@ fun DashboardTab(
 
             // Recent Activity List Header
             Text(
-                text = "Recent Activity Log",
+                text = stringResource(R.string.dash_recent_activity),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 4.dp, top = 16.dp) // Large top spacing to breathe
@@ -440,13 +440,13 @@ fun DashboardTab(
                             modifier = Modifier.size(32.dp)
                         )
                         Text(
-                            text = "No Recent Activity",
+                            text = stringResource(R.string.dash_no_activity),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Create or edit wellness client records to see activity updates logged here.",
+                            text = stringResource(R.string.dash_no_activity_sub),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center
