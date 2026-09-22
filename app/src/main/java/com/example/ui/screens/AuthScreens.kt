@@ -187,7 +187,7 @@ fun WelcomeScreen(
         ) {
             // Full Screen Premium background PNG from user design
             Image(
-                painter = painterResource(id = R.drawable.new_authentication_screen_pro_v2),
+                painter = painterResource(id = R.drawable.new_authentication_screen_pro_v3),
                 contentDescription = "Welcome Background",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit

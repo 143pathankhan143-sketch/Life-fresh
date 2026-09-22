@@ -109,7 +109,7 @@ fun SettingsAboutScreen(
                                 )
                             } else {
                                 Image(
-                                    painter = painterResource(id = R.drawable.life_fresh_quicknote),
+                                    painter = painterResource(id = R.drawable.life_fresh_quicknote_v3),
                                     contentDescription = "LifeFresh App Icon",
                                     modifier = Modifier
                                         .size(40.dp)

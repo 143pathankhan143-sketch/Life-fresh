@@ -290,7 +290,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.splash_screen_pro_v2),
+            painter = painterResource(id = R.drawable.splash_screen_pro_v3),
             contentDescription = "LifeFresh Pro Splash Screen",
             modifier = Modifier
                 .fillMaxSize()
