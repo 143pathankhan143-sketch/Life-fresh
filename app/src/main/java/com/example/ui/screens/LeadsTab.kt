@@ -520,7 +520,7 @@ fun LeadsTab(
                             viewModel.toggleArchive(lead)
                             coroutineScope.launch {
                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                val message = if (isArchivedNow) context.getString(R.string.leads_restored_toast) else stringResource(R.string.leads_archived_toast)
+                                val message = if (isArchivedNow) context.getString(R.string.leads_restored_toast) else context.getString(R.string.leads_archived_toast)
                                 val result = snackbarHostState.showSnackbar(
                                     message = message,
                                     actionLabel = "Undo",

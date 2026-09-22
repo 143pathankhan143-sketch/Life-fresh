@@ -243,7 +243,7 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGeminiKey(context, geminiKey.trim())
                 refreshQuota()
-                geminiStatus = if (geminiKey.isBlank()) context.getString(R.string.settings_key_cleared, "Gemini") else stringResource(R.string.settings_key_saved, "Gemini")
+                geminiStatus = if (geminiKey.isBlank()) context.getString(R.string.settings_key_cleared, "Gemini") else context.getString(R.string.settings_key_saved, "Gemini")
                 geminiStatusOk = true
             },
             onTest = {
@@ -261,7 +261,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { geminiStatus = context.getString(R.string.settings_key_valid); geminiStatusOk = true },
                             onFailure = { e ->
-                                geminiStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                geminiStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: context.getString(R.string.common_unknown_error))
                                 geminiStatusOk = false
                             }
                         )
@@ -294,7 +294,7 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGroqKey(context, groqKey.trim())
                 refreshQuota()
-                groqStatus = if (groqKey.isBlank()) context.getString(R.string.settings_key_cleared, "Groq") else stringResource(R.string.settings_key_saved, "Groq")
+                groqStatus = if (groqKey.isBlank()) context.getString(R.string.settings_key_cleared, "Groq") else context.getString(R.string.settings_key_saved, "Groq")
                 groqStatusOk = true
             },
             onTest = {
@@ -312,7 +312,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { groqStatus = context.getString(R.string.settings_key_valid); groqStatusOk = true },
                             onFailure = { e ->
-                                groqStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                groqStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: context.getString(R.string.common_unknown_error))
                                 groqStatusOk = false
                             }
                         )
@@ -345,7 +345,7 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomOpenRouterKey(context, openRouterKey.trim())
                 refreshQuota()
-                openRouterStatus = if (openRouterKey.isBlank()) context.getString(R.string.settings_key_cleared, "OpenRouter") else stringResource(R.string.settings_key_saved, "OpenRouter")
+                openRouterStatus = if (openRouterKey.isBlank()) context.getString(R.string.settings_key_cleared, "OpenRouter") else context.getString(R.string.settings_key_saved, "OpenRouter")
                 openRouterStatusOk = true
             },
             onTest = {
@@ -363,7 +363,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { openRouterStatus = mapKeyStatus(it); openRouterStatusOk = true },
                             onFailure = { e ->
-                                openRouterStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                openRouterStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: context.getString(R.string.common_unknown_error))
                                 openRouterStatusOk = false
                             }
                         )
@@ -395,7 +395,7 @@ fun SettingsApiKeysScreen(
             onToggleVisible = { tavilyVisible = !tavilyVisible },
             onSave = {
                 AIQuotaManager.saveCustomTavilyKey(context, tavilyKey.trim())
-                tavilyStatus = if (tavilyKey.isBlank()) context.getString(R.string.settings_key_cleared, "Tavily") else stringResource(R.string.settings_key_saved, "Tavily")
+                tavilyStatus = if (tavilyKey.isBlank()) context.getString(R.string.settings_key_cleared, "Tavily") else context.getString(R.string.settings_key_saved, "Tavily")
                 tavilyStatusOk = true
             },
             onTest = {
@@ -413,7 +413,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { tavilyStatus = mapKeyStatus(it); tavilyStatusOk = true },
                             onFailure = { e ->
-                                tavilyStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                tavilyStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: context.getString(R.string.common_unknown_error))
                                 tavilyStatusOk = false
                             }
                         )

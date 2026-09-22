@@ -2790,7 +2790,7 @@ fun SettingsTab(
                                         Toast.makeText(context, context.getString(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
                                         showEditProfileDialog = false
                                     } else {
-                                        Toast.makeText(context, msg ?: stringResource(R.string.settings_profile_email_failed), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, msg ?: context.getString(R.string.settings_profile_email_failed), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             } else {
@@ -2806,7 +2806,7 @@ fun SettingsTab(
                                     finishEmailUpdate()
                                 } else {
                                     isSavingProfile = false
-                                    Toast.makeText(context, msg ?: stringResource(R.string.settings_profile_name_failed), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, msg ?: context.getString(R.string.settings_profile_name_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } else {
@@ -2935,7 +2935,7 @@ fun SettingsTab(
                             return@Button
                         }
                         if (newProfilePassword != confirmProfilePassword) {
-                            Toast.makeText(context, context.getString(R.string.settings_pw_mismatch) Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_pw_mismatch), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         isChangingPassword = true
@@ -2951,7 +2951,7 @@ fun SettingsTab(
                                 showChangePasswordDialog = false
                                 Toast.makeText(context, context.getString(R.string.settings_pw_updated), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, msg ?: stringResource(R.string.settings_pw_failed), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, msg ?: context.getString(R.string.settings_pw_failed), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -3071,7 +3071,7 @@ fun SettingsTab(
             onDownloadPack = { meta ->
                 viewModel.downloadLanguagePack(meta) { success, error ->
                     if (!success && error != null) {
-                        Toast.makeText(context, if (error == "Failed to initiate language installation") stringResource(R.string.lang_install_failed) else error, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (error == "Failed to initiate language installation") context.getString(R.string.lang_install_failed) else error, Toast.LENGTH_SHORT).show()
                     }
                 }
             },
