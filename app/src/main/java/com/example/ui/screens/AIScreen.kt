@@ -1619,7 +1619,7 @@ private fun AIChatComposer(
                                 }
                             }
                         ),
-                        maxLines = 4
+                        maxLines = 1
                     )
 
                     if (isListening) {
@@ -1642,56 +1642,43 @@ private fun AIChatComposer(
                         )
                     }
 
-                    // Mic + send buttons (small, clear gap - no overlap)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    // Mic + send: flat icons, no circles (ChatGPT-style).
+                    // Each button is a fixed 30dp slot in the Row, so they
+                    // can never touch or overlap the textbox.
+                    IconButton(
+                        onClick = onMicClick,
+                        enabled = !isThinking && !isConverting,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(30.dp)
+                            .testTag("mic_button")
                     ) {
-                        // Mic button: start listening, or stop (transcript -> box).
-                        IconButton(
-                            onClick = onMicClick,
-                            enabled = !isThinking && !isConverting,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isListening) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                )
-                                .testTag("mic_button")
-                        ) {
-                            Icon(
-                                imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
-                                contentDescription = if (isListening) "Stop voice input" else "Voice input",
-                                tint = if (isListening) MaterialTheme.colorScheme.onError
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                    alpha = if (isThinking) 0.35f else 0.8f
-                                ),
-                                modifier = Modifier.size(13.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                            contentDescription = if (isListening) "Stop voice input" else "Voice input",
+                            tint = if (isListening) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (isThinking) 0.35f else 0.8f
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                        // Send button: normal send, or direct send while listening.
-                        IconButton(
-                            onClick = onSendClick,
-                            enabled = isSendEnabled,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSendEnabled) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                )
-                                .testTag("send_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
-                                tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                modifier = Modifier.size(13.dp)
-                            )
-                        }
+                    IconButton(
+                        onClick = onSendClick,
+                        enabled = isSendEnabled,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(30.dp)
+                            .testTag("send_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = if (isSendEnabled) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
