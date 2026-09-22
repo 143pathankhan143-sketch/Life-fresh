@@ -670,7 +670,3 @@ private fun ApiKeySection(
     }
 }
 
-// Local helper so the screen file does not need the testTag import in scope
-// ambiguously; mirrors Modifier.testTag(tag).
-private fun Modifier.testTag(tag: String): Modifier =
-    this.then(androidx.compose.ui.platform.testTag(tag))

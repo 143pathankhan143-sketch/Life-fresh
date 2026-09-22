@@ -229,7 +229,7 @@ class AIServiceRepository {
 
                 if (response.isSuccessful) {
                     val label = try {
-                        JSONObject(body).optJSONObject("key")?.optString("label", "")
+                        JSONObject(body).optJSONObject("key")?.optString("label", "") ?: ""
                     } catch (_: Throwable) { "" }
                     val usage = try {
                         JSONObject(body).optString("usage", "")
