@@ -444,6 +444,13 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
     }
 }
 
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v16 had no repeating reminders. Existing leads keep one-shot behavior.
+        db.execSQL("ALTER TABLE `leads` ADD COLUMN `reminderRepeat` TEXT NOT NULL DEFAULT 'none'")
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -454,7 +461,7 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         SyncConflictEntity::class,
         SyncCheckpointEntity::class
     ], 
-    version = 16, 
+    version = 17, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -487,7 +494,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_12_13,
                         MIGRATION_13_14,
                         MIGRATION_14_15,
-                        MIGRATION_15_16
+                        MIGRATION_15_16,
+                        MIGRATION_16_17
                     )
                     // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
                     // It silently erases the entire database whenever an on-disk

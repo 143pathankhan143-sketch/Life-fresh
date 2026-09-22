@@ -16,6 +16,7 @@ import com.example.data.database.LeadEntity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -56,7 +57,37 @@ object ReminderScheduler {
                         try {
                             val triggerDate = sdf.parse("${lead.reminderDate} ${lead.reminderTime}")
                             val triggerTimeMs = triggerDate?.time ?: 0L
-                            if (triggerTimeMs <= now) {
+                            if (triggerTimeMs <= now && lead.reminderRepeat != "none") {
+                                // Repeating reminder whose time has passed (phone was off,
+                                // app closed, etc.): roll forward to the next future cycle
+                                // instead of marking it Missed.
+                                var candidate = Pair(lead.reminderDate, lead.reminderTime)
+                                var guard = 0
+                                while (guard < 400) {
+                                    val next = nextRepeatOccurrence(candidate.first, candidate.second, lead.reminderRepeat) ?: break
+                                    val nextMs = sdf.parse("${next.first} ${next.second}")?.time ?: break
+                                    if (nextMs > now) {
+                                        candidate = next
+                                        break
+                                    }
+                                    candidate = next
+                                    guard++
+                                }
+                                val rolledLead = lead.copy(
+                                    reminderDate = candidate.first,
+                                    reminderTime = candidate.second,
+                                    reminderStatus = "Pending"
+                                )
+                                val repo = com.example.data.repository.LeadRepository(
+                                    db.leadDao,
+                                    com.example.sync.LeadSyncMutationCoordinator(
+                                        appContext, db, db.leadDao, db.leadSyncMetadataDao, db.syncDao
+                                    )
+                                )
+                                repo.insertLead(rolledLead, com.example.sync.LeadWriteOrigin.SYSTEM_REMINDER)
+                                scheduleReminder(appContext, rolledLead)
+                                Log.d(TAG, "startCheckingForUser: Rolled repeating reminder for ${lead.name} to ${candidate.first} ${candidate.second}")
+                            } else if (triggerTimeMs <= now) {
                                 val updatedLead = lead.copy(reminderStatus = "Missed")
                                 val repo = com.example.data.repository.LeadRepository(
                                     db.leadDao,
@@ -293,6 +324,33 @@ object ReminderScheduler {
             }
         }
         return ScheduleResult.FAILED
+    }
+
+    /**
+     * Computes the next occurrence of a repeating reminder.
+     * daily = +1 day, weekly = +7 days, monthly = +1 calendar month
+     * (Calendar clamps day-of-month, e.g. Jan 31 -> Feb 28).
+     * Returns Pair(date "yyyy-MM-dd", time "HH:mm"), or null when the
+     * input is not a full reminder or the repeat value is not known.
+     */
+    fun nextRepeatOccurrence(date: String, time: String, repeat: String): Pair<String, String>? {
+        if (date.isEmpty() || time.isEmpty()) return null
+        val calendar = Calendar.getInstance()
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+            calendar.time = sdf.parse("$date $time") ?: return null
+        } catch (e: Exception) {
+            return null
+        }
+        when (repeat.trim().lowercase(Locale.ROOT)) {
+            "daily" -> calendar.add(Calendar.DAY_OF_MONTH, 1)
+            "weekly" -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
+            "monthly" -> calendar.add(Calendar.MONTH, 1)
+            else -> return null
+        }
+        val outDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
+        val outTime = SimpleDateFormat("HH:mm", Locale.US).format(calendar.time)
+        return Pair(outDate, outTime)
     }
 
     fun cancelReminder(context: Context, ownerUid: String, leadId: String) {

@@ -762,6 +762,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             val reminderTime = doc.getString("reminderTime") ?: ""
                             val reminderNote = doc.getString("reminderNote") ?: ""
                             val reminderStatus = doc.getString("reminderStatus") ?: "Pending"
+                            val reminderRepeat = doc.getString("reminderRepeat") ?: "none"
                             val notes = doc.getString("notes") ?: ""
                             val archived = doc.getBoolean("archived") ?: false
                             val lastCall = doc.getString("lastCall")
@@ -781,6 +782,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     reminderTime = reminderTime,
                                     reminderNote = reminderNote,
                                     reminderStatus = reminderStatus,
+                                    reminderRepeat = reminderRepeat,
                                     notes = notes,
                                     archived = archived,
                                     lastCall = lastCall,
@@ -873,6 +875,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             val reminderTime = doc.getString("reminderTime") ?: ""
                             val reminderNote = doc.getString("reminderNote") ?: ""
                             val reminderStatus = doc.getString("reminderStatus") ?: "Pending"
+                            val reminderRepeat = doc.getString("reminderRepeat") ?: "none"
                             val notes = doc.getString("notes") ?: ""
                             val archived = doc.getBoolean("archived") ?: false
                             val lastCall = doc.getString("lastCall")
@@ -892,6 +895,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     reminderTime = reminderTime,
                                     reminderNote = reminderNote,
                                     reminderStatus = reminderStatus,
+                                    reminderRepeat = reminderRepeat,
                                     notes = notes,
                                     archived = archived,
                                     lastCall = lastCall,
@@ -1111,6 +1115,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         reminderDate: String,
         reminderTime: String,
         reminderNote: String,
+        reminderRepeat: String = "none",
         notes: String
     ): SaveLeadResult {
         val draft = com.example.leads.domain.LeadDraft(
@@ -1125,6 +1130,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             reminderDate = reminderDate,
             reminderTime = reminderTime,
             reminderNote = reminderNote,
+            reminderRepeat = reminderRepeat,
             notes = notes
         )
 
@@ -1204,6 +1210,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             else -> lead.reminderDate
                         }
                     )
+                if (lead.reminderDate.isNotEmpty() && lead.reminderRepeat != "none") {
+                    sb.append(" (repeats ").append(lead.reminderRepeat).append(")")
+                }
                 val wellness = diseasesCompact(lead.diseases)
                 if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
                 if (lead.relation.isNotEmpty()) {
@@ -1553,15 +1562,31 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             updated = updated.copy(notes = appended.take(1000))
         }
 
-        // 5) Reminder: remove it, or set/change it (strict validation).
+        // 5) Reminder: remove it, set/change it (strict validation), or change
+        // its repeat pattern. Repeating reminders re-arm on the next cycle.
+        val repeatVal = when (action.setReminderRepeat.trim().lowercase(java.util.Locale.ROOT)) {
+            "none", "daily", "weekly", "monthly" -> action.setReminderRepeat.trim().lowercase(java.util.Locale.ROOT)
+            else -> ""
+        }
         if (action.removeReminder) {
             if (lead.reminderDate.isNotEmpty()) {
                 updated = updated.copy(
                     reminderDate = "",
                     reminderTime = "",
                     reminderStatus = "Completed",
+                    reminderRepeat = "none",
                     reminderUpdatedAt = System.currentTimeMillis()
                 )
+            }
+        } else if (repeatVal.isNotEmpty() && action.setReminderDate.isBlank()) {
+            // Only the repeat pattern changed - the next alarm time stays as is.
+            if (updated.reminderDate.isNotEmpty() && updated.reminderTime.isNotEmpty()) {
+                updated = updated.copy(
+                    reminderRepeat = repeatVal,
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            } else {
+                warnings += " Is lead ka reminder set nahi hai, pehle date-time do."
             }
         } else if (action.setReminderDate.isNotBlank()) {
             val canonicalDate = parseStrictYMD(action.setReminderDate)
@@ -1583,6 +1608,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             reminderDate = canonicalDate,
                             reminderTime = time,
                             reminderStatus = "Pending",
+                            reminderRepeat = repeatVal.ifBlank { updated.reminderRepeat },
                             reminderUpdatedAt = System.currentTimeMillis()
                         )
                         reminderChanged = true
@@ -2116,7 +2142,22 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         stopAlarmAndTesting()
 
         viewModelScope.launch {
-            val updated = lead.copy(reminderStatus = "Dismissed")
+            // Repeating reminders move to the next cycle and stay Pending;
+            // one-shot reminders simply become Dismissed (kept in sync with
+            // the notification Dismiss path in AlarmReceiver).
+            val next = ReminderScheduler.nextRepeatOccurrence(
+                lead.reminderDate, lead.reminderTime, lead.reminderRepeat
+            )
+            val updated = if (next != null) {
+                lead.copy(
+                    reminderDate = next.first,
+                    reminderTime = next.second,
+                    reminderStatus = "Pending",
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            } else {
+                lead.copy(reminderStatus = "Dismissed")
+            }
             repository.insertLead(updated)
             ReminderScheduler.scheduleReminder(getApplication(), updated)
             ringingLead.value = null
@@ -2194,6 +2235,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 put("reminderTime", lead.reminderTime)
                 put("reminderNote", lead.reminderNote)
                 put("reminderStatus", lead.reminderStatus)
+                put("reminderRepeat", lead.reminderRepeat)
                 put("notes", lead.notes)
                 put("archived", lead.archived)
                 put("lastCall", lead.lastCall ?: JSONObject.NULL)
@@ -2247,6 +2289,10 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             reminderTime = obj.optString("reminderTime", ""),
                             reminderNote = obj.optString("reminderNote", ""),
                             reminderStatus = obj.optString("reminderStatus", "Pending"),
+                            reminderRepeat = when (obj.optString("reminderRepeat", "none")) {
+                                "daily", "weekly", "monthly" -> obj.optString("reminderRepeat", "none")
+                                else -> "none"
+                            },
                             notes = obj.optString("notes", ""),
                             archived = obj.optBoolean("archived", false),
                             lastCall = if (obj.isNull("lastCall") || !obj.has("lastCall")) null else obj.optString("lastCall", "").takeIf { it.isNotEmpty() && it != "null" },

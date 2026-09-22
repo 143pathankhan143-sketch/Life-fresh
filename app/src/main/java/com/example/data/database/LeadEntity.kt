@@ -21,6 +21,8 @@ data class LeadEntity(
     val reminderTime: String,   // "HH:mm" or empty
     val reminderNote: String,
     val reminderStatus: String, // "Pending", "Completed", "Dismissed" etc.
+    @ColumnInfo(defaultValue = "none")
+    val reminderRepeat: String = "none", // "none", "daily", "weekly", "monthly"
     val notes: String = "",
     val archived: Boolean = false,
     val lastCall: String? = null, // ISO-8601 string or null

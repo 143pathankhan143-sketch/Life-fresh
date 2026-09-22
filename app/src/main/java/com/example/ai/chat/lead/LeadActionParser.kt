@@ -29,6 +29,7 @@ data class LeadAction(
     val addDiseases: List<String> = emptyList(),
     val setReminderDate: String = "",
     val setReminderTime: String = "",
+    val setReminderRepeat: String = "", // "none"/"daily"/"weekly"/"monthly" - empty = no change
     val removeReminder: Boolean = false
 ) {
     enum class Kind {
@@ -173,6 +174,10 @@ object LeadActionParser {
             val note = json.optString("note", "").trim().take(MAX_NOTE_LENGTH)
             val setReminderDate = json.optString("setReminderDate", "").trim().take(10)
             val setReminderTime = json.optString("setReminderTime", "").trim().take(5)
+            val setReminderRepeat = when (json.optString("setReminderRepeat", "").trim().lowercase()) {
+                "none", "daily", "weekly", "monthly" -> json.optString("setReminderRepeat", "").trim().lowercase()
+                else -> ""
+            }
             val removeReminder = json.optBoolean("removeReminder", false)
 
             val addDiseases = mutableListOf<String>()
@@ -192,6 +197,7 @@ object LeadActionParser {
                 addDiseases.isNotEmpty() ||
                 note.isNotEmpty() ||
                 setReminderDate.isNotEmpty() ||
+                setReminderRepeat.isNotEmpty() ||
                 removeReminder
             if (!hasChange) return null
 
@@ -208,6 +214,7 @@ object LeadActionParser {
                 addDiseases = addDiseases.distinctBy { it.lowercase() },
                 setReminderDate = setReminderDate,
                 setReminderTime = setReminderTime,
+                setReminderRepeat = setReminderRepeat,
                 removeReminder = removeReminder
             )
         } catch (_: Exception) {

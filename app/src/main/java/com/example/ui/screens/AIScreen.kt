@@ -1299,6 +1299,22 @@ private fun PendingLeadActionCard(
                             style = MaterialTheme.typography.bodyMedium
                         )
                 }
+                if (!action.removeReminder && action.setReminderRepeat.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_repeat,
+                            stringResource(
+                                when (action.setReminderRepeat) {
+                                    "daily" -> R.string.repeat_daily
+                                    "weekly" -> R.string.repeat_weekly
+                                    "monthly" -> R.string.repeat_monthly
+                                    else -> R.string.repeat_none
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             } else if (isDelete) {
                 // DELETE card: light confirmation only, not a scary dialog.
                 Text(

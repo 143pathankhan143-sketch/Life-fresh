@@ -22,6 +22,7 @@ data class LeadDraft(
     val reminderDate: String = "",
     val reminderTime: String = "",
     val reminderNote: String = "",
+    val reminderRepeat: String = "none", // "none", "daily", "weekly", "monthly"
     val notes: String = ""
 )
 
@@ -159,6 +160,12 @@ object LeadValidator {
             else -> draft.status.trim()
         }
 
+        val hasReminder = draft.reminderDate.trim().isNotEmpty() && draft.reminderTime.trim().isNotEmpty()
+        val normalizedRepeat = when {
+            !hasReminder -> "none"
+            else -> normalizeRepeatValue(draft.reminderRepeat)
+        }
+
         return draft.copy(
             id = draft.id?.trim()?.takeIf { it.isNotEmpty() },
             name = collapseWhitespace(draft.name),
@@ -174,9 +181,17 @@ object LeadValidator {
             reminderDate = draft.reminderDate.trim(),
             reminderTime = draft.reminderTime.trim(),
             reminderNote = draft.reminderNote.trim(),
+            reminderRepeat = normalizedRepeat,
             notes = draft.notes.trim()
         )
     }
+
+    /** Accepts only the four known repeat values; anything else becomes "none". */
+    fun normalizeRepeatValue(value: String): String =
+        when (value.trim().lowercase(Locale.ROOT)) {
+            "daily", "weekly", "monthly" -> value.trim().lowercase(Locale.ROOT)
+            else -> "none"
+        }
 
     /**
      * Removes only common phone formatting characters and keeps the complete digit string.

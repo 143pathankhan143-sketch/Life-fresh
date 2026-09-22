@@ -467,7 +467,7 @@ fun LeadsTab(
                                 Diseases: $parsedDiseases
                                 Status: ${lead.status}
                                 Reminder Status: ${lead.reminderStatus}
-                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}
+                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}${if (lead.reminderRepeat != "none") " (repeats ${lead.reminderRepeat})" else ""}
                                 Notes: ${lead.notes.ifEmpty { "N/A" }}
                                 Last Call: ${lead.lastCall ?: "Never"}
                             """.trimIndent()
@@ -501,7 +501,7 @@ fun LeadsTab(
                                 Diseases: $parsedDiseases
                                 Status: ${lead.status}
                                 Reminder Status: ${lead.reminderStatus}
-                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}
+                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}${if (lead.reminderRepeat != "none") " (repeats ${lead.reminderRepeat})" else ""}
                                 Notes: ${lead.notes.ifEmpty { "N/A" }}
                                 Last Call: ${lead.lastCall ?: "Never"}
                             """.trimIndent()
@@ -1047,6 +1047,33 @@ fun LeadCardItem(
                                     text = "$formattedDate$formattedTime",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        // Repeat badge
+                        if (lead.reminderRepeat != "none") {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.EventRepeat,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = stringResource(
+                                        when (lead.reminderRepeat) {
+                                            "daily" -> R.string.repeat_daily
+                                            "weekly" -> R.string.repeat_weekly
+                                            "monthly" -> R.string.repeat_monthly
+                                            else -> R.string.repeat_none
+                                        }
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }

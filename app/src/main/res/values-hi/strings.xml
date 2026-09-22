@@ -869,4 +869,12 @@
     <string name="settings_nothing_to_backup_desc">आपके पास अभी कोई client data नहीं है। Local backup बनाने से पहले कम से कम एक client जोड़ें।</string>
     <string name="settings_nothing_to_share">Share करने के लिए कुछ नहीं</string>
     <string name="settings_nothing_to_share_desc">वर्तमान में share करने के लिए कोई local backup data उपलब्ध नहीं है। पहले कम से कम एक client जोड़ें।</string>
+
+    <!-- Repeating reminders -->
+    <string name="form_repeat">दोहराएँ</string>
+    <string name="repeat_none">कोई नहीं</string>
+    <string name="repeat_daily">रोज़</string>
+    <string name="repeat_weekly">हर हफ़्ते</string>
+    <string name="repeat_monthly">हर महीने</string>
+    <string name="ai_new_repeat">दोहराव: %1$s</string>
 </resources>

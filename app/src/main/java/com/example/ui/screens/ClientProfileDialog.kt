@@ -415,7 +415,7 @@ fun ClientProfileDialog(
                                         Diseases: $parsedDiseasesString
                                         Status: ${lead.status}
                                         Reminder Status: ${lead.reminderStatus}
-                                        Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}
+                                        Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}${if (lead.reminderRepeat != "none") " (repeats ${lead.reminderRepeat})" else ""}
                                         Notes: ${lead.notes.ifEmpty { "N/A" }}
                                         Last Call: ${lead.lastCall ?: "Never"}
                                     """.trimIndent()
@@ -694,6 +694,22 @@ fun ClientProfileDialog(
                                             value = if (lead.reminderTime.isEmpty()) "Not specified" else formatTime12Hour(lead.reminderTime),
                                             icon = Icons.Outlined.AccessTime,
                                             modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    if (lead.reminderRepeat != "none") {
+                                        ProfileDetailRow(
+                                            label = stringResource(R.string.form_repeat),
+                                            value = stringResource(
+                                                when (lead.reminderRepeat) {
+                                                    "daily" -> R.string.repeat_daily
+                                                    "weekly" -> R.string.repeat_weekly
+                                                    "monthly" -> R.string.repeat_monthly
+                                                    else -> R.string.repeat_none
+                                                }
+                                            ),
+                                            icon = Icons.Default.EventRepeat,
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
 
@@ -1529,6 +1545,7 @@ fun ClientAddReminderDialog(
                                 reminderDate = reminderDate,
                                 reminderTime = reminderTime,
                                 reminderNote = reminderNote,
+                                reminderRepeat = lead.reminderRepeat,
                                 notes = lead.notes
                             )
                             when (result) {
@@ -1659,6 +1676,7 @@ fun ClientAddNoteDialog(
                                 reminderDate = lead.reminderDate,
                                 reminderTime = lead.reminderTime,
                                 reminderNote = lead.reminderNote,
+                                reminderRepeat = lead.reminderRepeat,
                                 notes = notesText
                             )
                             when (result) {

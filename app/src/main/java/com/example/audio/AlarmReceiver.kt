@@ -104,8 +104,26 @@ class AlarmReceiver : BroadcastReceiver() {
                             db.leadSyncMetadataDao,
                             db.syncDao
                         )
-                        val updated = lead.copy(reminderStatus = "Dismissed")
+                        // Repeating reminders move to the next cycle and stay Pending;
+                        // one-shot reminders simply become Dismissed.
+                        val next = ReminderScheduler.nextRepeatOccurrence(
+                            lead.reminderDate, lead.reminderTime, lead.reminderRepeat
+                        )
+                        val updated = if (next != null) {
+                            lead.copy(
+                                reminderDate = next.first,
+                                reminderTime = next.second,
+                                reminderStatus = "Pending",
+                                reminderUpdatedAt = System.currentTimeMillis()
+                            )
+                        } else {
+                            lead.copy(reminderStatus = "Dismissed")
+                        }
                         coordinator.upsertLead(updated, com.example.sync.LeadWriteOrigin.SYSTEM_REMINDER)
+                        if (next != null) {
+                            ReminderScheduler.scheduleReminder(context.applicationContext, updated)
+                            logDebug(TAG, "Repeating reminder advanced to ${updated.reminderDate} ${updated.reminderTime}")
+                        }
                         ReminderScheduler.activeRingingLead.value = null
                     }
                     AlarmActions.ACTION_NOTIFICATION_SNOOZE, AlarmActions.LEGACY_ACTION_NOTIFICATION_SNOOZE -> {

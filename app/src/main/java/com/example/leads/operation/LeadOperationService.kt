@@ -132,7 +132,8 @@ class LeadOperationService(
         val reminderChanged = existingLead == null ||
             existingLead.reminderDate != normalizedDraft.reminderDate ||
             existingLead.reminderTime != normalizedDraft.reminderTime ||
-            existingLead.reminderNote != normalizedDraft.reminderNote
+            existingLead.reminderNote != normalizedDraft.reminderNote ||
+            existingLead.reminderRepeat != normalizedDraft.reminderRepeat
 
         val reminderUpdatedAt = when {
             normalizedDraft.reminderDate.isBlank() -> 0L
@@ -158,6 +159,7 @@ class LeadOperationService(
             reminderTime = normalizedDraft.reminderTime,
             reminderNote = normalizedDraft.reminderNote,
             reminderStatus = reminderStatus,
+            reminderRepeat = normalizedDraft.reminderRepeat,
             notes = normalizedDraft.notes,
             archived = existingLead?.archived ?: false,
             lastCall = existingLead?.lastCall,

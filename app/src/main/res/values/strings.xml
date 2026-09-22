@@ -869,4 +869,12 @@
     <string name="settings_nothing_to_backup_desc">You don\'t have any client data yet. Add at least one client before creating a local backup.</string>
     <string name="settings_nothing_to_share">Nothing to Share</string>
     <string name="settings_nothing_to_share_desc">There is currently no local backup data available to share. Add at least one client first.</string>
+
+    <!-- Repeating reminders -->
+    <string name="form_repeat">Repeat</string>
+    <string name="repeat_none">None</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="ai_new_repeat">Repeat: %1$s</string>
 </resources>

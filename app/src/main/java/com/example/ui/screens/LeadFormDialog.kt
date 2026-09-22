@@ -365,6 +365,7 @@ fun LeadFormDialog(
     var reminderDate by rememberSaveable { mutableStateOf(lead?.reminderDate ?: "") }
     var reminderTime by rememberSaveable { mutableStateOf(lead?.reminderTime ?: "") }
     var reminderNote by rememberSaveable { mutableStateOf(lead?.reminderNote ?: "") }
+    var reminderRepeat by rememberSaveable { mutableStateOf(lead?.reminderRepeat ?: "none") }
     
     // CRM Properties
     var status by rememberSaveable { mutableStateOf(lead?.status ?: "Pending") }
@@ -1100,10 +1101,11 @@ fun LeadFormDialog(
                                                 tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier
                                                     .size(16.dp)
-                                                    .clickable {
-                                                        reminderDate = ""
-                                                        reminderError = null
-                                                    }
+                                                .clickable {
+                                                    reminderDate = ""
+                                                    reminderRepeat = "none"
+                                                    reminderError = null
+                                                }
                                             )
                                         }
                                     }
@@ -1174,11 +1176,76 @@ fun LeadFormDialog(
                                                     .size(16.dp)
                                                     .clickable {
                                                         reminderTime = ""
+                                                        reminderRepeat = "none"
                                                         reminderError = null
                                                     }
                                             )
                                         }
                                     }
+                                }
+                            }
+
+                            // Repeat options (only usable when a full date+time is set)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.form_repeat),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                val repeatEnabled = reminderDate.isNotEmpty() && reminderTime.isNotEmpty()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    StatusChip(
+                                        label = stringResource(R.string.repeat_none),
+                                        selected = reminderRepeat == "none",
+                                        selectedColor = Color(0xFF757575),
+                                        icon = Icons.Default.Cancel,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { if (repeatEnabled) reminderRepeat = "none" },
+                                        testTag = "repeat_none"
+                                    )
+                                    StatusChip(
+                                        label = stringResource(R.string.repeat_daily),
+                                        selected = reminderRepeat == "daily",
+                                        selectedColor = Color(0xFF1E88E5),
+                                        icon = Icons.Default.DateRange,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { if (repeatEnabled) reminderRepeat = "daily" },
+                                        testTag = "repeat_daily"
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    StatusChip(
+                                        label = stringResource(R.string.repeat_weekly),
+                                        selected = reminderRepeat == "weekly",
+                                        selectedColor = Color(0xFF43A047),
+                                        icon = Icons.Default.EventRepeat,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { if (repeatEnabled) reminderRepeat = "weekly" },
+                                        testTag = "repeat_weekly"
+                                    )
+                                    StatusChip(
+                                        label = stringResource(R.string.repeat_monthly),
+                                        selected = reminderRepeat == "monthly",
+                                        selectedColor = Color(0xFF8E24AA),
+                                        icon = Icons.Default.CalendarMonth,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { if (repeatEnabled) reminderRepeat = "monthly" },
+                                        testTag = "repeat_monthly"
+                                    )
                                 }
                             }
 
@@ -1311,6 +1378,7 @@ fun LeadFormDialog(
                                         reminderDate = reminderDate,
                                         reminderTime = reminderTime,
                                         reminderNote = reminderNote,
+                                        reminderRepeat = reminderRepeat,
                                         notes = notes
                                     )
                                 )
@@ -1374,6 +1442,7 @@ fun LeadFormDialog(
                                             reminderDate = normalizedDraft.reminderDate,
                                             reminderTime = normalizedDraft.reminderTime,
                                             reminderNote = normalizedDraft.reminderNote,
+                                            reminderRepeat = normalizedDraft.reminderRepeat,
                                             notes = normalizedDraft.notes
                                         )
 

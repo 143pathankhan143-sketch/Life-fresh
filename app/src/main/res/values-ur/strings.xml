@@ -869,4 +869,12 @@
     <string name="settings_nothing_to_backup_desc">آپ کے پاس ابھی کوئی client data نہیں ہے۔ Local backup بنانے سے پہلے کم از کم ایک client شامل کریں۔</string>
     <string name="settings_nothing_to_share">Share کرنے کے لیے کچھ نہیں</string>
     <string name="settings_nothing_to_share_desc">فی الحال شیئر کرنے کے لیے کوئی local backup data دستیاب نہیں ہے۔ پہلے کم از کم ایک client شامل کریں۔</string>
+
+    <!-- Repeating reminders -->
+    <string name="form_repeat">دہرائیں</string>
+    <string name="repeat_none">کوئی نہیں</string>
+    <string name="repeat_daily">روز</string>
+    <string name="repeat_weekly">ہر ہفتے</string>
+    <string name="repeat_monthly">ہر مہینے</string>
+    <string name="ai_new_repeat">دہرائی: %1$s</string>
 </resources>

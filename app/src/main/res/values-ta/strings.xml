@@ -869,4 +869,12 @@
     <string name="settings_nothing_to_backup_desc">உங்களிடம் இன்னும் client தரவு இல்லை. உள்ளூர் backup உருவாக்கும் முன் குறைந்தது ஒரு client ஐ சேர்க்கவும்.</string>
     <string name="settings_nothing_to_share">Share செய்ய தகுதியுள்ள எதுவும் இல்லை</string>
     <string name="settings_nothing_to_share_desc">தற்போது பகிர தகுதியுள்ள உள்ளூர் backup தரவு இல்லை. முதலில் குறைந்தது ஒரு client ஐ சேர்க்கவும்.</string>
+
+    <!-- Repeating reminders -->
+    <string name="form_repeat">மீண்டும்</string>
+    <string name="repeat_none">ஒன்றுமில்லை</string>
+    <string name="repeat_daily">தினமும்</string>
+    <string name="repeat_weekly">வாரம்</string>
+    <string name="repeat_monthly">மாதம்</string>
+    <string name="ai_new_repeat">மீண்டும்: %1$s</string>
 </resources>
