@@ -225,6 +225,8 @@
     <string name="ai_new_number">Naya number: %1$s</string>
     <string name="ai_new_name">Naya naam: %1$s</string>
     <string name="ai_new_wellness">Naya wellness: %1$s</string>
+
+    <string name="ai_new_relation">Naya relation: %1$s</string>
     <string name="ai_note_add">Note add: %1$s</string>
     <string name="ai_reminder_remove">Reminder: hata dena</string>
     <string name="ai_new_reminder">Naya reminder: %1$s</string>

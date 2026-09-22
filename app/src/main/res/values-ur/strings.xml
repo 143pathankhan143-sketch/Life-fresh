@@ -225,6 +225,8 @@
     <string name="ai_new_number">نیا نمبر: %1$s</string>
     <string name="ai_new_name">نیا نام: %1$s</string>
     <string name="ai_new_wellness">نیا ویلنس: %1$s</string>
+
+    <string name="ai_new_relation">نیا relation: %1$s</string>
     <string name="ai_note_add">نوٹ شامل: %1$s</string>
     <string name="ai_reminder_remove">ریمائنڈر: ہٹا دینا</string>
     <string name="ai_new_reminder">نیا ریمائنڈر: %1$s</string>

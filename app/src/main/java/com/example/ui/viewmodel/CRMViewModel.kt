@@ -1190,7 +1190,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
         val recent = full.sortedByDescending { it.timestamp }.take(15)
         if (recent.isNotEmpty()) {
-            sb.append("Recent clients (name | phone | status | reminderDate-time | wellness | lastCall):\n")
+            sb.append("Recent clients (name | phone | status | reminderDate-time | wellness | relation | lastCall):\n")
             recent.forEach { lead ->
                 sb.append(lead.name)
                     .append(if (lead.archived) " [ARCHIVED]" else "")
@@ -1205,6 +1205,12 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                     )
                 val wellness = diseasesCompact(lead.diseases)
                 if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                if (lead.relation.isNotEmpty()) {
+                    sb.append(" | relation=").append(lead.relation)
+                    if (lead.otherRelation.isNotEmpty()) {
+                        sb.append("(").append(lead.otherRelation).append(")")
+                    }
+                }
                 sb.append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
                 sb.append('\n')
             }
@@ -1512,6 +1518,17 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         val newName = action.setName.trim()
         if (newName.isNotEmpty()) {
             updated = updated.copy(name = newName)
+        }
+
+        // 2b. Relation change: replaces the stored relation and its detail.
+        // An empty setOtherRelation clears the old detail, for example when
+        // "grand mother" is replaced by "Self".
+        val newRelation = action.setRelation.trim()
+        if (newRelation.isNotEmpty()) {
+            updated = updated.copy(
+                relation = newRelation,
+                otherRelation = action.setOtherRelation.trim()
+            )
         }
 
         // 3) Append new diseases (skipping ones already present).

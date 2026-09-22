@@ -24,6 +24,8 @@ data class LeadAction(
     // UPDATE-only change fields (empty = no change)
     val setMobile: String = "",
     val setName: String = "",
+    val setRelation: String = "",
+    val setOtherRelation: String = "",
     val addDiseases: List<String> = emptyList(),
     val setReminderDate: String = "",
     val setReminderTime: String = "",
@@ -87,6 +89,7 @@ object LeadActionParser {
     private const val MAX_MOBILE_LENGTH = 20
     private const val MAX_DISEASES = 5
     private const val MAX_DISEASE_LENGTH = 40
+    private const val MAX_RELATION_LENGTH = 40
     private const val MAX_NOTE_LENGTH = 120
 
     private val markerRegex = Regex(
@@ -165,6 +168,8 @@ object LeadActionParser {
             val mobile = json.optString("mobile", "").trim().take(MAX_MOBILE_LENGTH)
             val setMobile = json.optString("setMobile", "").trim().take(MAX_MOBILE_LENGTH)
             val setName = json.optString("setName", "").trim().take(MAX_NAME_LENGTH)
+            val setRelation = json.optString("setRelation", "").trim().take(MAX_RELATION_LENGTH)
+            val setOtherRelation = json.optString("setOtherRelation", "").trim().take(MAX_RELATION_LENGTH)
             val note = json.optString("note", "").trim().take(MAX_NOTE_LENGTH)
             val setReminderDate = json.optString("setReminderDate", "").trim().take(10)
             val setReminderTime = json.optString("setReminderTime", "").trim().take(5)
@@ -183,6 +188,7 @@ object LeadActionParser {
             if (name.isEmpty() && mobile.isEmpty()) return null
             val hasChange = setMobile.isNotEmpty() ||
                 setName.isNotEmpty() ||
+                setRelation.isNotEmpty() ||
                 addDiseases.isNotEmpty() ||
                 note.isNotEmpty() ||
                 setReminderDate.isNotEmpty() ||
@@ -197,6 +203,8 @@ object LeadActionParser {
                 note = note,
                 setMobile = setMobile,
                 setName = setName,
+                setRelation = setRelation,
+                setOtherRelation = setOtherRelation,
                 addDiseases = addDiseases.distinctBy { it.lowercase() },
                 setReminderDate = setReminderDate,
                 setReminderTime = setReminderTime,

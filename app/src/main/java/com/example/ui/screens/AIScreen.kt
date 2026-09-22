@@ -1265,6 +1265,16 @@ private fun PendingLeadActionCard(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
+                if (action.setRelation.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_relation,
+                            action.setRelation +
+                                if (action.setOtherRelation.isNotBlank()) " (${action.setOtherRelation})" else ""
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 if (action.addDiseases.isNotEmpty()) {
                     Text(
                         text = stringResource(R.string.ai_new_wellness, action.addDiseases.joinToString(", ")),

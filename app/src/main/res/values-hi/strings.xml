@@ -225,6 +225,8 @@
     <string name="ai_new_number">नया नंबर: %1$s</string>
     <string name="ai_new_name">नया नाम: %1$s</string>
     <string name="ai_new_wellness">नया वेलनेस: %1$s</string>
+
+    <string name="ai_new_relation">नया relation: %1$s</string>
     <string name="ai_note_add">नोट जोड़ा: %1$s</string>
     <string name="ai_reminder_remove">रिमाइंडर: हटा देना</string>
     <string name="ai_new_reminder">नया रिमाइंडर: %1$s</string>
