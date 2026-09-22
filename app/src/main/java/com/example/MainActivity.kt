@@ -131,8 +131,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Language change: recreate the activity so Compose re-resolves
+            // EVERY string (and RTL) in the new locale from the first frame.
+            // The old approach (applyLocale -> resources.updateConfiguration)
+            // was invisible to Compose: screens kept the old language until an
+            // unrelated touch/typing forced a recomposition, and the bottom
+            // nav lagged one switch behind. recreate() is the same pattern
+            // already used for Play language-pack installs below.
+            var appliedLanguageMeta by remember { mutableStateOf(activeLanguageMeta) }
             LaunchedEffect(activeLanguageMeta) {
-                AppLanguageManager.applyLocale(this@MainActivity, activeLanguageMeta)
+                if (appliedLanguageMeta != activeLanguageMeta) {
+                    appliedLanguageMeta = activeLanguageMeta
+                    this@MainActivity.recreate()
+                }
             }
 
             val playInstallState by viewModel.playLanguageInstallState.collectAsStateWithLifecycle()
