@@ -286,16 +286,16 @@ fun SettingsTab(
                     .getResult(ApiException::class.java)
                 val token = account?.idToken
                 if (token.isNullOrBlank()) {
-                    deleteAccountLocalError = stringResource(R.string.settings_google_verify_token)
+                    deleteAccountLocalError = context.getString(R.string.settings_google_verify_token)
                 } else {
                     deleteAccountLocalError = null
                     authViewModel.deleteAccountWithGoogleCredential(token)
                 }
             } catch (e: Exception) {
-                deleteAccountLocalError = e.localizedMessage ?: stringResource(R.string.settings_google_verify_failed)
+                deleteAccountLocalError = e.localizedMessage ?: context.getString(R.string.settings_google_verify_failed)
             }
         } else {
-            deleteAccountLocalError = stringResource(R.string.settings_google_verify_cancelled)
+            deleteAccountLocalError = context.getString(R.string.settings_google_verify_cancelled)
         }
     }
 
@@ -332,7 +332,7 @@ fun SettingsTab(
             viewModel.clearInMemoryStateOnSignOut()
             viewModel.resetCloudRestoreCheck()
             accountDeletionGoogleClient.signOut()
-            Toast.makeText(context, stringResource(R.string.settings_account_deleted), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.settings_account_deleted), Toast.LENGTH_LONG).show()
             authViewModel.clearAccountDeletionState()
         }
     }
@@ -1330,8 +1330,8 @@ fun SettingsTab(
                             testTag = "btn_export_backup",
                             onClick = {
                                 if (allLeadsList.isEmpty()) {
-                                    infoDialogTitle = stringResource(R.string.settings_nothing_to_backup)
-                                    infoDialogMessage = stringResource(R.string.settings_nothing_to_backup_desc)
+                                    infoDialogTitle = context.getString(R.string.settings_nothing_to_backup)
+                                    infoDialogMessage = context.getString(R.string.settings_nothing_to_backup_desc)
                                 } else {
                                     showLocalExportConfirm = true
                                 }
@@ -1356,8 +1356,8 @@ fun SettingsTab(
                             onClick = {
                                 val data = viewModel.exportBackupJson()
                                 if (data == "[]") {
-                                    infoDialogTitle = stringResource(R.string.settings_nothing_to_share)
-                                    infoDialogMessage = stringResource(R.string.settings_nothing_to_share_desc)
+                                    infoDialogTitle = context.getString(R.string.settings_nothing_to_share)
+                                    infoDialogMessage = context.getString(R.string.settings_nothing_to_share_desc)
                                     return@PremiumActionCard
                                 }
                                 try {
@@ -1763,7 +1763,7 @@ fun SettingsTab(
                     onClick = {
                         when {
                             usesPasswordProvider && deleteAccountPassword.isBlank() -> {
-                                deleteAccountLocalError = stringResource(R.string.settings_pw_current_empty)
+                                deleteAccountLocalError = context.getString(R.string.settings_pw_current_empty)
                             }
                             usesPasswordProvider -> {
                                 deleteAccountLocalError = null
@@ -1777,7 +1777,7 @@ fun SettingsTab(
                                 }
                             }
                             else -> {
-                                deleteAccountLocalError = stringResource(R.string.settings_provider_not_supported)
+                                deleteAccountLocalError = context.getString(R.string.settings_provider_not_supported)
                             }
                         }
                     },
@@ -2449,8 +2449,8 @@ fun SettingsTab(
                             val data = viewModel.exportBackupJson()
                             if (data == "[]") {
                                 localExportProgressStatus = null
-                                infoDialogTitle = stringResource(R.string.settings_nothing_to_backup)
-                                infoDialogMessage = stringResource(R.string.settings_nothing_to_backup_desc)
+                                infoDialogTitle = context.getString(R.string.settings_nothing_to_backup)
+                                infoDialogMessage = context.getString(R.string.settings_nothing_to_backup_desc)
                                 return@launch
                             }
                             
@@ -2761,15 +2761,15 @@ fun SettingsTab(
                 Button(
                     onClick = {
                         if (editDisplayName.isBlank()) {
-                            Toast.makeText(context, stringResource(R.string.settings_profile_name_empty), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_profile_name_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (usesPasswordProvider && editEmailAddress.isBlank()) {
-                            Toast.makeText(context, stringResource(R.string.settings_profile_email_empty), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_profile_email_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (usesPasswordProvider && editEmailAddress.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(editEmailAddress.trim()).matches()) {
-                            Toast.makeText(context, stringResource(R.string.settings_profile_email_invalid), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_profile_email_invalid), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -2787,7 +2787,7 @@ fun SettingsTab(
                                 authViewModel.updateEmail(editEmailAddress.trim()) { success, msg ->
                                     isSavingProfile = false
                                     if (success) {
-                                        Toast.makeText(context, stringResource(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
                                         showEditProfileDialog = false
                                     } else {
                                         Toast.makeText(context, msg ?: stringResource(R.string.settings_profile_email_failed), Toast.LENGTH_SHORT).show()
@@ -2795,7 +2795,7 @@ fun SettingsTab(
                                 }
                             } else {
                                 isSavingProfile = false
-                                Toast.makeText(context, stringResource(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
                                 showEditProfileDialog = false
                             }
                         }
@@ -2927,15 +2927,15 @@ fun SettingsTab(
                 Button(
                     onClick = {
                         if (currentProfilePassword.isBlank()) {
-                            Toast.makeText(context, stringResource(R.string.settings_pw_current_empty), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_pw_current_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (newProfilePassword.length < 6) {
-                            Toast.makeText(context, stringResource(R.string.settings_pw_min), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_pw_min), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (newProfilePassword != confirmProfilePassword) {
-                            Toast.makeText(context, stringResource(R.string.settings_pw_mismatch) Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_pw_mismatch) Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         isChangingPassword = true
@@ -2949,7 +2949,7 @@ fun SettingsTab(
                                 newProfilePassword = ""
                                 confirmProfilePassword = ""
                                 showChangePasswordDialog = false
-                                Toast.makeText(context, stringResource(R.string.settings_pw_updated), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.settings_pw_updated), Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, msg ?: stringResource(R.string.settings_pw_failed), Toast.LENGTH_SHORT).show()
                             }

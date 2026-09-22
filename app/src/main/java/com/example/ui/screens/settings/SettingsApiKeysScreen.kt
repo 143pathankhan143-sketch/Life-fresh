@@ -80,9 +80,9 @@ fun SettingsApiKeysScreen(
     val context = LocalContext.current
     val mapKeyStatus: (String) -> String = { raw ->
         when {
-            raw == "Connected successfully (key valid)" -> stringResource(R.string.settings_key_connected_valid)
-            raw == "Connected successfully (web search ready)" -> stringResource(R.string.settings_key_connected_web)
-            raw.startsWith("Connected successfully (") -> stringResource(R.string.settings_key_connected_prefix) + raw.removePrefix("Connected successfully")
+            raw == "Connected successfully (key valid)" -> context.getString(R.string.settings_key_connected_valid)
+            raw == "Connected successfully (web search ready)" -> context.getString(R.string.settings_key_connected_web)
+            raw.startsWith("Connected successfully (") -> context.getString(R.string.settings_key_connected_prefix) + raw.removePrefix("Connected successfully")
             else -> raw
         }
     }
@@ -243,25 +243,25 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGeminiKey(context, geminiKey.trim())
                 refreshQuota()
-                geminiStatus = if (geminiKey.isBlank()) stringResource(R.string.settings_key_cleared, "Gemini") else stringResource(R.string.settings_key_saved, "Gemini")
+                geminiStatus = if (geminiKey.isBlank()) context.getString(R.string.settings_key_cleared, "Gemini") else stringResource(R.string.settings_key_saved, "Gemini")
                 geminiStatusOk = true
             },
             onTest = {
                 val trimmed = geminiKey.trim()
                 if (trimmed.isBlank()) {
-                    geminiStatus = stringResource(R.string.settings_key_enter_to_test)
+                    geminiStatus = context.getString(R.string.settings_key_enter_to_test)
                     geminiStatusOk = false
                 } else {
                     isTestingGemini = true
-                    geminiStatus = stringResource(R.string.settings_key_testing)
+                    geminiStatus = context.getString(R.string.settings_key_testing)
                     geminiStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testGeminiKey(trimmed)
                         isTestingGemini = false
                         result.fold(
-                            onSuccess = { geminiStatus = stringResource(R.string.settings_key_valid); geminiStatusOk = true },
+                            onSuccess = { geminiStatus = context.getString(R.string.settings_key_valid); geminiStatusOk = true },
                             onFailure = { e ->
-                                geminiStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                geminiStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 geminiStatusOk = false
                             }
                         )
@@ -272,7 +272,7 @@ fun SettingsApiKeysScreen(
                 geminiKey = ""
                 AIQuotaManager.saveCustomGeminiKey(context, null)
                 refreshQuota()
-                geminiStatus = stringResource(R.string.settings_key_cleared, "Gemini")
+                geminiStatus = context.getString(R.string.settings_key_cleared, "Gemini")
                 geminiStatusOk = true
             },
             isTesting = isTestingGemini,
@@ -294,25 +294,25 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGroqKey(context, groqKey.trim())
                 refreshQuota()
-                groqStatus = if (groqKey.isBlank()) stringResource(R.string.settings_key_cleared, "Groq") else stringResource(R.string.settings_key_saved, "Groq")
+                groqStatus = if (groqKey.isBlank()) context.getString(R.string.settings_key_cleared, "Groq") else stringResource(R.string.settings_key_saved, "Groq")
                 groqStatusOk = true
             },
             onTest = {
                 val trimmed = groqKey.trim()
                 if (trimmed.isBlank()) {
-                    groqStatus = stringResource(R.string.settings_key_enter_to_test)
+                    groqStatus = context.getString(R.string.settings_key_enter_to_test)
                     groqStatusOk = false
                 } else {
                     isTestingGroq = true
-                    groqStatus = stringResource(R.string.settings_key_testing)
+                    groqStatus = context.getString(R.string.settings_key_testing)
                     groqStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testGroqKey(trimmed)
                         isTestingGroq = false
                         result.fold(
-                            onSuccess = { groqStatus = stringResource(R.string.settings_key_valid); groqStatusOk = true },
+                            onSuccess = { groqStatus = context.getString(R.string.settings_key_valid); groqStatusOk = true },
                             onFailure = { e ->
-                                groqStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                groqStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 groqStatusOk = false
                             }
                         )
@@ -323,7 +323,7 @@ fun SettingsApiKeysScreen(
                 groqKey = ""
                 AIQuotaManager.saveCustomGroqKey(context, null)
                 refreshQuota()
-                groqStatus = stringResource(R.string.settings_key_cleared, "Groq")
+                groqStatus = context.getString(R.string.settings_key_cleared, "Groq")
                 groqStatusOk = true
             },
             isTesting = isTestingGroq,
@@ -345,17 +345,17 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomOpenRouterKey(context, openRouterKey.trim())
                 refreshQuota()
-                openRouterStatus = if (openRouterKey.isBlank()) stringResource(R.string.settings_key_cleared, "OpenRouter") else stringResource(R.string.settings_key_saved, "OpenRouter")
+                openRouterStatus = if (openRouterKey.isBlank()) context.getString(R.string.settings_key_cleared, "OpenRouter") else stringResource(R.string.settings_key_saved, "OpenRouter")
                 openRouterStatusOk = true
             },
             onTest = {
                 val trimmed = openRouterKey.trim()
                 if (trimmed.isBlank()) {
-                    openRouterStatus = stringResource(R.string.settings_key_enter_to_test)
+                    openRouterStatus = context.getString(R.string.settings_key_enter_to_test)
                     openRouterStatusOk = false
                 } else {
                     isTestingOpenRouter = true
-                    openRouterStatus = stringResource(R.string.settings_key_testing)
+                    openRouterStatus = context.getString(R.string.settings_key_testing)
                     openRouterStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testOpenRouterKey(trimmed)
@@ -363,7 +363,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { openRouterStatus = mapKeyStatus(it); openRouterStatusOk = true },
                             onFailure = { e ->
-                                openRouterStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                openRouterStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 openRouterStatusOk = false
                             }
                         )
@@ -374,7 +374,7 @@ fun SettingsApiKeysScreen(
                 openRouterKey = ""
                 AIQuotaManager.saveCustomOpenRouterKey(context, null)
                 refreshQuota()
-                openRouterStatus = stringResource(R.string.settings_key_cleared, "OpenRouter")
+                openRouterStatus = context.getString(R.string.settings_key_cleared, "OpenRouter")
                 openRouterStatusOk = true
             },
             isTesting = isTestingOpenRouter,
@@ -395,17 +395,17 @@ fun SettingsApiKeysScreen(
             onToggleVisible = { tavilyVisible = !tavilyVisible },
             onSave = {
                 AIQuotaManager.saveCustomTavilyKey(context, tavilyKey.trim())
-                tavilyStatus = if (tavilyKey.isBlank()) stringResource(R.string.settings_key_cleared, "Tavily") else stringResource(R.string.settings_key_saved, "Tavily")
+                tavilyStatus = if (tavilyKey.isBlank()) context.getString(R.string.settings_key_cleared, "Tavily") else stringResource(R.string.settings_key_saved, "Tavily")
                 tavilyStatusOk = true
             },
             onTest = {
                 val trimmed = tavilyKey.trim()
                 if (trimmed.isBlank()) {
-                    tavilyStatus = stringResource(R.string.settings_key_enter_to_test)
+                    tavilyStatus = context.getString(R.string.settings_key_enter_to_test)
                     tavilyStatusOk = false
                 } else {
                     isTestingTavily = true
-                    tavilyStatus = stringResource(R.string.settings_key_testing)
+                    tavilyStatus = context.getString(R.string.settings_key_testing)
                     tavilyStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testTavilyKey(trimmed)
@@ -413,7 +413,7 @@ fun SettingsApiKeysScreen(
                         result.fold(
                             onSuccess = { tavilyStatus = mapKeyStatus(it); tavilyStatusOk = true },
                             onFailure = { e ->
-                                tavilyStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
+                                tavilyStatus = context.getString(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 tavilyStatusOk = false
                             }
                         )
@@ -423,7 +423,7 @@ fun SettingsApiKeysScreen(
             onClear = {
                 tavilyKey = ""
                 AIQuotaManager.saveCustomTavilyKey(context, null)
-                tavilyStatus = stringResource(R.string.settings_key_cleared, "Tavily")
+                tavilyStatus = context.getString(R.string.settings_key_cleared, "Tavily")
                 tavilyStatusOk = true
             },
             isTesting = isTestingTavily,

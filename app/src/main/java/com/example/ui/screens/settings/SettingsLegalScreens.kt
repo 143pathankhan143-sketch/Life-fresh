@@ -1147,7 +1147,7 @@ fun SettingsSupportScreen(
                             }
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, stringResource(R.string.legal_no_email_app), Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.legal_no_email_app), Toast.LENGTH_LONG).show()
                         }
                     },
                     modifier = Modifier

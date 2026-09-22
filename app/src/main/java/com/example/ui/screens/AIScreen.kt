@@ -909,9 +909,9 @@ private fun AssistantMessageBubble(
             clipboard?.setPrimaryClip(
                 ClipData.newPlainText("LifeFresh AI", message.content)
             )
-            Toast.makeText(context, stringResource(R.string.common_copied), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.common_copied), Toast.LENGTH_SHORT).show()
         } catch (_: Throwable) {
-            Toast.makeText(context, stringResource(R.string.common_copy_failed), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.common_copy_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -926,7 +926,7 @@ private fun AssistantMessageBubble(
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (_: Throwable) {
-            Toast.makeText(context, stringResource(R.string.common_share_failed), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.common_share_failed), Toast.LENGTH_SHORT).show()
         }
     }
 

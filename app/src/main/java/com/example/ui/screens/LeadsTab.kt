@@ -442,7 +442,7 @@ fun LeadsTab(
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, stringResource(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onWhatsApp = {
@@ -476,7 +476,7 @@ fun LeadsTab(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=91${lead.mobile}&text=${Uri.encode(summary)}"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, stringResource(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onCopyText = {
@@ -520,7 +520,7 @@ fun LeadsTab(
                             viewModel.toggleArchive(lead)
                             coroutineScope.launch {
                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                val message = if (isArchivedNow) stringResource(R.string.leads_restored_toast) else stringResource(R.string.leads_archived_toast)
+                                val message = if (isArchivedNow) context.getString(R.string.leads_restored_toast) else stringResource(R.string.leads_archived_toast)
                                 val result = snackbarHostState.showSnackbar(
                                     message = message,
                                     actionLabel = "Undo",
@@ -549,15 +549,15 @@ fun LeadsTab(
                                                 if (selectedDateTime != null && selectedDateTime.time > now) {
                                                     val success = viewModel.reactivateReminder(lead.id, selectedDate, selectedTime)
                                                     if (success) {
-                                                        Toast.makeText(context, stringResource(R.string.leads_reactivated_toast, selectedDate, selectedTime), Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, context.getString(R.string.leads_reactivated_toast, selectedDate, selectedTime), Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        Toast.makeText(context, stringResource(R.string.leads_reminder_exists), Toast.LENGTH_LONG).show()
+                                                        Toast.makeText(context, context.getString(R.string.leads_reminder_exists), Toast.LENGTH_LONG).show()
                                                     }
                                                 } else {
-                                                    Toast.makeText(context, stringResource(R.string.validation_future_error), Toast.LENGTH_LONG).show()
+                                                    Toast.makeText(context, context.getString(R.string.validation_future_error), Toast.LENGTH_LONG).show()
                                                 }
                                             } catch (e: Exception) {
-                                                Toast.makeText(context, stringResource(R.string.common_parse_error), Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.common_parse_error), Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         c.get(Calendar.HOUR_OF_DAY),
@@ -613,7 +613,7 @@ fun LeadsTab(
                             isDeleting = true
                             viewModel.deleteLead(lead)
                             showDeleteConfirmDialog = null
-                            Toast.makeText(context, stringResource(R.string.common_lead_deleted), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.common_lead_deleted), Toast.LENGTH_SHORT).show()
                         }
                     },
                     enabled = !isDeleting,

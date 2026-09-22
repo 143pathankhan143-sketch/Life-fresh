@@ -280,11 +280,12 @@ fun DashboardTab(
                     // Doughnut Chart via Canvas drawings
                     if (total > 0) {
                         val ratio = if (total > 0) (complete * 100 / total) else 0
+                        val progressLabel = stringResource(R.string.dash_progress_cd, ratio, complete, total)
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .semantics(mergeDescendants = true) {
-                                    contentDescription = stringResource(R.string.dash_progress_cd, ratio, complete, total)
+                                    contentDescription = progressLabel
                                 },
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp)

@@ -129,8 +129,8 @@ fun ClientProfileDialog(
 
         events.add(
             TimelineEventItem(
-                title = stringResource(R.string.profile_evt_created),
-                description = stringResource(R.string.profile_evt_created_sub),
+                title = context.getString(R.string.profile_evt_created),
+                description = context.getString(R.string.profile_evt_created_sub),
                 date = formatDateStr(lead.timestamp),
                 time = formatTimeStr(lead.timestamp),
                 relativeTime = getRelativeTimeString(lead.timestamp),
@@ -143,8 +143,8 @@ fun ClientProfileDialog(
         if (lead.notes.isNotEmpty() && lead.notesUpdatedAt > 0L) {
             events.add(
                 TimelineEventItem(
-                    title = stringResource(R.string.profile_evt_notes),
-                    description = stringResource(R.string.profile_evt_notes_sub),
+                    title = context.getString(R.string.profile_evt_notes),
+                    description = context.getString(R.string.profile_evt_notes_sub),
                     date = formatDateStr(lead.notesUpdatedAt),
                     time = formatTimeStr(lead.notesUpdatedAt),
                     relativeTime = getRelativeTimeString(lead.notesUpdatedAt),
@@ -158,8 +158,8 @@ fun ClientProfileDialog(
         if (lead.reminderDate.isNotEmpty() && lead.reminderUpdatedAt > 0L) {
             events.add(
                 TimelineEventItem(
-                    title = stringResource(R.string.profile_evt_reminder),
-                    description = stringResource(R.string.profile_evt_reminder_sub, formatDateStr(lead.reminderDate)),
+                    title = context.getString(R.string.profile_evt_reminder),
+                    description = context.getString(R.string.profile_evt_reminder_sub, formatDateStr(lead.reminderDate)),
                     date = formatDateStr(lead.reminderUpdatedAt),
                     time = formatTimeStr(lead.reminderUpdatedAt),
                     relativeTime = getRelativeTimeString(lead.reminderUpdatedAt),
@@ -183,8 +183,8 @@ fun ClientProfileDialog(
             if (callTime > 0L) {
                 events.add(
                     TimelineEventItem(
-                        title = stringResource(R.string.profile_evt_call),
-                        description = stringResource(R.string.profile_evt_call_sub),
+                        title = context.getString(R.string.profile_evt_call),
+                        description = context.getString(R.string.profile_evt_call_sub),
                         date = formatDateStr(callTime),
                         time = formatTimeStr(callTime),
                         relativeTime = getRelativeTimeString(callTime),
@@ -395,7 +395,7 @@ fun ClientProfileDialog(
                                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, stringResource(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -424,7 +424,7 @@ fun ClientProfileDialog(
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=91${lead.mobile}&text=${Uri.encode(summary)}"))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, stringResource(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -866,7 +866,7 @@ fun ClientProfileDialog(
                     onClick = {
                         showDeleteConfirm = false
                         viewModel.deleteLead(lead)
-                        Toast.makeText(context, stringResource(R.string.common_client_deleted), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.common_client_deleted), Toast.LENGTH_SHORT).show()
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -1536,15 +1536,15 @@ fun ClientAddReminderDialog(
                                     if (reminderDate.isNotBlank()) {
                                         viewModel.triggerExactAlarmPrompt()
                                     }
-                                    Toast.makeText(context, stringResource(R.string.profile_reminder_saved), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_reminder_saved), Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 }
                                 com.example.ui.viewmodel.CRMViewModel.SaveLeadResult.DUPLICATE_REMINDER -> {
                                     reminderError = "A reminder already exists at the selected date and time."
-                                    Toast.makeText(context, stringResource(R.string.profile_reminder_conflict), Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_reminder_conflict), Toast.LENGTH_LONG).show()
                                 }
                                 else -> {
-                                    Toast.makeText(context, stringResource(R.string.profile_reminder_failed), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_reminder_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } finally {
@@ -1663,11 +1663,11 @@ fun ClientAddNoteDialog(
                             )
                             when (result) {
                                 com.example.ui.viewmodel.CRMViewModel.SaveLeadResult.SUCCESS -> {
-                                    Toast.makeText(context, stringResource(R.string.profile_note_saved), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_note_saved), Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 }
                                 else -> {
-                                    Toast.makeText(context, stringResource(R.string.profile_note_failed), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_note_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } finally {

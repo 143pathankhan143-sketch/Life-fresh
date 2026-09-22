@@ -58,7 +58,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
 
     val onDownloadPDF = {
         if (activeLeads.isEmpty()) {
-            Toast.makeText(context, stringResource(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
         } else if (!isDownloading && !isSharing) {
             isDownloading = true
             coroutineScope.launch {
@@ -74,12 +74,12 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     
                     if (savedUri != null) {
                         val locationInfo = if (savedUri.scheme == "content") "Downloads" else savedUri.path ?: "Downloads"
-                        Toast.makeText(context, stringResource(R.string.reports_downloaded, locationInfo), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.reports_downloaded, locationInfo), Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(context, stringResource(R.string.reports_save_failed), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.reports_save_failed), Toast.LENGTH_LONG).show()
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(context, stringResource(R.string.reports_gen_error, e.localizedMessage), Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.reports_gen_error, e.localizedMessage), Toast.LENGTH_LONG).show()
                 } finally {
                     isDownloading = false
                 }
@@ -89,7 +89,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
 
     val onSharePDF = {
         if (activeLeads.isEmpty()) {
-            Toast.makeText(context, stringResource(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
         } else if (!isDownloading && !isSharing) {
             isSharing = true
             coroutineScope.launch {
@@ -109,9 +109,9 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     
                     val chooser = Intent.createChooser(shareIntent, "Share LifeFresh PDF Report")
                     context.startActivity(chooser)
-                    Toast.makeText(context, stringResource(R.string.reports_ready), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.reports_ready), Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
-                    Toast.makeText(context, stringResource(R.string.reports_share_error, e.localizedMessage), Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.reports_share_error, e.localizedMessage), Toast.LENGTH_LONG).show()
                 } finally {
                     isSharing = false
                 }

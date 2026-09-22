@@ -158,10 +158,10 @@ fun WelcomeScreen(
                 if (idToken != null) {
                     authViewModel.loginWithGoogleCredential(idToken)
                 } else {
-                    Toast.makeText(context, stringResource(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, stringResource(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -386,10 +386,10 @@ fun LoginScreen(
                 if (idToken != null) {
                     authViewModel.loginWithGoogleCredential(idToken)
                 } else {
-                    Toast.makeText(context, stringResource(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, stringResource(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -557,7 +557,7 @@ fun LoginScreen(
                 Button(
                     onClick = {
                         if (email.isBlank() || password.isBlank()) {
-                            localErrorMsg = stringResource(R.string.auth_fill_credential)
+                            localErrorMsg = context.getString(R.string.auth_fill_credential)
                         } else {
                             localErrorMsg = null
                             authViewModel.loginWithEmail(email.trim(), password)
@@ -681,13 +681,13 @@ fun RegisterScreen(
                     .getResult(ApiException::class.java)
                 val idToken = account?.idToken
                 if (idToken.isNullOrBlank()) {
-                    localErrorMsg = stringResource(R.string.auth_no_token)
+                    localErrorMsg = context.getString(R.string.auth_no_token)
                 } else {
                     localErrorMsg = null
                     authViewModel.loginWithGoogleCredential(idToken)
                 }
             } catch (e: Exception) {
-                localErrorMsg = e.localizedMessage ?: stringResource(R.string.auth_google_signup_failed)
+                localErrorMsg = e.localizedMessage ?: context.getString(R.string.auth_google_signup_failed)
             }
         }
     }
@@ -882,11 +882,11 @@ fun RegisterScreen(
                         val nameTrimmed = name.trim()
                         val emailTrimmed = email.trim()
                         if (nameTrimmed.isBlank() || emailTrimmed.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-                            localErrorMsg = stringResource(R.string.auth_fill_registration)
+                            localErrorMsg = context.getString(R.string.auth_fill_registration)
                         } else if (password.length < 6) {
-                            localErrorMsg = stringResource(R.string.auth_pw_min)
+                            localErrorMsg = context.getString(R.string.auth_pw_min)
                         } else if (password != confirmPassword) {
-                            localErrorMsg = stringResource(R.string.auth_pw_mismatch)
+                            localErrorMsg = context.getString(R.string.auth_pw_mismatch)
                         } else {
                             localErrorMsg = null
                             authViewModel.registerWithEmail(nameTrimmed, emailTrimmed, password)
@@ -1128,9 +1128,9 @@ fun ForgotPasswordScreen(
                     onClick = {
                         val emailTrimmed = email.trim()
                         if (emailTrimmed.isBlank()) {
-                            localErrorMsg = stringResource(R.string.auth_enter_email)
+                            localErrorMsg = context.getString(R.string.auth_enter_email)
                         } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(emailTrimmed).matches()) {
-                            localErrorMsg = stringResource(R.string.auth_email_invalid)
+                            localErrorMsg = context.getString(R.string.auth_email_invalid)
                         } else {
                             localErrorMsg = null
                             authViewModel.sendPasswordResetEmail(emailTrimmed)

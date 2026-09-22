@@ -1317,16 +1317,16 @@ fun LeadFormDialog(
 
                                 val vmsg: (String) -> String = { raw ->
                                     when (raw) {
-                                        "Name is required." -> stringResource(R.string.validation_name_required)
-                                        "Please enter a valid mobile number (10 to 15 digits)." -> stringResource(R.string.validation_mobile_invalid)
-                                        "At least one category is required." -> stringResource(R.string.validation_category_required)
-                                        "Please specify the category detail." -> stringResource(R.string.validation_category_detail)
-                                        "Relation is required." -> stringResource(R.string.validation_relation_required)
-                                        "Please specify the relation detail." -> stringResource(R.string.validation_relation_detail)
-                                        "Status must be Pending or Complete." -> stringResource(R.string.validation_status_invalid)
-                                        "Please select both date and time." -> stringResource(R.string.validation_datetime_required)
-                                        "Error parsing reminder date and time." -> stringResource(R.string.validation_date_parse)
-                                        "Error: Selected date/time must be in the future." -> stringResource(R.string.validation_future_error)
+                                        "Name is required." -> context.getString(R.string.validation_name_required)
+                                        "Please enter a valid mobile number (10 to 15 digits)." -> context.getString(R.string.validation_mobile_invalid)
+                                        "At least one category is required." -> context.getString(R.string.validation_category_required)
+                                        "Please specify the category detail." -> context.getString(R.string.validation_category_detail)
+                                        "Relation is required." -> context.getString(R.string.validation_relation_required)
+                                        "Please specify the relation detail." -> context.getString(R.string.validation_relation_detail)
+                                        "Status must be Pending or Complete." -> context.getString(R.string.validation_status_invalid)
+                                        "Please select both date and time." -> context.getString(R.string.validation_datetime_required)
+                                        "Error parsing reminder date and time." -> context.getString(R.string.validation_date_parse)
+                                        "Error: Selected date/time must be in the future." -> context.getString(R.string.validation_future_error)
                                         else -> raw
                                     }
                                 }
@@ -1349,7 +1349,7 @@ fun LeadFormDialog(
                                         }
                                     }
                                     val statusIssue = validationResult.firstIssueFor(LeadField.STATUS)
-                                    val toastMsg = statusIssue?.let { vmsg(it.message) } ?: stringResource(R.string.validation_fix_errors)
+                                    val toastMsg = statusIssue?.let { vmsg(it.message) } ?: context.getString(R.string.validation_fix_errors)
                                     Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }

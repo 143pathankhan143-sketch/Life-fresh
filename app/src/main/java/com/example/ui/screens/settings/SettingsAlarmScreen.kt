@@ -64,11 +64,11 @@ fun SettingsAlarmScreen(
         if (uri != null) {
             val success = viewModel.registerCustomAudioFile(context, uri)
             if (success) {
-                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
-                Toast.makeText(context, stringResource(R.string.settings_custom_audio_ok), Toast.LENGTH_SHORT).show()
+                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
+                Toast.makeText(context, context.getString(R.string.settings_custom_audio_ok), Toast.LENGTH_SHORT).show()
             } else {
-                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_save_failed)
-                Toast.makeText(context, stringResource(R.string.settings_tone_copy_failed), Toast.LENGTH_SHORT).show()
+                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_save_failed)
+                Toast.makeText(context, context.getString(R.string.settings_tone_copy_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -388,7 +388,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(false)
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         sourceDropdownExpanded = false
                                     },
@@ -399,7 +399,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (!alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(true)
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         sourceDropdownExpanded = false
                                     },
@@ -447,7 +447,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "holiday") {
                                                 viewModel.setAlarmSound("holiday")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -457,7 +457,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "morning_bell") {
                                                 viewModel.setAlarmSound("morning_bell")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -467,7 +467,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "soft_chime") {
                                                 viewModel.setAlarmSound("soft_chime")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -477,7 +477,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "medical_reminder") {
                                                 viewModel.setAlarmSound("medical_reminder")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -487,7 +487,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "fresh_alert") {
                                                 viewModel.setAlarmSound("fresh_alert")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -497,7 +497,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "nature_bell") {
                                                 viewModel.setAlarmSound("nature_bell")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -507,7 +507,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "peaceful_glow") {
                                                 viewModel.setAlarmSound("peaceful_glow")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -517,7 +517,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "crystal_breeze") {
                                                 viewModel.setAlarmSound("crystal_breeze")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -527,7 +527,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "extreme_siren") {
                                                 viewModel.setAlarmSound("extreme_siren")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -537,7 +537,7 @@ fun SettingsAlarmScreen(
                                         onClick = {
                                             if (activeAlarmSound != "critical_alert") {
                                                 viewModel.setAlarmSound("critical_alert")
-                                                alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -594,7 +594,7 @@ fun SettingsAlarmScreen(
                                             Button(
                                                 onClick = {
                                                     viewModel.removeCustomAudio(context)
-                                                    alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                                    alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                                 },
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                                 shape = RoundedCornerShape(24.dp),
@@ -643,7 +643,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (activeAlarmVolume != "low") {
                                             viewModel.setAlarmVolume("low")
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
@@ -653,7 +653,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (activeAlarmVolume != "medium") {
                                             viewModel.setAlarmVolume("medium")
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
@@ -663,7 +663,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (activeAlarmVolume != "high") {
                                             viewModel.setAlarmVolume("high")
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
@@ -701,7 +701,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (activeRingMode != "continuous") {
                                             viewModel.setReminderRingMode("continuous")
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         ringModeDropdownExpanded = false
                                     },
@@ -712,7 +712,7 @@ fun SettingsAlarmScreen(
                                     onClick = {
                                         if (activeRingMode != "auto_stop") {
                                             viewModel.setReminderRingMode("auto_stop")
-                                            alarmSaveFeedbackMessage = stringResource(R.string.settings_alarm_saved)
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         ringModeDropdownExpanded = false
                                     },
@@ -729,7 +729,7 @@ fun SettingsAlarmScreen(
                         try {
                             viewModel.toggleTestAlarm(context)
                         } catch (e: Exception) {
-                            alarmSaveFeedbackMessage = stringResource(R.string.alarm_play_failed)
+                            alarmSaveFeedbackMessage = context.getString(R.string.alarm_play_failed)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
