@@ -129,8 +129,8 @@ fun ClientProfileDialog(
 
         events.add(
             TimelineEventItem(
-                title = "Client Created",
-                description = "Added to CRM registry",
+                title = stringResource(R.string.profile_evt_created),
+                description = stringResource(R.string.profile_evt_created_sub),
                 date = formatDateStr(lead.timestamp),
                 time = formatTimeStr(lead.timestamp),
                 relativeTime = getRelativeTimeString(lead.timestamp),
@@ -143,8 +143,8 @@ fun ClientProfileDialog(
         if (lead.notes.isNotEmpty() && lead.notesUpdatedAt > 0L) {
             events.add(
                 TimelineEventItem(
-                    title = "Notes Updated",
-                    description = "Coaching notes updated",
+                    title = stringResource(R.string.profile_evt_notes),
+                    description = stringResource(R.string.profile_evt_notes_sub),
                     date = formatDateStr(lead.notesUpdatedAt),
                     time = formatTimeStr(lead.notesUpdatedAt),
                     relativeTime = getRelativeTimeString(lead.notesUpdatedAt),
@@ -158,8 +158,8 @@ fun ClientProfileDialog(
         if (lead.reminderDate.isNotEmpty() && lead.reminderUpdatedAt > 0L) {
             events.add(
                 TimelineEventItem(
-                    title = "Reminder Scheduled",
-                    description = "Follow-up set for ${formatDateStr(lead.reminderDate)}",
+                    title = stringResource(R.string.profile_evt_reminder),
+                    description = stringResource(R.string.profile_evt_reminder_sub, formatDateStr(lead.reminderDate)),
                     date = formatDateStr(lead.reminderUpdatedAt),
                     time = formatTimeStr(lead.reminderUpdatedAt),
                     relativeTime = getRelativeTimeString(lead.reminderUpdatedAt),
@@ -183,8 +183,8 @@ fun ClientProfileDialog(
             if (callTime > 0L) {
                 events.add(
                     TimelineEventItem(
-                        title = "Call Initiated",
-                        description = "Coaching conversation started",
+                        title = stringResource(R.string.profile_evt_call),
+                        description = stringResource(R.string.profile_evt_call_sub),
                         date = formatDateStr(callTime),
                         time = formatTimeStr(callTime),
                         relativeTime = getRelativeTimeString(callTime),
@@ -253,7 +253,7 @@ fun ClientProfileDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.cd_back),
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
@@ -395,7 +395,7 @@ fun ClientProfileDialog(
                                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "No dialer application found.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, stringResource(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -424,7 +424,7 @@ fun ClientProfileDialog(
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=91${lead.mobile}&text=${Uri.encode(summary)}"))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "WhatsApp has not been found on your device.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, stringResource(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -464,7 +464,7 @@ fun ClientProfileDialog(
                         // INDIVIDUAL INFORMATION CARDS (20dp corner radius, 18dp content padding)
 
                         // CARD 1: Personal Information
-                        ProfileSectionCard(title = "Personal Information", icon = Icons.Outlined.Person) {
+                        ProfileSectionCard(title = stringResource(R.string.profile_personal_info), icon = Icons.Outlined.Person) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 ProfileDetailRow(
                                     label = stringResource(R.string.profile_full_name),
@@ -485,12 +485,12 @@ fun ClientProfileDialog(
                         }
 
                         // CARD 2: Health Issues / Diseases
-                        ProfileSectionCard(title = "Wellness Issues", icon = Icons.Outlined.FavoriteBorder) {
+                        ProfileSectionCard(title = stringResource(R.string.leads_wellness_issues), icon = Icons.Outlined.FavoriteBorder) {
                             if (parsedDiseasesList.isEmpty()) {
                                 PremiumEmptyState(
                                     icon = Icons.Outlined.HealthAndSafety,
-                                    title = "No Issues Specified",
-                                    description = "No lifestyle or physical wellness issues have been specified for this client."
+                                    title = stringResource(R.string.profile_no_issues),
+                                    description = stringResource(R.string.profile_no_issues_desc)
                                 )
                             } else {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -536,7 +536,7 @@ fun ClientProfileDialog(
                         } else null
 
                         ProfileSectionCard(
-                            title = "Reminder Information",
+                            title = stringResource(R.string.profile_reminder_info),
                             icon = Icons.Outlined.Notifications,
                             border = cardBorder,
                             action = if (lead.reminderDate.isNotEmpty()) {
@@ -547,7 +547,7 @@ fun ClientProfileDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit Reminder",
+                                            contentDescription = stringResource(R.string.cd_edit_reminder),
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -581,7 +581,7 @@ fun ClientProfileDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AddAlert,
-                                            contentDescription = "Add Reminder",
+                                            contentDescription = stringResource(R.string.cd_add_reminder),
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -740,7 +740,7 @@ fun ClientProfileDialog(
 
                         // CARD 4: Coaching Notes
                         ProfileSectionCard(
-                            title = "Coaching Notes",
+                            title = stringResource(R.string.profile_coaching_notes),
                             icon = Icons.Outlined.Assignment,
                             action = if (lead.notes.trim().isNotEmpty()) {
                                 {
@@ -750,7 +750,7 @@ fun ClientProfileDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit Note",
+                                            contentDescription = stringResource(R.string.cd_edit_note),
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -778,7 +778,7 @@ fun ClientProfileDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.EditNote,
-                                            contentDescription = "Add Note",
+                                            contentDescription = stringResource(R.string.cd_add_note),
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -826,12 +826,12 @@ fun ClientProfileDialog(
                         }
 
                         // CARD 5: Activity Timeline (Refined Presentation & Chronological Tracking)
-                        ProfileSectionCard(title = "Activity Timeline", icon = Icons.Outlined.History) {
+                        ProfileSectionCard(title = stringResource(R.string.profile_activity_timeline), icon = Icons.Outlined.History) {
                             if (timelineEvents.isEmpty()) {
                                 PremiumEmptyState(
                                     icon = Icons.Outlined.History,
-                                    title = "No Activity Logged",
-                                    description = "Timeline tracking is clean. Actions and updates will populate here."
+                                    title = stringResource(R.string.profile_no_activity),
+                                    description = stringResource(R.string.profile_no_activity_desc)
                                 )
                             } else {
                                 Column(
@@ -866,7 +866,7 @@ fun ClientProfileDialog(
                     onClick = {
                         showDeleteConfirm = false
                         viewModel.deleteLead(lead)
-                        Toast.makeText(context, "Client deleted.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, stringResource(R.string.common_client_deleted), Toast.LENGTH_SHORT).show()
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -1205,7 +1205,7 @@ fun TimelineRow(
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = "${event.date} at ${event.time}",
+                        text = stringResource(R.string.profile_at_time, event.date, event.time),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                     )
@@ -1311,7 +1311,7 @@ fun ClientAddReminderDialog(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = if (lead.reminderDate.isEmpty()) "Set Follow-up Reminder" else "Edit Follow-up Reminder",
+                    text = if (lead.reminderDate.isEmpty()) stringResource(R.string.profile_set_followup) else stringResource(R.string.profile_edit_followup),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1386,7 +1386,7 @@ fun ClientAddReminderDialog(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = reminderDate.ifEmpty { "Select Date *" },
+                                    text = reminderDate.ifEmpty { stringResource(R.string.form_select_date) },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (reminderDate.isEmpty()) FontWeight.Normal else FontWeight.Bold,
                                     color = if (reminderDate.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
@@ -1397,7 +1397,7 @@ fun ClientAddReminderDialog(
                             if (reminderDate.isNotEmpty()) {
                                 Icon(
                                     imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear Date",
+                                    contentDescription = stringResource(R.string.cd_clear_date),
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier
                                         .size(16.dp)
@@ -1469,7 +1469,7 @@ fun ClientAddReminderDialog(
                             if (reminderTime.isNotEmpty()) {
                                 Icon(
                                     imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear Time",
+                                    contentDescription = stringResource(R.string.cd_clear_time),
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier
                                         .size(16.dp)
@@ -1536,15 +1536,15 @@ fun ClientAddReminderDialog(
                                     if (reminderDate.isNotBlank()) {
                                         viewModel.triggerExactAlarmPrompt()
                                     }
-                                    Toast.makeText(context, "Reminder saved successfully!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, stringResource(R.string.profile_reminder_saved), Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 }
                                 com.example.ui.viewmodel.CRMViewModel.SaveLeadResult.DUPLICATE_REMINDER -> {
                                     reminderError = "A reminder already exists at the selected date and time."
-                                    Toast.makeText(context, "Conflict: Select another reminder time.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, stringResource(R.string.profile_reminder_conflict), Toast.LENGTH_LONG).show()
                                 }
                                 else -> {
-                                    Toast.makeText(context, "Reminder could not be saved. Please retry.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, stringResource(R.string.profile_reminder_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } finally {
@@ -1607,7 +1607,7 @@ fun ClientAddNoteDialog(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = if (lead.notes.isBlank()) "Add Coaching Note" else "Edit Coaching Note",
+                    text = if (lead.notes.isBlank()) stringResource(R.string.profile_add_note_title) else stringResource(R.string.profile_edit_note),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1663,11 +1663,11 @@ fun ClientAddNoteDialog(
                             )
                             when (result) {
                                 com.example.ui.viewmodel.CRMViewModel.SaveLeadResult.SUCCESS -> {
-                                    Toast.makeText(context, "Note saved successfully!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, stringResource(R.string.profile_note_saved), Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 }
                                 else -> {
-                                    Toast.makeText(context, "Note could not be saved. Please retry.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, stringResource(R.string.profile_note_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } finally {

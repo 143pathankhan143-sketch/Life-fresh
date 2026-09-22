@@ -496,7 +496,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Analytics, contentDescription = "Dashboard", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Analytics, contentDescription = stringResource(R.string.nav_dashboard), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_dashboard").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -513,7 +513,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.People, contentDescription = "Leads", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.People, contentDescription = stringResource(R.string.nav_leads), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_leads").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -530,7 +530,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Co-Pilot", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.AutoAwesome, contentDescription = stringResource(R.string.nav_ai), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_ai").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -547,7 +547,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = stringResource(R.string.nav_reports), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_reports").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -564,7 +564,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.nav_settings), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_settings").padding(horizontal = 1.dp)
                     )
                 }
@@ -581,7 +581,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     contentColor = Color.White,
                     modifier = Modifier.testTag("btn_fab_add_lead")
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Customer Context")
+                    Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_customer))
                 }
             }
         }

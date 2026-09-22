@@ -58,7 +58,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
 
     val onDownloadPDF = {
         if (activeLeads.isEmpty()) {
-            Toast.makeText(context, "No active leads available to generate a report.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
         } else if (!isDownloading && !isSharing) {
             isDownloading = true
             coroutineScope.launch {
@@ -74,12 +74,12 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     
                     if (savedUri != null) {
                         val locationInfo = if (savedUri.scheme == "content") "Downloads" else savedUri.path ?: "Downloads"
-                        Toast.makeText(context, "Report downloaded successfully to $locationInfo", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, stringResource(R.string.reports_downloaded, locationInfo), Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(context, "Failed to save PDF report to Downloads.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, stringResource(R.string.reports_save_failed), Toast.LENGTH_LONG).show()
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Error generating report: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, stringResource(R.string.reports_gen_error, e.localizedMessage), Toast.LENGTH_LONG).show()
                 } finally {
                     isDownloading = false
                 }
@@ -89,7 +89,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
 
     val onSharePDF = {
         if (activeLeads.isEmpty()) {
-            Toast.makeText(context, "No active leads available to generate a report.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.reports_no_leads), Toast.LENGTH_SHORT).show()
         } else if (!isDownloading && !isSharing) {
             isSharing = true
             coroutineScope.launch {
@@ -109,9 +109,9 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     
                     val chooser = Intent.createChooser(shareIntent, "Share LifeFresh PDF Report")
                     context.startActivity(chooser)
-                    Toast.makeText(context, "Report ready to share", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, stringResource(R.string.reports_ready), Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Error sharing report: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, stringResource(R.string.reports_share_error, e.localizedMessage), Toast.LENGTH_LONG).show()
                 } finally {
                     isSharing = false
                 }
@@ -267,7 +267,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 }
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Open PDF report guide",
+                    contentDescription = stringResource(R.string.cd_open_guide),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
@@ -323,7 +323,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close guide",
+                            contentDescription = stringResource(R.string.cd_close_guide),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -334,7 +334,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 // Section 1: What is included
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "📋 What the Report Includes",
+                        text = stringResource(R.string.reports_includes),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -350,15 +350,13 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 // Section 2: How to save or share
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "📱 How to Save or Share PDF",
+                        text = stringResource(R.string.reports_how_save),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "1. Tap \"Download Report\" to directly save the file into your device's Downloads folder.\n" +
-                               "2. Tap \"Share PDF\" to send the report instantly via WhatsApp, Email, or other platforms.\n" +
-                               "3. Choose print or save destinations directly from the standard system share sheet.",
+                        text = stringResource(R.string.reports_steps),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
@@ -368,7 +366,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 // Section 3: Save location
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "📂 Default Save Location",
+                        text = stringResource(R.string.reports_save_loc),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -384,7 +382,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                 // Section 4: Can't find file
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "🔍 Can't Find the PDF?",
+                        text = stringResource(R.string.reports_cant_find),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -407,7 +405,7 @@ fun ReportsTab(viewModel: CRMViewModel) {
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "⚠️ Important Note",
+                            text = stringResource(R.string.reports_important),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.error

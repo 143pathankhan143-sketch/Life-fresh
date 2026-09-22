@@ -372,7 +372,7 @@ fun AlarmRingingDialog(
                             .padding(14.dp)
                     ) {
                         Text(
-                            text = lead.reminderNote.ifEmpty { "Follow-up Session" },
+                            text = lead.reminderNote.ifEmpty { stringResource(R.string.default_followup_session) },
                             style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
                             fontStyle = FontStyle.Normal,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -420,7 +420,7 @@ fun AlarmRingingDialog(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(12.dp))
-                                    Text("$mins Min", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                                    Text(stringResource(R.string.common_min, mins), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                 }
                             }
                         }
@@ -595,7 +595,7 @@ fun VoiceNoteRecorderDialog(
                     tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = if (isRecording) "Recording Voice Note..." else "Voice Note Recorder",
+                    text = if (isRecording) stringResource(R.string.voice_recording) else stringResource(R.string.voice_recorder),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

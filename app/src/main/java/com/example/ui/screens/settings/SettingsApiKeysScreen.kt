@@ -78,6 +78,14 @@ fun SettingsApiKeysScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val mapKeyStatus: (String) -> String = { raw ->
+        when {
+            raw == "Connected successfully (key valid)" -> stringResource(R.string.settings_key_connected_valid)
+            raw == "Connected successfully (web search ready)" -> stringResource(R.string.settings_key_connected_web)
+            raw.startsWith("Connected successfully (") -> stringResource(R.string.settings_key_connected_prefix) + raw.removePrefix("Connected successfully")
+            else -> raw
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     // Quota badge
@@ -207,8 +215,8 @@ fun SettingsApiKeysScreen(
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
                 SettingsSwitchRow(
                     icon = Icons.Default.AutoAwesome,
-                    title = "Agent Mode",
-                    subtitle = "AI lead actions (save, draft, status, update) run automatically - no confirmation card. Complete leads go to Leads, incomplete to Drafts. Delete still asks for one tap (safety).",
+                    title = stringResource(R.string.settings_agent_mode),
+                    subtitle = stringResource(R.string.settings_agent_mode_sub),
                     checked = agentMode,
                     onCheckedChange = { newValue ->
                         if (newValue) {
@@ -225,8 +233,8 @@ fun SettingsApiKeysScreen(
 
         // Gemini key
         ApiKeySection(
-            title = "Gemini API Key",
-            subtitle = "Primary AI (Google Gemini)",
+            title = stringResource(R.string.settings_gemini_key_title),
+            subtitle = stringResource(R.string.settings_gemini_key_sub),
             icon = Icons.Default.AutoAwesome,
             key = geminiKey,
             onKeyChange = { geminiKey = it; geminiStatus = null },
@@ -235,25 +243,25 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGeminiKey(context, geminiKey.trim())
                 refreshQuota()
-                geminiStatus = if (geminiKey.isBlank()) "Gemini key cleared." else "Gemini key saved!"
+                geminiStatus = if (geminiKey.isBlank()) stringResource(R.string.settings_key_cleared, "Gemini") else stringResource(R.string.settings_key_saved, "Gemini")
                 geminiStatusOk = true
             },
             onTest = {
                 val trimmed = geminiKey.trim()
                 if (trimmed.isBlank()) {
-                    geminiStatus = "Please enter an API key to test."
+                    geminiStatus = stringResource(R.string.settings_key_enter_to_test)
                     geminiStatusOk = false
                 } else {
                     isTestingGemini = true
-                    geminiStatus = "Testing key connectivity..."
+                    geminiStatus = stringResource(R.string.settings_key_testing)
                     geminiStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testGeminiKey(trimmed)
                         isTestingGemini = false
                         result.fold(
-                            onSuccess = { geminiStatus = "Key Valid & Connected!"; geminiStatusOk = true },
+                            onSuccess = { geminiStatus = stringResource(R.string.settings_key_valid); geminiStatusOk = true },
                             onFailure = { e ->
-                                geminiStatus = "Key test failed: ${e.message?.takeIf { it.isNotBlank() } ?: "Unknown error"}"
+                                geminiStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 geminiStatusOk = false
                             }
                         )
@@ -264,20 +272,20 @@ fun SettingsApiKeysScreen(
                 geminiKey = ""
                 AIQuotaManager.saveCustomGeminiKey(context, null)
                 refreshQuota()
-                geminiStatus = "Gemini key cleared."
+                geminiStatus = stringResource(R.string.settings_key_cleared, "Gemini")
                 geminiStatusOk = true
             },
             isTesting = isTestingGemini,
             status = geminiStatus,
             statusOk = geminiStatusOk,
-            info = "Get a free Gemini key from aistudio.google.com. This is the main AI for your chats.",
+            info = stringResource(R.string.settings_gemini_key_info),
             tagPrefix = "gemini"
         )
 
         // Groq key
         ApiKeySection(
-            title = "Groq API Key",
-            subtitle = "Fast fallback AI (Groq)",
+            title = stringResource(R.string.settings_groq_key_title),
+            subtitle = stringResource(R.string.settings_groq_key_sub),
             icon = Icons.Default.Speed,
             key = groqKey,
             onKeyChange = { groqKey = it; groqStatus = null },
@@ -286,25 +294,25 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomGroqKey(context, groqKey.trim())
                 refreshQuota()
-                groqStatus = if (groqKey.isBlank()) "Groq key cleared." else "Groq key saved!"
+                groqStatus = if (groqKey.isBlank()) stringResource(R.string.settings_key_cleared, "Groq") else stringResource(R.string.settings_key_saved, "Groq")
                 groqStatusOk = true
             },
             onTest = {
                 val trimmed = groqKey.trim()
                 if (trimmed.isBlank()) {
-                    groqStatus = "Please enter an API key to test."
+                    groqStatus = stringResource(R.string.settings_key_enter_to_test)
                     groqStatusOk = false
                 } else {
                     isTestingGroq = true
-                    groqStatus = "Testing key connectivity..."
+                    groqStatus = stringResource(R.string.settings_key_testing)
                     groqStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testGroqKey(trimmed)
                         isTestingGroq = false
                         result.fold(
-                            onSuccess = { groqStatus = "Key Valid & Connected!"; groqStatusOk = true },
+                            onSuccess = { groqStatus = stringResource(R.string.settings_key_valid); groqStatusOk = true },
                             onFailure = { e ->
-                                groqStatus = "Key test failed: ${e.message?.takeIf { it.isNotBlank() } ?: "Unknown error"}"
+                                groqStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 groqStatusOk = false
                             }
                         )
@@ -315,20 +323,20 @@ fun SettingsApiKeysScreen(
                 groqKey = ""
                 AIQuotaManager.saveCustomGroqKey(context, null)
                 refreshQuota()
-                groqStatus = "Groq key cleared."
+                groqStatus = stringResource(R.string.settings_key_cleared, "Groq")
                 groqStatusOk = true
             },
             isTesting = isTestingGroq,
             status = groqStatus,
             statusOk = groqStatusOk,
-            info = "Get your free Groq key from console.groq.com. If Gemini is slow or unavailable, Groq gives fast replies automatically.",
+            info = stringResource(R.string.settings_groq_key_info),
             tagPrefix = "groq"
         )
 
         // OpenRouter key
         ApiKeySection(
-            title = "OpenRouter API Key",
-            subtitle = "Second AI - many models, one key",
+            title = stringResource(R.string.settings_openrouter_key_title),
+            subtitle = stringResource(R.string.settings_openrouter_key_sub),
             icon = Icons.Default.Cloud,
             key = openRouterKey,
             onKeyChange = { openRouterKey = it; openRouterStatus = null },
@@ -337,25 +345,25 @@ fun SettingsApiKeysScreen(
             onSave = {
                 AIQuotaManager.saveCustomOpenRouterKey(context, openRouterKey.trim())
                 refreshQuota()
-                openRouterStatus = if (openRouterKey.isBlank()) "OpenRouter key cleared." else "OpenRouter key saved!"
+                openRouterStatus = if (openRouterKey.isBlank()) stringResource(R.string.settings_key_cleared, "OpenRouter") else stringResource(R.string.settings_key_saved, "OpenRouter")
                 openRouterStatusOk = true
             },
             onTest = {
                 val trimmed = openRouterKey.trim()
                 if (trimmed.isBlank()) {
-                    openRouterStatus = "Please enter an API key to test."
+                    openRouterStatus = stringResource(R.string.settings_key_enter_to_test)
                     openRouterStatusOk = false
                 } else {
                     isTestingOpenRouter = true
-                    openRouterStatus = "Testing key connectivity..."
+                    openRouterStatus = stringResource(R.string.settings_key_testing)
                     openRouterStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testOpenRouterKey(trimmed)
                         isTestingOpenRouter = false
                         result.fold(
-                            onSuccess = { openRouterStatus = it; openRouterStatusOk = true },
+                            onSuccess = { openRouterStatus = mapKeyStatus(it); openRouterStatusOk = true },
                             onFailure = { e ->
-                                openRouterStatus = "Key test failed: ${e.message?.takeIf { it.isNotBlank() } ?: "Unknown error"}"
+                                openRouterStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 openRouterStatusOk = false
                             }
                         )
@@ -366,20 +374,20 @@ fun SettingsApiKeysScreen(
                 openRouterKey = ""
                 AIQuotaManager.saveCustomOpenRouterKey(context, null)
                 refreshQuota()
-                openRouterStatus = "OpenRouter key cleared."
+                openRouterStatus = stringResource(R.string.settings_key_cleared, "OpenRouter")
                 openRouterStatusOk = true
             },
             isTesting = isTestingOpenRouter,
             status = openRouterStatus,
             statusOk = openRouterStatusOk,
-            info = "Get a free OpenRouter key from openrouter.ai. One key gives access to DeepSeek and many other models - used automatically when Gemini is down.",
+            info = stringResource(R.string.settings_openrouter_key_info),
             tagPrefix = "openrouter"
         )
 
         // Tavily key
         ApiKeySection(
-            title = "Tavily API Key",
-            subtitle = "Web search for LifeFresh AI",
+            title = stringResource(R.string.settings_tavily_key_title),
+            subtitle = stringResource(R.string.settings_tavily_key_sub),
             icon = Icons.Default.Search,
             key = tavilyKey,
             onKeyChange = { tavilyKey = it; tavilyStatus = null },
@@ -387,25 +395,25 @@ fun SettingsApiKeysScreen(
             onToggleVisible = { tavilyVisible = !tavilyVisible },
             onSave = {
                 AIQuotaManager.saveCustomTavilyKey(context, tavilyKey.trim())
-                tavilyStatus = if (tavilyKey.isBlank()) "Tavily key cleared." else "Tavily key saved!"
+                tavilyStatus = if (tavilyKey.isBlank()) stringResource(R.string.settings_key_cleared, "Tavily") else stringResource(R.string.settings_key_saved, "Tavily")
                 tavilyStatusOk = true
             },
             onTest = {
                 val trimmed = tavilyKey.trim()
                 if (trimmed.isBlank()) {
-                    tavilyStatus = "Please enter an API key to test."
+                    tavilyStatus = stringResource(R.string.settings_key_enter_to_test)
                     tavilyStatusOk = false
                 } else {
                     isTestingTavily = true
-                    tavilyStatus = "Testing key connectivity..."
+                    tavilyStatus = stringResource(R.string.settings_key_testing)
                     tavilyStatusOk = true
                     coroutineScope.launch {
                         val result = AIServiceRepository().testTavilyKey(trimmed)
                         isTestingTavily = false
                         result.fold(
-                            onSuccess = { tavilyStatus = it; tavilyStatusOk = true },
+                            onSuccess = { tavilyStatus = mapKeyStatus(it); tavilyStatusOk = true },
                             onFailure = { e ->
-                                tavilyStatus = "Key test failed: ${e.message?.takeIf { it.isNotBlank() } ?: "Unknown error"}"
+                                tavilyStatus = stringResource(R.string.settings_key_test_failed, e.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_unknown_error))
                                 tavilyStatusOk = false
                             }
                         )
@@ -415,13 +423,13 @@ fun SettingsApiKeysScreen(
             onClear = {
                 tavilyKey = ""
                 AIQuotaManager.saveCustomTavilyKey(context, null)
-                tavilyStatus = "Tavily key cleared."
+                tavilyStatus = stringResource(R.string.settings_key_cleared, "Tavily")
                 tavilyStatusOk = true
             },
             isTesting = isTestingTavily,
             status = tavilyStatus,
             statusOk = tavilyStatusOk,
-            info = "Get a free Tavily key from tavily.com (1000 searches/month free). With a key, ask the AI to 'search karo' or 'web se batao' and it answers with live results + links.",
+            info = stringResource(R.string.settings_tavily_key_info),
             tagPrefix = "tavily"
         )
 
@@ -550,7 +558,7 @@ private fun ApiKeySection(
                         Icon(
                             imageVector =
                                 if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (isVisible) "Hide Key" else "Show Key",
+                            contentDescription = if (isVisible) stringResource(R.string.cd_hide_key) else stringResource(R.string.cd_show_key),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

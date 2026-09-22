@@ -158,10 +158,10 @@ fun WelcomeScreen(
                 if (idToken != null) {
                     authViewModel.loginWithGoogleCredential(idToken)
                 } else {
-                    Toast.makeText(context, "Google ID Token was not found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, stringResource(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Google login failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, stringResource(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -189,7 +189,7 @@ fun WelcomeScreen(
             // Full Screen Premium background PNG from user design
             Image(
                 painter = painterResource(id = R.drawable.new_authentication_screen_pro_v3),
-                contentDescription = "Welcome Background",
+                contentDescription = stringResource(R.string.cd_welcome_bg),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
@@ -386,10 +386,10 @@ fun LoginScreen(
                 if (idToken != null) {
                     authViewModel.loginWithGoogleCredential(idToken)
                 } else {
-                    Toast.makeText(context, "Google ID Token was not found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, stringResource(R.string.auth_no_token), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Google login failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, stringResource(R.string.auth_google_failed, e.localizedMessage), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -414,7 +414,7 @@ fun LoginScreen(
                         onClick = onNavigateBack,
                         modifier = Modifier.testTag("btn_back")
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -465,7 +465,7 @@ fun LoginScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Error,
-                                    contentDescription = "Error",
+                                    contentDescription = stringResource(R.string.cd_error),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -481,7 +481,7 @@ fun LoginScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "Dismiss",
+                                        contentDescription = stringResource(R.string.common_dismiss),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -499,7 +499,7 @@ fun LoginScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.settings_email_address)) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = stringResource(R.string.cd_email), tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -517,11 +517,11 @@ fun LoginScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.auth_password)) },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Lock", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.cd_lock), tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = {
                         val icon = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(imageVector = icon, contentDescription = "Toggle Visibility")
+                            Icon(imageVector = icon, contentDescription = stringResource(R.string.cd_toggle_visibility))
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -557,7 +557,7 @@ fun LoginScreen(
                 Button(
                     onClick = {
                         if (email.isBlank() || password.isBlank()) {
-                            localErrorMsg = "Please fill in all credential fields."
+                            localErrorMsg = stringResource(R.string.auth_fill_credential)
                         } else {
                             localErrorMsg = null
                             authViewModel.loginWithEmail(email.trim(), password)
@@ -636,7 +636,7 @@ fun LoginScreen(
                         .height(54.dp)
                         .testTag("btn_guest_signin")
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = "Guest Icon", modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_guest_icon), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(stringResource(R.string.auth_continue_guest), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
@@ -681,13 +681,13 @@ fun RegisterScreen(
                     .getResult(ApiException::class.java)
                 val idToken = account?.idToken
                 if (idToken.isNullOrBlank()) {
-                    localErrorMsg = "Google ID Token was not found."
+                    localErrorMsg = stringResource(R.string.auth_no_token)
                 } else {
                     localErrorMsg = null
                     authViewModel.loginWithGoogleCredential(idToken)
                 }
             } catch (e: Exception) {
-                localErrorMsg = e.localizedMessage ?: "Google sign-up failed."
+                localErrorMsg = e.localizedMessage ?: stringResource(R.string.auth_google_signup_failed)
             }
         }
     }
@@ -712,7 +712,7 @@ fun RegisterScreen(
                         onClick = onNavigateBack,
                         modifier = Modifier.testTag("btn_back")
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -763,7 +763,7 @@ fun RegisterScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Error,
-                                    contentDescription = "Error",
+                                    contentDescription = stringResource(R.string.cd_error),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -779,7 +779,7 @@ fun RegisterScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "Dismiss",
+                                        contentDescription = stringResource(R.string.common_dismiss),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -797,7 +797,7 @@ fun RegisterScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.auth_name_label)) },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Person", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = stringResource(R.string.cd_person), tint = MaterialTheme.colorScheme.primary) },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
@@ -814,7 +814,7 @@ fun RegisterScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.settings_email_address)) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = stringResource(R.string.cd_email), tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -832,11 +832,11 @@ fun RegisterScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.auth_password_min)) },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Lock", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.cd_lock), tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = {
                         val icon = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(imageVector = icon, contentDescription = "Toggle Visibility")
+                            Icon(imageVector = icon, contentDescription = stringResource(R.string.cd_toggle_visibility))
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -857,11 +857,11 @@ fun RegisterScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.auth_confirm_password)) },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Lock", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.cd_lock), tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = {
                         val icon = if (confirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                            Icon(imageVector = icon, contentDescription = "Toggle Visibility")
+                            Icon(imageVector = icon, contentDescription = stringResource(R.string.cd_toggle_visibility))
                         }
                     },
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -882,11 +882,11 @@ fun RegisterScreen(
                         val nameTrimmed = name.trim()
                         val emailTrimmed = email.trim()
                         if (nameTrimmed.isBlank() || emailTrimmed.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-                            localErrorMsg = "Please fill in all registration details."
+                            localErrorMsg = stringResource(R.string.auth_fill_registration)
                         } else if (password.length < 6) {
-                            localErrorMsg = "Password must be at least 6 characters."
+                            localErrorMsg = stringResource(R.string.auth_pw_min)
                         } else if (password != confirmPassword) {
-                            localErrorMsg = "Passwords do not match."
+                            localErrorMsg = stringResource(R.string.auth_pw_mismatch)
                         } else {
                             localErrorMsg = null
                             authViewModel.registerWithEmail(nameTrimmed, emailTrimmed, password)
@@ -1026,7 +1026,7 @@ fun ForgotPasswordScreen(
                         onClick = onNavigateBack,
                         modifier = Modifier.testTag("btn_back")
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -1077,7 +1077,7 @@ fun ForgotPasswordScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Error,
-                                    contentDescription = "Error",
+                                    contentDescription = stringResource(R.string.cd_error),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -1093,7 +1093,7 @@ fun ForgotPasswordScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "Dismiss",
+                                        contentDescription = stringResource(R.string.common_dismiss),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -1111,7 +1111,7 @@ fun ForgotPasswordScreen(
                         localErrorMsg = null
                     },
                     label = { Text(stringResource(R.string.settings_email_address)) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = stringResource(R.string.cd_email), tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -1128,9 +1128,9 @@ fun ForgotPasswordScreen(
                     onClick = {
                         val emailTrimmed = email.trim()
                         if (emailTrimmed.isBlank()) {
-                            localErrorMsg = "Please enter your email address."
+                            localErrorMsg = stringResource(R.string.auth_enter_email)
                         } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(emailTrimmed).matches()) {
-                            localErrorMsg = "Invalid email address."
+                            localErrorMsg = stringResource(R.string.auth_email_invalid)
                         } else {
                             localErrorMsg = null
                             authViewModel.sendPasswordResetEmail(emailTrimmed)

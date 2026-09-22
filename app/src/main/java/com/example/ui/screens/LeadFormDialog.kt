@@ -434,18 +434,18 @@ fun LeadFormDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Go Back",
+                                contentDescription = stringResource(R.string.cd_go_back),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Column {
                             Text(
-                                text = if (lead == null) "Add Client" else "Edit Client",
+                                text = if (lead == null) stringResource(R.string.form_add_client) else stringResource(R.string.form_edit_client),
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (lead == null) "Create a new client profile." else "Update client information.",
+                                text = if (lead == null) stringResource(R.string.form_add_client_desc) else stringResource(R.string.form_edit_client_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -459,7 +459,7 @@ fun LeadFormDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close Form",
+                            contentDescription = stringResource(R.string.cd_close_form),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -479,7 +479,7 @@ fun LeadFormDialog(
                 ) {
                     
                     // SECTION 1: Client Information
-                    FormSectionHeader(title = "Client Information", icon = Icons.Default.Person)
+                    FormSectionHeader(title = stringResource(R.string.form_client_info), icon = Icons.Default.Person)
 
                     // Name
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -490,7 +490,7 @@ fun LeadFormDialog(
                                 if (it.trim().isNotEmpty()) nameError = null
                             },
                             label = stringResource(R.string.form_name_label),
-                            placeholder = "Enter full name",
+                            placeholder = stringResource(R.string.form_name_ph),
                             leadingIcon = Icons.Default.Person,
                             isError = nameError != null,
                             keyboardOptions = KeyboardOptions(
@@ -515,7 +515,7 @@ fun LeadFormDialog(
                                 if (it.trim().isNotEmpty()) mobileError = null
                             },
                             label = stringResource(R.string.form_mobile_label),
-                            placeholder = "e.g. 9876543210",
+                            placeholder = stringResource(R.string.form_mobile_ph),
                             leadingIcon = Icons.Default.Phone,
                             isError = mobileError != null,
                             keyboardOptions = KeyboardOptions(
@@ -569,7 +569,7 @@ fun LeadFormDialog(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = if (checkedDiseases.isEmpty()) "Select Wellness Issues" else "${checkedDiseases.size} selected",
+                                            text = if (checkedDiseases.isEmpty()) stringResource(R.string.form_select_wellness) else stringResource(R.string.form_selected_count, checkedDiseases.size),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = if (checkedDiseases.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
@@ -578,7 +578,7 @@ fun LeadFormDialog(
                                 }
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Select Diseases",
+                                    contentDescription = stringResource(R.string.cd_select_diseases),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -613,7 +613,7 @@ fun LeadFormDialog(
                                             )
                                             Icon(
                                                 imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove",
+                                                contentDescription = stringResource(R.string.cd_remove),
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(14.dp)
                                             )
@@ -940,7 +940,7 @@ fun LeadFormDialog(
                                     if (it.trim().isNotEmpty()) otherDiseaseError = null
                                 },
                                 label = stringResource(R.string.form_other_disease),
-                                placeholder = "Specify wellness issue",
+                                placeholder = stringResource(R.string.form_wellness_issue_ph),
                                 leadingIcon = Icons.Default.Notes,
                                 isError = otherDiseaseError != null,
                                 modifier = Modifier.fillMaxWidth(),
@@ -960,7 +960,7 @@ fun LeadFormDialog(
                                 value = relation,
                                 onValueChange = {},
                                 label = stringResource(R.string.form_relation),
-                                placeholder = "Select relation",
+                                placeholder = stringResource(R.string.form_select_relation),
                                 leadingIcon = Icons.Default.People,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = relationExpanded) },
                                 isError = relationError != null,
@@ -998,7 +998,7 @@ fun LeadFormDialog(
                                     if (it.trim().isNotEmpty()) otherRelationError = null
                                 },
                                 label = stringResource(R.string.form_other_relation),
-                                placeholder = "Specify client relation",
+                                placeholder = stringResource(R.string.form_specify_relation),
                                 leadingIcon = Icons.Default.Notes,
                                 isError = otherRelationError != null,
                                 modifier = Modifier.fillMaxWidth(),
@@ -1009,7 +1009,7 @@ fun LeadFormDialog(
                     }
 
                     // SECTION 2: Reminder Information
-                    FormSectionHeader(title = "Reminder Information", icon = Icons.Default.Notifications)
+                    FormSectionHeader(title = stringResource(R.string.profile_reminder_info), icon = Icons.Default.Notifications)
 
                     // Set Reminder Block (High-end scheduler design)
                     Card(
@@ -1096,7 +1096,7 @@ fun LeadFormDialog(
                                         if (reminderDate.isNotEmpty()) {
                                             Icon(
                                                 imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear Date",
+                                                contentDescription = stringResource(R.string.cd_clear_date),
                                                 tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier
                                                     .size(16.dp)
@@ -1168,7 +1168,7 @@ fun LeadFormDialog(
                                         if (reminderTime.isNotEmpty()) {
                                             Icon(
                                                 imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear Time",
+                                                contentDescription = stringResource(R.string.cd_clear_time),
                                                 tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier
                                                     .size(16.dp)
@@ -1187,7 +1187,7 @@ fun LeadFormDialog(
                                 value = reminderNote,
                                 onValueChange = { reminderNote = it },
                                 label = stringResource(R.string.profile_reminder_note),
-                                placeholder = "e.g. Wellness Coaching Session",
+                                placeholder = stringResource(R.string.form_session_ph),
                                 modifier = Modifier.fillMaxWidth(),
                                 testTag = "lead_form_reminder_note"
                             )
@@ -1197,7 +1197,7 @@ fun LeadFormDialog(
                     }
 
                     // SECTION 3: Additional Notes & Status
-                    FormSectionHeader(title = "Status & Coaching Notes", icon = Icons.Default.Assignment)
+                    FormSectionHeader(title = stringResource(R.string.form_status_notes), icon = Icons.Default.Assignment)
 
                     // Client Status Group (Beautiful Premium Chips)
                     Column(
@@ -1244,7 +1244,7 @@ fun LeadFormDialog(
                         value = notes,
                         onValueChange = { notes = it },
                         label = stringResource(R.string.form_quick_notes),
-                        placeholder = "Add any notes about this wellness client...",
+                        placeholder = stringResource(R.string.form_notes_ph),
                         singleLine = false,
                         minLines = 3,
                         maxLines = 8,
@@ -1315,26 +1315,41 @@ fun LeadFormDialog(
                                     )
                                 )
 
+                                val vmsg: (String) -> String = { raw ->
+                                    when (raw) {
+                                        "Name is required." -> stringResource(R.string.validation_name_required)
+                                        "Please enter a valid mobile number (10 to 15 digits)." -> stringResource(R.string.validation_mobile_invalid)
+                                        "At least one category is required." -> stringResource(R.string.validation_category_required)
+                                        "Please specify the category detail." -> stringResource(R.string.validation_category_detail)
+                                        "Relation is required." -> stringResource(R.string.validation_relation_required)
+                                        "Please specify the relation detail." -> stringResource(R.string.validation_relation_detail)
+                                        "Status must be Pending or Complete." -> stringResource(R.string.validation_status_invalid)
+                                        "Please select both date and time." -> stringResource(R.string.validation_datetime_required)
+                                        "Error parsing reminder date and time." -> stringResource(R.string.validation_date_parse)
+                                        "Error: Selected date/time must be in the future." -> stringResource(R.string.validation_future_error)
+                                        else -> raw
+                                    }
+                                }
                                 val issues = validationResult.issues
                                 if (issues.isNotEmpty()) {
                                     for (issue in issues) {
                                         when (issue.field) {
-                                            LeadField.NAME -> nameError = issue.message
-                                            LeadField.MOBILE -> mobileError = issue.message
-                                            LeadField.DISEASES -> diseaseError = issue.message
-                                            LeadField.OTHER_DISEASE -> otherDiseaseError = issue.message
-                                            LeadField.RELATION -> relationError = issue.message
-                                            LeadField.OTHER_RELATION -> otherRelationError = issue.message
+                                            LeadField.NAME -> nameError = vmsg(issue.message)
+                                            LeadField.MOBILE -> mobileError = vmsg(issue.message)
+                                            LeadField.DISEASES -> diseaseError = vmsg(issue.message)
+                                            LeadField.OTHER_DISEASE -> otherDiseaseError = vmsg(issue.message)
+                                            LeadField.RELATION -> relationError = vmsg(issue.message)
+                                            LeadField.OTHER_RELATION -> otherRelationError = vmsg(issue.message)
                                             LeadField.REMINDER_DATE, LeadField.REMINDER_TIME -> {
                                                 if (reminderError == null) {
-                                                    reminderError = issue.message
+                                                    reminderError = vmsg(issue.message)
                                                 }
                                             }
                                             else -> { /* STATUS handled below */ }
                                         }
                                     }
                                     val statusIssue = validationResult.firstIssueFor(LeadField.STATUS)
-                                    val toastMsg = statusIssue?.message ?: "Please correct the highlighted errors."
+                                    val toastMsg = statusIssue?.let { vmsg(it.message) } ?: stringResource(R.string.validation_fix_errors)
                                     Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
@@ -1431,7 +1446,7 @@ fun LeadFormDialog(
                                 )
                             } else {
                                 Text(
-                                    text = if (lead == null) "Add Client" else "Update Client",
+                                    text = if (lead == null) stringResource(R.string.form_add_client) else stringResource(R.string.form_update_client),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Bold
                                 )

@@ -365,7 +365,7 @@ private fun AIChatHeader(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = stringResource(R.string.cd_back)
                     )
                 }
                 Box(
@@ -405,7 +405,7 @@ private fun AIChatHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
-                            contentDescription = "New Chat",
+                            contentDescription = stringResource(R.string.cd_new_chat),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -419,7 +419,7 @@ private fun AIChatHeader(
                 ) {
                     Icon(
                         imageVector = Icons.Default.History,
-                        contentDescription = "Chat History",
+                        contentDescription = stringResource(R.string.cd_chat_history),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -513,7 +513,7 @@ private fun AIChatHistoryPanel(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.cd_close),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -620,7 +620,7 @@ private fun HistorySessionRow(
             if (session.isPinned) {
                 Icon(
                     imageVector = Icons.Filled.PushPin,
-                    contentDescription = "Pinned",
+                    contentDescription = stringResource(R.string.cd_pinned),
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                     modifier = Modifier.size(13.dp)
                 )
@@ -646,7 +646,7 @@ private fun HistorySessionRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${formatSessionDate(session.timestamp)}  ·  ${session.messages.size} messages",
+                    text = "${formatSessionDate(session.timestamp)}  ·  " + stringResource(R.string.ai_messages_count, session.messages.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -667,7 +667,7 @@ private fun HistorySessionRow(
             ) {
                 Icon(
                     imageVector = Icons.Filled.MoreVert,
-                    contentDescription = "Chat options",
+                    contentDescription = stringResource(R.string.cd_chat_options),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
@@ -698,7 +698,7 @@ private fun HistorySessionRow(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text(if (session.isArchived) "Move to chats" else "Archive") },
+                    text = { Text(if (session.isArchived) stringResource(R.string.ai_move_chats) else stringResource(R.string.ai_archive)) },
                     leadingIcon = {
                         Icon(
                             imageVector = if (session.isArchived) Icons.Filled.Unarchive else Icons.Filled.Archive,
@@ -909,9 +909,9 @@ private fun AssistantMessageBubble(
             clipboard?.setPrimaryClip(
                 ClipData.newPlainText("LifeFresh AI", message.content)
             )
-            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.common_copied), Toast.LENGTH_SHORT).show()
         } catch (_: Throwable) {
-            Toast.makeText(context, "Copy nahi ho paya", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.common_copy_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -926,7 +926,7 @@ private fun AssistantMessageBubble(
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (_: Throwable) {
-            Toast.makeText(context, "Share nahi ho paya", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, stringResource(R.string.common_share_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1085,7 +1085,7 @@ private fun AssistantMessageBubble(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Schedule,
-                                contentDescription = "Reply time",
+                                contentDescription = stringResource(R.string.cd_reply_time),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 modifier = Modifier.size(11.dp)
                             )
@@ -1106,7 +1106,7 @@ private fun AssistantMessageBubble(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "Copy reply",
+                                contentDescription = stringResource(R.string.cd_copy_reply),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.size(14.dp)
                             )
@@ -1119,7 +1119,7 @@ private fun AssistantMessageBubble(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Share,
-                                contentDescription = "Share reply",
+                                contentDescription = stringResource(R.string.cd_share_reply),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.size(14.dp)
                             )
@@ -1657,7 +1657,7 @@ private fun AIChatComposer(
                     ) {
                         Icon(
                             imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
-                            contentDescription = if (isListening) "Stop voice input" else "Voice input",
+                            contentDescription = if (isListening) stringResource(R.string.cd_stop_voice) else stringResource(R.string.cd_voice_input),
                             tint = if (isListening) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                 alpha = if (isThinking) 0.35f else 0.8f
@@ -1676,7 +1676,7 @@ private fun AIChatComposer(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
+                            contentDescription = stringResource(R.string.cd_send),
                             tint = if (isSendEnabled) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                             modifier = Modifier.size(20.dp)

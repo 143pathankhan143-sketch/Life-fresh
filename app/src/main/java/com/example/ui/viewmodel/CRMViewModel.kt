@@ -948,7 +948,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                     }
                     withContext(Dispatchers.Main) {
                         android.util.Log.d("FirestoreSync", "Cloud restore completed successfully. Restored ${filteredLeads.size} leads.")
-                        android.widget.Toast.makeText(getApplication(), "Restore Completed Successfully", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.vm_restore_done), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("FirestoreSync", "Failed to insert restored leads", e)

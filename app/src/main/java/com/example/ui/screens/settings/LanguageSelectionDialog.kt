@@ -366,7 +366,7 @@ fun LanguageSelectionDialog(
                                     }
                                     Text(
                                         text = when (lang) {
-                                            AppLanguage.ENGLISH -> "English (Default)"
+                                            AppLanguage.ENGLISH -> stringResource(R.string.lang_english)
                                             AppLanguage.HINDI -> "Hindi (Devanagari)"
                                             AppLanguage.URDU -> "Urdu (RTL)"
                                             AppLanguage.TAMIL -> "Tamil"
@@ -461,7 +461,7 @@ fun LanguageSelectionDialog(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.DeleteOutline,
-                                                            contentDescription = "Remove ${pack.displayName}",
+                                                            contentDescription = stringResource(R.string.remove_pack, pack.displayName),
                                                             tint = MaterialTheme.colorScheme.error,
                                                             modifier = Modifier.size(20.dp)
                                                         )
@@ -505,7 +505,7 @@ fun LanguageSelectionDialog(
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
-                                                        contentDescription = "Retry download",
+                                                        contentDescription = stringResource(R.string.cd_retry_download),
                                                         tint = MaterialTheme.colorScheme.error
                                                     )
                                                 }

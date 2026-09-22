@@ -47,7 +47,7 @@ fun SettingsProfileScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to Settings"
+                contentDescription = stringResource(R.string.cd_back_settings)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

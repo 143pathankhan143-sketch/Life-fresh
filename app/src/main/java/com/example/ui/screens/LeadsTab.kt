@@ -125,7 +125,7 @@ fun LeadsTab(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search Icon",
+                        contentDescription = stringResource(R.string.cd_search),
                         tint = searchIconColor,
                         modifier = Modifier.size(22.dp)
                     )
@@ -167,7 +167,7 @@ fun LeadsTab(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Cancel,
-                                contentDescription = "Clear Search",
+                                contentDescription = stringResource(R.string.cd_clear_search),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -304,7 +304,7 @@ fun LeadsTab(
                             } else {
                                 Icons.Outlined.Group
                             },
-                            contentDescription = "Empty State Icon",
+                            contentDescription = stringResource(R.string.cd_empty_state),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(52.dp)
                         )
@@ -442,7 +442,7 @@ fun LeadsTab(
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "No dialer application found.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, stringResource(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onWhatsApp = {
@@ -476,7 +476,7 @@ fun LeadsTab(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=91${lead.mobile}&text=${Uri.encode(summary)}"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "WhatsApp has not been found on your device.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, stringResource(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onCopyText = {
@@ -520,7 +520,7 @@ fun LeadsTab(
                             viewModel.toggleArchive(lead)
                             coroutineScope.launch {
                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                val message = if (isArchivedNow) "Lead restored" else "Lead archived"
+                                val message = if (isArchivedNow) stringResource(R.string.leads_restored_toast) else stringResource(R.string.leads_archived_toast)
                                 val result = snackbarHostState.showSnackbar(
                                     message = message,
                                     actionLabel = "Undo",
@@ -549,15 +549,15 @@ fun LeadsTab(
                                                 if (selectedDateTime != null && selectedDateTime.time > now) {
                                                     val success = viewModel.reactivateReminder(lead.id, selectedDate, selectedTime)
                                                     if (success) {
-                                                        Toast.makeText(context, "Reminder reactivated for $selectedDate at $selectedTime", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, stringResource(R.string.leads_reactivated_toast, selectedDate, selectedTime), Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        Toast.makeText(context, "A reminder already exists at the selected date and time. Please choose a different time.", Toast.LENGTH_LONG).show()
+                                                        Toast.makeText(context, stringResource(R.string.leads_reminder_exists), Toast.LENGTH_LONG).show()
                                                     }
                                                 } else {
-                                                    Toast.makeText(context, "Error: Selected date/time must be in the future.", Toast.LENGTH_LONG).show()
+                                                    Toast.makeText(context, stringResource(R.string.validation_future_error), Toast.LENGTH_LONG).show()
                                                 }
                                             } catch (e: Exception) {
-                                                Toast.makeText(context, "Error parsing selected date and time.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, stringResource(R.string.common_parse_error), Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         c.get(Calendar.HOUR_OF_DAY),
@@ -613,7 +613,7 @@ fun LeadsTab(
                             isDeleting = true
                             viewModel.deleteLead(lead)
                             showDeleteConfirmDialog = null
-                            Toast.makeText(context, "Lead deleted", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.common_lead_deleted), Toast.LENGTH_SHORT).show()
                         }
                     },
                     enabled = !isDeleting,
@@ -1135,7 +1135,7 @@ fun LeadCardItem(
                             .size(40.dp)
                             .testTag("action_call_${lead.id}")
                     ) {
-                        Icon(Icons.Outlined.Phone, contentDescription = "Call ${lead.name}", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Phone, contentDescription = stringResource(R.string.cd_call, lead.name), modifier = Modifier.size(18.dp))
                     }
 
                     // WhatsApp Action Button
@@ -1151,7 +1151,7 @@ fun LeadCardItem(
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_whatsapp),
-                            contentDescription = "WhatsApp ${lead.name}",
+                            contentDescription = stringResource(R.string.cd_whatsapp, lead.name),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1167,7 +1167,7 @@ fun LeadCardItem(
                             .size(40.dp)
                             .testTag("action_edit_${lead.id}")
                     ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit ${lead.name}", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.cd_edit, lead.name), modifier = Modifier.size(18.dp))
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -1183,7 +1183,7 @@ fun LeadCardItem(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More actions for ${lead.name}",
+                                contentDescription = stringResource(R.string.cd_more_actions, lead.name),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -1209,7 +1209,7 @@ fun LeadCardItem(
                             )
 
                             DropdownMenuItem(
-                                text = { Text(if (lead.archived) "Restore Lead" else "Archive Lead") },
+                                text = { Text(if (lead.archived) stringResource(R.string.leads_restore) else stringResource(R.string.leads_archive)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onArchiveToggle()

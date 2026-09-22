@@ -43,7 +43,7 @@ fun SettingsAccountDataScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to Settings"
+                contentDescription = stringResource(R.string.cd_back_settings)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -104,7 +104,7 @@ fun SettingsAccountDataScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isGuest) "Guest Session (Local Storage Only)" else emailStr,
+                            text = if (isGuest) stringResource(R.string.guest_session_local) else emailStr,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -148,26 +148,26 @@ fun SettingsAccountDataScreen(
 
                 AccountPolicyItem(
                     icon = Icons.Default.HourglassTop,
-                    title = "7-Day Grace Period",
-                    description = "Account deletion uses a 7-day grace period. When requested, your account is queued for deletion rather than deleted immediately."
+                    title = stringResource(R.string.settings_grace_title),
+                    description = stringResource(R.string.settings_grace_desc)
                 )
 
                 AccountPolicyItem(
                     icon = Icons.Default.LockReset,
-                    title = "Reactivation on Sign-In",
-                    description = "During those 7 days, if you sign in again with the same account, the deletion request is cancelled and your existing account and data remain fully available."
+                    title = stringResource(R.string.settings_reactivation_title),
+                    description = stringResource(R.string.settings_reactivation_desc)
                 )
 
                 AccountPolicyItem(
                     icon = Icons.Default.DeleteSweep,
-                    title = "Permanent Deletion After 7 Days",
-                    description = "After 7 days, the account and its related cloud data are permanently deleted from our systems."
+                    title = stringResource(R.string.settings_permanent_delete_title),
+                    description = stringResource(R.string.settings_permanent_delete_desc)
                 )
 
                 AccountPolicyItem(
                     icon = Icons.Default.PersonAddAlt,
-                    title = "Fresh Account Sign-In",
-                    description = "If you sign in again after permanent deletion, it will be treated as a fresh, brand-new account."
+                    title = stringResource(R.string.settings_fresh_signin_title),
+                    description = stringResource(R.string.settings_fresh_signin_desc)
                 )
             }
         }

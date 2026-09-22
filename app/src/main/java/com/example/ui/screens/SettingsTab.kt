@@ -286,16 +286,16 @@ fun SettingsTab(
                     .getResult(ApiException::class.java)
                 val token = account?.idToken
                 if (token.isNullOrBlank()) {
-                    deleteAccountLocalError = "Google identity verification did not return a valid token."
+                    deleteAccountLocalError = stringResource(R.string.settings_google_verify_token)
                 } else {
                     deleteAccountLocalError = null
                     authViewModel.deleteAccountWithGoogleCredential(token)
                 }
             } catch (e: Exception) {
-                deleteAccountLocalError = e.localizedMessage ?: "Google identity verification failed."
+                deleteAccountLocalError = e.localizedMessage ?: stringResource(R.string.settings_google_verify_failed)
             }
         } else {
-            deleteAccountLocalError = "Google identity verification was cancelled."
+            deleteAccountLocalError = stringResource(R.string.settings_google_verify_cancelled)
         }
     }
 
@@ -332,7 +332,7 @@ fun SettingsTab(
             viewModel.clearInMemoryStateOnSignOut()
             viewModel.resetCloudRestoreCheck()
             accountDeletionGoogleClient.signOut()
-            Toast.makeText(context, "Account and associated data deleted successfully.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, stringResource(R.string.settings_account_deleted), Toast.LENGTH_LONG).show()
             authViewModel.clearAccountDeletionState()
         }
     }
@@ -498,8 +498,8 @@ fun SettingsTab(
                     ) {
                         SettingsMenuItem(
                             icon = Icons.Default.AutoAwesome,
-                            title = "AI API Keys",
-                            subtitle = "Gemini · Groq · OpenRouter · Tavily + Agent Mode",
+                            title = stringResource(R.string.settings_ai_api_keys_title),
+                            subtitle = stringResource(R.string.settings_api_keys_sub),
                             onClick = { activeSubScreen = "api_keys" },
                             testTag = "menu_ai_api_keys"
                         )
@@ -563,7 +563,7 @@ fun SettingsTab(
                 ) {
                     Icon(
                         imageVector = if (isGuest) Icons.Default.ExitToApp else Icons.Default.Logout,
-                        contentDescription = if (isGuest) "Exit Guest Mode Icon" else "Sign Out Icon",
+                        contentDescription = if (isGuest) stringResource(R.string.cd_exit_guest) else stringResource(R.string.cd_sign_out),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -621,7 +621,7 @@ fun SettingsTab(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back to Settings",
+                            contentDescription = stringResource(R.string.cd_back_settings),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -827,7 +827,7 @@ fun SettingsTab(
                                                 color = LifeFreshGreen
                                             )
                                             Text(
-                                                text = "${allLeadsList.size} Leads secured successfully.",
+                                                text = stringResource(R.string.settings_leads_secured, allLeadsList.size),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
@@ -962,7 +962,7 @@ fun SettingsTab(
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                                     Text(
-                                        text = if (autoSyncEnabled) "Your changes are protected automatically." else "Automatic sync is off. Manual Backup Now remains available.",
+                                        text = if (autoSyncEnabled) stringResource(R.string.sync_auto_protected) else stringResource(R.string.sync_manual_only),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -1076,7 +1076,7 @@ fun SettingsTab(
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Text(stringResource(R.string.settings_db_size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text("${allLeadsList.size} Leads included", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                                                Text(stringResource(R.string.settings_leads_included, allLeadsList.size), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                                             }
 
                                             Spacer(modifier = Modifier.height(4.dp))
@@ -1209,7 +1209,7 @@ fun SettingsTab(
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Text(stringResource(R.string.settings_latest_backup), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text(lastSyncTimeVal ?: "Never Synced", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface)
+                                                Text(lastSyncTimeVal ?: stringResource(R.string.sync_never), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface)
                                             }
 
                                             Row(
@@ -1324,14 +1324,14 @@ fun SettingsTab(
 
                         // Local Action 1: Export JSON
                         PremiumActionCard(
-                            title = "Export JSON Backup",
-                            subtitle = "Save a secure backup file into phone Downloads",
+                            title = stringResource(R.string.settings_export_title),
+                            subtitle = stringResource(R.string.settings_export_sub),
                             icon = Icons.Default.FileUpload,
                             testTag = "btn_export_backup",
                             onClick = {
                                 if (allLeadsList.isEmpty()) {
-                                    infoDialogTitle = "Nothing to Back Up"
-                                    infoDialogMessage = "You don't have any client data yet. Add at least one client before creating a local backup."
+                                    infoDialogTitle = stringResource(R.string.settings_nothing_to_backup)
+                                    infoDialogMessage = stringResource(R.string.settings_nothing_to_backup_desc)
                                 } else {
                                     showLocalExportConfirm = true
                                 }
@@ -1340,8 +1340,8 @@ fun SettingsTab(
 
                         // Local Action 2: Import JSON
                         PremiumActionCard(
-                            title = "Import JSON Backup",
-                            subtitle = "Merge and restore clients from a chosen JSON file",
+                            title = stringResource(R.string.settings_import_title),
+                            subtitle = stringResource(R.string.settings_import_sub),
                             icon = Icons.Default.FileDownload,
                             testTag = "btn_import_backup",
                             onClick = { showLocalImportConfirm = true }
@@ -1349,15 +1349,15 @@ fun SettingsTab(
 
                         // Local Action 3: Share Backup
                         PremiumActionCard(
-                            title = "Share Backup File",
-                            subtitle = "Directly share database file via WhatsApp, Email, or Drive",
+                            title = stringResource(R.string.settings_share_file),
+                            subtitle = stringResource(R.string.settings_share_file_sub),
                             icon = Icons.Default.Share,
                             testTag = "btn_share_backup",
                             onClick = {
                                 val data = viewModel.exportBackupJson()
                                 if (data == "[]") {
-                                    infoDialogTitle = "Nothing to Share"
-                                    infoDialogMessage = "There is currently no local backup data available to share. Add at least one client first."
+                                    infoDialogTitle = stringResource(R.string.settings_nothing_to_share)
+                                    infoDialogMessage = stringResource(R.string.settings_nothing_to_share_desc)
                                     return@PremiumActionCard
                                 }
                                 try {
@@ -1538,7 +1538,7 @@ fun SettingsTab(
                     }
 
                     Text(
-                        text = if (isGuest) "Exit Guest Mode?" else "Sign out?",
+                        text = if (isGuest) stringResource(R.string.exit_guest_title) else stringResource(R.string.sign_out_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -1578,7 +1578,7 @@ fun SettingsTab(
                             .testTag("dialog_logout_confirm_btn")
                     ) {
                         Text(
-                            text = if (isGuest) "Exit Guest Mode" else "Sign Out",
+                            text = if (isGuest) stringResource(R.string.exit_guest_btn) else stringResource(R.string.sign_out_btn),
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -1711,7 +1711,7 @@ fun SettingsTab(
                                 IconButton(onClick = { deleteAccountPasswordVisible = !deleteAccountPasswordVisible }) {
                                     Icon(
                                         imageVector = if (deleteAccountPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = if (deleteAccountPasswordVisible) "Hide password" else "Show password"
+                                        contentDescription = if (deleteAccountPasswordVisible) stringResource(R.string.cd_hide_password) else stringResource(R.string.cd_show_password)
                                     )
                                 }
                             },
@@ -1763,7 +1763,7 @@ fun SettingsTab(
                     onClick = {
                         when {
                             usesPasswordProvider && deleteAccountPassword.isBlank() -> {
-                                deleteAccountLocalError = "Enter your current password."
+                                deleteAccountLocalError = stringResource(R.string.settings_pw_current_empty)
                             }
                             usesPasswordProvider -> {
                                 deleteAccountLocalError = null
@@ -1777,7 +1777,7 @@ fun SettingsTab(
                                 }
                             }
                             else -> {
-                                deleteAccountLocalError = "This sign-in provider is not supported for in-app deletion."
+                                deleteAccountLocalError = stringResource(R.string.settings_provider_not_supported)
                             }
                         }
                     },
@@ -1788,7 +1788,7 @@ fun SettingsTab(
                     ),
                     modifier = Modifier.testTag("dialog_delete_account_confirm_btn")
                 ) {
-                    Text(if (isGoogle && !usesPasswordProvider) "Verify & Delete" else "Delete Permanently", fontWeight = FontWeight.Bold)
+                    Text(if (isGoogle && !usesPasswordProvider) stringResource(R.string.verify_delete) else stringResource(R.string.delete_permanently), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -2038,7 +2038,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = successDialogMsg ?: "Action Successful",
+                    text = successDialogMsg ?: stringResource(R.string.sync_action_successful),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2110,7 +2110,7 @@ fun SettingsTab(
             },
             title = {
                 Text(
-                    text = errorDialogMsg ?: "Sync Warning",
+                    text = errorDialogMsg ?: stringResource(R.string.sync_warning),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2124,7 +2124,7 @@ fun SettingsTab(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = errorDialogGuidance ?: "Operational error during cloud communication.",
+                        text = errorDialogGuidance ?: stringResource(R.string.sync_cloud_error),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -2449,8 +2449,8 @@ fun SettingsTab(
                             val data = viewModel.exportBackupJson()
                             if (data == "[]") {
                                 localExportProgressStatus = null
-                                infoDialogTitle = "Nothing to Back Up"
-                                infoDialogMessage = "You don't have any client data yet. Add at least one client before creating a local backup."
+                                infoDialogTitle = stringResource(R.string.settings_nothing_to_backup)
+                                infoDialogMessage = stringResource(R.string.settings_nothing_to_backup_desc)
                                 return@launch
                             }
                             
@@ -2637,7 +2637,7 @@ fun SettingsTab(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("📦 Backup Guide", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_backup_guide), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -2652,7 +2652,7 @@ fun SettingsTab(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "• Creates a .json backup file\n• Save it in phone storage, Drive, or another safe location",
+                            text = stringResource(R.string.settings_export_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2666,7 +2666,7 @@ fun SettingsTab(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "• Select a previously exported .json file\n• Restores CRM data and reminders",
+                            text = stringResource(R.string.settings_import_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2680,7 +2680,7 @@ fun SettingsTab(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "• Send the backup file using WhatsApp, Email, Telegram, Drive, etc.",
+                            text = stringResource(R.string.settings_share_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2711,7 +2711,7 @@ fun SettingsTab(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    Text(if (isAnonymous) "Edit Guest Profile" else "Edit Profile")
+                    Text(if (isAnonymous) stringResource(R.string.edit_guest_profile) else stringResource(R.string.edit_profile))
                 }
             },
             text = {
@@ -2761,15 +2761,15 @@ fun SettingsTab(
                 Button(
                     onClick = {
                         if (editDisplayName.isBlank()) {
-                            Toast.makeText(context, "Display name cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_profile_name_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (usesPasswordProvider && editEmailAddress.isBlank()) {
-                            Toast.makeText(context, "Email address cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_profile_email_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (usesPasswordProvider && editEmailAddress.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(editEmailAddress.trim()).matches()) {
-                            Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_profile_email_invalid), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -2787,15 +2787,15 @@ fun SettingsTab(
                                 authViewModel.updateEmail(editEmailAddress.trim()) { success, msg ->
                                     isSavingProfile = false
                                     if (success) {
-                                        Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, stringResource(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
                                         showEditProfileDialog = false
                                     } else {
-                                        Toast.makeText(context, msg ?: "Failed to update email", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, msg ?: stringResource(R.string.settings_profile_email_failed), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             } else {
                                 isSavingProfile = false
-                                Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, stringResource(R.string.settings_profile_updated), Toast.LENGTH_SHORT).show()
                                 showEditProfileDialog = false
                             }
                         }
@@ -2806,7 +2806,7 @@ fun SettingsTab(
                                     finishEmailUpdate()
                                 } else {
                                     isSavingProfile = false
-                                    Toast.makeText(context, msg ?: "Failed to update display name", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, msg ?: stringResource(R.string.settings_profile_name_failed), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } else {
@@ -2864,7 +2864,7 @@ fun SettingsTab(
                             IconButton(onClick = { currentProfilePasswordVisible = !currentProfilePasswordVisible }) {
                                 Icon(
                                     imageVector = if (currentProfilePasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (currentProfilePasswordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (currentProfilePasswordVisible) stringResource(R.string.cd_hide_password) else stringResource(R.string.cd_show_password)
                                 )
                             }
                         },
@@ -2881,7 +2881,7 @@ fun SettingsTab(
                             IconButton(onClick = { newProfilePasswordVisible = !newProfilePasswordVisible }) {
                                 Icon(
                                     imageVector = if (newProfilePasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (newProfilePasswordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (newProfilePasswordVisible) stringResource(R.string.cd_hide_password) else stringResource(R.string.cd_show_password)
                                 )
                             }
                         },
@@ -2898,7 +2898,7 @@ fun SettingsTab(
                             IconButton(onClick = { confirmProfilePasswordVisible = !confirmProfilePasswordVisible }) {
                                 Icon(
                                     imageVector = if (confirmProfilePasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (confirmProfilePasswordVisible) "Hide password" else "Show password"
+                                    contentDescription = if (confirmProfilePasswordVisible) stringResource(R.string.cd_hide_password) else stringResource(R.string.cd_show_password)
                                 )
                             }
                         },
@@ -2919,7 +2919,7 @@ fun SettingsTab(
                         enabled = !isChangingPassword && !isSendingPasswordReset,
                         modifier = Modifier.align(Alignment.End).testTag("btn_profile_forgot_password")
                     ) {
-                        Text(if (isSendingPasswordReset) "Sending..." else "Forgot Password?")
+                        Text(if (isSendingPasswordReset) stringResource(R.string.common_sending) else stringResource(R.string.forgot_password))
                     }
                 }
             },
@@ -2927,15 +2927,15 @@ fun SettingsTab(
                 Button(
                     onClick = {
                         if (currentProfilePassword.isBlank()) {
-                            Toast.makeText(context, "Enter your current password", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_pw_current_empty), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (newProfilePassword.length < 6) {
-                            Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_pw_min), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         if (newProfilePassword != confirmProfilePassword) {
-                            Toast.makeText(context, "New passwords do not match", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, stringResource(R.string.settings_pw_mismatch) Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         isChangingPassword = true
@@ -2949,9 +2949,9 @@ fun SettingsTab(
                                 newProfilePassword = ""
                                 confirmProfilePassword = ""
                                 showChangePasswordDialog = false
-                                Toast.makeText(context, "Password updated successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, stringResource(R.string.settings_pw_updated), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, msg ?: "Failed to update password", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, msg ?: stringResource(R.string.settings_pw_failed), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -3071,7 +3071,7 @@ fun SettingsTab(
             onDownloadPack = { meta ->
                 viewModel.downloadLanguagePack(meta) { success, error ->
                     if (!success && error != null) {
-                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (error == "Failed to initiate language installation") stringResource(R.string.lang_install_failed) else error, Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -3529,7 +3529,7 @@ fun LanguageSelectionDialog(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.DeleteOutline,
-                                                            contentDescription = "Remove ${pack.displayName}",
+                                                            contentDescription = stringResource(R.string.remove_pack, pack.displayName),
                                                             tint = MaterialTheme.colorScheme.error,
                                                             modifier = Modifier.size(20.dp)
                                                         )
@@ -3573,7 +3573,7 @@ fun LanguageSelectionDialog(
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
-                                                        contentDescription = "Retry download",
+                                                        contentDescription = stringResource(R.string.cd_retry_download),
                                                         tint = MaterialTheme.colorScheme.error
                                                     )
                                                 }

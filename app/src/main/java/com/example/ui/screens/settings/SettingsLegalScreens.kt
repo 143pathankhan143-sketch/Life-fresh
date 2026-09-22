@@ -58,7 +58,7 @@ fun SettingsAboutScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to Settings"
+                contentDescription = stringResource(R.string.cd_back_settings)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -422,7 +422,7 @@ fun SettingsWhatsNewScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to About & Support"
+                contentDescription = stringResource(R.string.cd_back_about)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -528,7 +528,7 @@ fun SettingsPrivacyScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to About & Support"
+                contentDescription = stringResource(R.string.cd_back_about)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -574,7 +574,7 @@ fun SettingsPrivacyScreen(
             ) {
                 // Section 1
                 Text(
-                    text = "1. Introduction",
+                    text = stringResource(R.string.legal_privacy_h1),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -590,7 +590,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 2
                 Text(
-                    text = "2. Information Entered by the User",
+                    text = stringResource(R.string.legal_privacy_h2),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -606,7 +606,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 3
                 Text(
-                    text = "3. Local Data Storage",
+                    text = stringResource(R.string.legal_privacy_h3),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -622,7 +622,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 4
                 Text(
-                    text = "4. Account and Authentication Data",
+                    text = stringResource(R.string.legal_privacy_h4),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -638,7 +638,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 5
                 Text(
-                    text = "5. Optional Cloud Backup and Synchronization",
+                    text = stringResource(R.string.legal_privacy_h5),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -654,7 +654,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 6
                 Text(
-                    text = "6. Permissions",
+                    text = stringResource(R.string.legal_privacy_h6),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -670,7 +670,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 7
                 Text(
-                    text = "7. Exported and Shared Files",
+                    text = stringResource(R.string.legal_privacy_h7),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -686,7 +686,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 8
                 Text(
-                    text = "8. Service Providers and Data Sharing",
+                    text = stringResource(R.string.legal_privacy_h8),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -702,13 +702,13 @@ fun SettingsPrivacyScreen(
 
                 // Section 9
                 Text(
-                    text = "9. Data Retention and Deletion",
+                    text = stringResource(R.string.legal_privacy_h9),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "• Delete Local Data: Removes information stored locally in the device's Room database.\n• Signing Out: Does not automatically delete local device data or cloud backup records.\n• Cloud Records: Local deletion does not automatically delete Cloud Backup records in Cloud Firestore.\n• Exported Files: Remain wherever the user saved or shared them.\n• Account / Cloud Deletion: Signed-in users can permanently delete their account and associated cloud CRM data from Settings using Delete Account & Data. Local CRM and sync records for that account are also removed. Exported files remain wherever the user previously saved or shared them.",
+                    text = stringResource(R.string.legal_retention_bullets),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 22.sp
@@ -718,7 +718,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 10
                 Text(
-                    text = "10. Security",
+                    text = stringResource(R.string.legal_privacy_h10),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -734,7 +734,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 11
                 Text(
-                    text = "11. Children’s Privacy",
+                    text = stringResource(R.string.legal_privacy_h11),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -750,7 +750,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 12
                 Text(
-                    text = "12. Policy Updates",
+                    text = stringResource(R.string.legal_privacy_h12),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -766,7 +766,7 @@ fun SettingsPrivacyScreen(
 
                 // Section 13
                 Text(
-                    text = "13. Contact",
+                    text = stringResource(R.string.legal_privacy_h13),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -812,7 +812,7 @@ fun SettingsTermsScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to About & Support"
+                contentDescription = stringResource(R.string.cd_back_about)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -858,7 +858,7 @@ fun SettingsTermsScreen(
             ) {
                 // Section 1
                 Text(
-                    text = "1. Acceptance of Terms",
+                    text = stringResource(R.string.legal_terms_h1),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -874,7 +874,7 @@ fun SettingsTermsScreen(
 
                 // Section 2
                 Text(
-                    text = "2. Purpose of the Application",
+                    text = stringResource(R.string.legal_terms_h2),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -890,7 +890,7 @@ fun SettingsTermsScreen(
 
                 // Section 3
                 Text(
-                    text = "3. User Responsibility and Lawful Data Entry",
+                    text = stringResource(R.string.legal_terms_h3),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -906,7 +906,7 @@ fun SettingsTermsScreen(
 
                 // Section 4
                 Text(
-                    text = "4. No Medical Advice",
+                    text = stringResource(R.string.legal_terms_h4),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -922,7 +922,7 @@ fun SettingsTermsScreen(
 
                 // Section 5
                 Text(
-                    text = "5. Accounts and Cloud Services",
+                    text = stringResource(R.string.legal_terms_h5),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -938,7 +938,7 @@ fun SettingsTermsScreen(
 
                 // Section 6
                 Text(
-                    text = "6. Reminders and Alarms",
+                    text = stringResource(R.string.legal_terms_h6),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -954,7 +954,7 @@ fun SettingsTermsScreen(
 
                 // Section 7
                 Text(
-                    text = "7. Backup and Data Loss",
+                    text = stringResource(R.string.legal_terms_h7),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -970,7 +970,7 @@ fun SettingsTermsScreen(
 
                 // Section 8
                 Text(
-                    text = "8. Exporting and Sharing",
+                    text = stringResource(R.string.legal_terms_h8),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -986,7 +986,7 @@ fun SettingsTermsScreen(
 
                 // Section 9
                 Text(
-                    text = "9. Prohibited Use",
+                    text = stringResource(R.string.legal_terms_h9),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1002,7 +1002,7 @@ fun SettingsTermsScreen(
 
                 // Section 10
                 Text(
-                    text = "10. Availability and Changes",
+                    text = stringResource(R.string.legal_terms_h10),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1018,7 +1018,7 @@ fun SettingsTermsScreen(
 
                 // Section 11
                 Text(
-                    text = "11. Limitation of Liability",
+                    text = stringResource(R.string.legal_terms_h11),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1034,7 +1034,7 @@ fun SettingsTermsScreen(
 
                 // Section 12
                 Text(
-                    text = "12. Contact",
+                    text = stringResource(R.string.legal_terms_h12),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1082,7 +1082,7 @@ fun SettingsSupportScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to About & Support"
+                contentDescription = stringResource(R.string.cd_back_about)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -1147,7 +1147,7 @@ fun SettingsSupportScreen(
                             }
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "No email app is available on this device.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, stringResource(R.string.legal_no_email_app), Toast.LENGTH_LONG).show()
                         }
                     },
                     modifier = Modifier

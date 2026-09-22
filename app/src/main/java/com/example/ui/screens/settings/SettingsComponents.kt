@@ -438,7 +438,7 @@ fun AIAssistantConfigCard(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI Configuration",
+                            contentDescription = stringResource(R.string.cd_ai_config),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
@@ -521,7 +521,7 @@ fun AIAssistantConfigCard(
                     IconButton(onClick = { keyVisible = !keyVisible }) {
                         Icon(
                             imageVector = if (keyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (keyVisible) "Hide Key" else "Show Key"
+                            contentDescription = if (keyVisible) stringResource(R.string.cd_hide_key) else stringResource(R.string.cd_show_key)
                         )
                     }
                 },
@@ -713,7 +713,7 @@ fun AIAssistantConfigCard(
                     IconButton(onClick = { groqKeyVisible = !groqKeyVisible }) {
                         Icon(
                             imageVector = if (groqKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (groqKeyVisible) "Hide Key" else "Show Key"
+                            contentDescription = if (groqKeyVisible) stringResource(R.string.cd_hide_key) else stringResource(R.string.cd_show_key)
                         )
                     }
                 },
