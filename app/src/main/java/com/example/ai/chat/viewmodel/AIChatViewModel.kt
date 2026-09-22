@@ -56,6 +56,19 @@ class AIChatViewModel(
                     else -> {}
                 }
             }
+            // Agent Mode: card actions (CONFIRM / DRAFT / STATUS / UPDATE)
+            // arrive here automatically - same execution as a card tap, minus
+            // the tap. The result is posted back into the chat as a message.
+            repository.setAgentActionHandler { action ->
+                viewModelScope.launch {
+                    val message = when (action.kind) {
+                        LeadAction.Kind.STATUS -> viewModel.updateLeadStatusFromAIChat(action)
+                        LeadAction.Kind.UPDATE -> viewModel.updateLeadFromAIChat(action)
+                        else -> viewModel.saveLeadFromAIChat(action)
+                    }
+                    repository.addLocalAssistantMessage(message)
+                }
+            }
             viewModelScope.launch { startPersistence(viewModel) }
         }
     }

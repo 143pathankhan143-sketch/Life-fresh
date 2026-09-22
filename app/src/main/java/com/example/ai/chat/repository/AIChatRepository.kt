@@ -9,6 +9,8 @@ import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.model.ChatUiState
 import com.example.ai.chat.provider.AIProviderResult
 import com.example.ai.chat.provider.AIProviderRouter
+import com.example.ai.chat.provider.SearchIntentGate
+import com.example.ai.chat.provider.TavilySearchClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,27 @@ private val CARD_ACTION_KINDS = setOf(
     LeadAction.Kind.UPDATE,
     LeadAction.Kind.DELETE
 )
+
+/**
+ * Agent Mode: these kinds are executed AUTOMATICALLY (no confirmation card)
+ * when the user has Agent Mode ON. DELETE deliberately stays on the card -
+ * permanent deletion always needs a human tap (safety).
+ */
+private val AGENT_AUTO_KINDS = setOf(
+    LeadAction.Kind.CONFIRM,
+    LeadAction.Kind.DRAFT,
+    LeadAction.Kind.STATUS,
+    LeadAction.Kind.UPDATE
+)
+
+/**
+ * System instruction for the hidden "extract a web search query" step of the
+ * Tavily search flow. The model must reply with only the query, or NONE.
+ */
+private const val SEARCH_QUERY_EXTRACTION_INSTRUCTION =
+    "Convert the user's request below into ONE short English web search query (maximum 8 words). " +
+        "Reply with ONLY the query text - no quotes, no explanation, no markdown. " +
+        "If the request does not need fresh information from the internet (for example personal CRM data, math, translation or general conversation), reply exactly: NONE"
 
 interface AIChatRepository {
     val uiState: StateFlow<ChatUiState>
@@ -59,6 +82,12 @@ interface AIChatRepository {
      * DELETE) go through [ChatUiState.pendingLeadAction] instead.
      */
     fun setDirectActionHandler(handler: ((LeadAction) -> Unit)?)
+    /**
+     * Agent Mode handler: card-based actions (CONFIRM, DRAFT, STATUS, UPDATE)
+     * are dispatched here WITHOUT a confirmation card when Agent Mode is ON.
+     * DELETE is never dispatched here - it always keeps its confirmation card.
+     */
+    fun setAgentActionHandler(handler: ((LeadAction) -> Unit)?)
 }
 
 class DefaultAIChatRepository(
@@ -80,6 +109,21 @@ class DefaultAIChatRepository(
 
     @Volatile
     private var directActionHandler: ((LeadAction) -> Unit)? = null
+
+    @Volatile
+    private var agentActionHandler: ((LeadAction) -> Unit)? = null
+
+    /**
+     * Appended to the system instruction while Agent Mode is ON: tells the
+     * model that its action blocks are now executed automatically, so it
+     * phrases replies accordingly (and that DELETE still asks the user).
+     */
+    private val agentModeInstruction: String =
+        "\n\nAGENT MODE IS ON (user opted in in Settings):\n" +
+        "The app now AUTOMATICALLY EXECUTES your LEAD_CONFIRM, LEAD_DRAFT, LEAD_STATUS and LEAD_UPDATE action blocks without asking the user for confirmation.\n" +
+        "So when you emit one of these blocks, phrase your visible reply as if the action is being done right now (for example: 'Rahul ka lead save ho gaya ✅' or 'Status update ho gaya ✅').\n" +
+        "LEAD_DELETE still shows a confirmation to the user (safety) - say a confirmation will appear.\n" +
+        "All other parts of the protocol above stay exactly the same."
 
     private data class RequestToken(val id: Long, val conversationGeneration: Long)
 
@@ -209,7 +253,19 @@ class DefaultAIChatRepository(
         } catch (t: Throwable) {
             ""
         }
-        router.routeChatStreaming(messages, fullSystemInstruction + snapshot, onToken)
+        // Web search (Tavily) runs BEFORE the main request when the user's
+        // message looks like a search ask; any failure degrades to "".
+        val searchContext = try {
+            buildSearchContext(messages)
+        } catch (t: Throwable) {
+            ""
+        }
+        val agentBlock = if (isAgentModeOn()) agentModeInstruction else ""
+        router.routeChatStreaming(
+            messages,
+            fullSystemInstruction + snapshot + searchContext + agentBlock,
+            onToken
+        )
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (t: Throwable) {
@@ -218,6 +274,62 @@ class DefaultAIChatRepository(
             errorMessage = t.message?.takeIf { it.isNotBlank() } ?: "I'm sorry, something went wrong while contacting the AI service. Please try again.",
             isRetryable = true
         )
+    }
+
+    /** Agent Mode flag read; must never throw. */
+    private fun isAgentModeOn(): Boolean = try {
+        AIConfig.isAgentMode
+    } catch (_: Throwable) {
+        false
+    }
+
+    /**
+     * Web search (Tavily) pipeline, run before the main AI request:
+     *  1. Only when a Tavily key is saved AND the last user message looks
+     *     like a search request, ask the AI for ONE short English search
+     *     query (or the word NONE when no web info is really needed).
+     *  2. If a query came back, fetch results from Tavily.
+     *  3. Return a context block to append to the system instruction
+     *     (empty string = no search, or search produced nothing).
+     *
+     * Any failure degrades to an empty block - search must never break chat.
+     */
+    private suspend fun buildSearchContext(messages: List<ChatMessage>): String {
+        val userMessage = messages.lastOrNull { it.role == ChatRole.USER }?.content.orEmpty()
+        if (userMessage.isBlank()) return ""
+
+        if (!TavilySearchClient.hasKey()) {
+            return "WEB SEARCH STATUS: not configured. If the user asks to search the internet or the web, or wants live/fresh information, tell them (in their language) that web search is not set up yet and they can add a Tavily key in Settings > AI API Keys - then answer from your own knowledge.\n\n"
+        }
+
+        if (!SearchIntentGate.looksLikeSearchRequest(userMessage)) return ""
+
+        // Stage 1: the AI converts the request into a short English query,
+        // or NONE when web information is not actually needed.
+        val extractionResult = router.routeChat(
+            listOf(ChatMessage(role = ChatRole.USER, content = userMessage)),
+            SEARCH_QUERY_EXTRACTION_INSTRUCTION
+        )
+        var query = (extractionResult as? AIProviderResult.Success)?.text?.trim().orEmpty()
+        if (query.length > 120) query = query.take(120)
+        val noSearch = setOf("NONE", "NONE.", "N/A", "NA", "NOT APPLICABLE")
+        if (query.isEmpty() || query in noSearch) return ""
+        // A stray hidden action block is never a valid search query.
+        if (query.contains("[LEAD_", ignoreCase = true)) return ""
+
+        val results = TavilySearchClient.search(query)
+        if (results.isEmpty()) return ""
+
+        val sb = StringBuilder()
+        sb.append("WEB SEARCH RESULTS (fresh from the internet - use them to answer the user):\n")
+        results.forEachIndexed { i, r ->
+            sb.append("${i + 1}. ${r.title.ifBlank { "Result ${i + 1}" }}\n")
+            sb.append("URL: ${r.url}\n")
+            sb.append(r.content.take(700))
+            sb.append("\n\n")
+        }
+        sb.append("Answer the user using these results, in the user's language. If the results are not useful, say so briefly and answer from your own knowledge. End your answer with a line 'Sources:' listing the top 1-3 URLs.\n\n")
+        return sb.toString()
     }
 
     /**
@@ -262,6 +374,7 @@ class DefaultAIChatRepository(
 
     private fun applyResultIfCurrent(token: RequestToken, result: AIProviderResult, startedAtMs: Long) {
         var directAction: LeadAction? = null
+        var agentAction: LeadAction? = null
         synchronized(stateLock) {
             if (!isCurrent(token)) return
             when (result) {
@@ -281,6 +394,11 @@ class DefaultAIChatRepository(
                         it.kind == LeadAction.Kind.ARCHIVE ||
                             it.kind == LeadAction.Kind.WHATSAPP
                     }
+                    // Agent Mode: card kinds (except DELETE) are executed
+                    // automatically - no confirmation card at all.
+                    agentAction = action?.takeIf {
+                        isAgentModeOn() && it.kind in AGENT_AUTO_KINDS
+                    }
                     val messages = finalizeStreamingMessage(
                         rawFullText = result.text,
                         visibleText = visibleText,
@@ -290,7 +408,9 @@ class DefaultAIChatRepository(
                     _uiState.value = _uiState.value.copy(
                         messages = messages, isThinking = false,
                         errorMessage = null, canRetry = false, activeProvider = result.providerName,
-                        pendingLeadAction = action?.takeIf { it.kind in CARD_ACTION_KINDS }
+                        pendingLeadAction = action?.takeIf {
+                            agentAction == null && it.kind in CARD_ACTION_KINDS
+                        }
                     )
                 }
                 is AIProviderResult.Failure -> {
@@ -322,6 +442,15 @@ class DefaultAIChatRepository(
                 directActionHandler?.invoke(action)
             } catch (_: Throwable) {
                 // A failed direct action must never crash the chat.
+            }
+        }
+        // Agent Mode auto-actions run the same way: outside the lock, and a
+        // failure must never crash the chat (the AI reply is already on screen).
+        agentAction?.let { action ->
+            try {
+                agentActionHandler?.invoke(action)
+            } catch (_: Throwable) {
+                // A failed auto-action must never crash the chat.
             }
         }
     }
@@ -383,6 +512,10 @@ class DefaultAIChatRepository(
 
     override fun setDirectActionHandler(handler: ((LeadAction) -> Unit)?) {
         directActionHandler = handler
+    }
+
+    override fun setAgentActionHandler(handler: ((LeadAction) -> Unit)?) {
+        agentActionHandler = handler
     }
 
     override fun dismissPendingLead() {

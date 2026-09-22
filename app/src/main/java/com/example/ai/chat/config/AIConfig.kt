@@ -45,11 +45,33 @@ object AIConfig {
         "llama-3.1-8b-instant"
     )
 
+    /**
+     * Current OpenRouter text-generation models. OpenRouter exposes many
+     * models through ONE key. The '~' alias slugs always redirect to the
+     * newest version of the family, so they never 404 (unlike pinned
+     * version numbers). If chat via OpenRouter starts failing with
+     * "model not found", refresh the list from https://openrouter.ai/models.
+     */
+    val OPENROUTER_TEXT_MODELS: List<String> = listOf(
+        "~deepseek/deepseek-flash-latest",
+        "~deepseek/deepseek-pro-latest"
+    )
+
     @Volatile
     var customGeminiApiKeyProvider: (() -> String)? = null
 
     @Volatile
     var customGroqApiKeyProvider: (() -> String)? = null
+
+    @Volatile
+    var customOpenRouterApiKeyProvider: (() -> String)? = null
+
+    @Volatile
+    var customTavilyApiKeyProvider: (() -> String)? = null
+
+    /** Returns whether Agent Mode is ON (AI executes lead actions without a confirmation card). */
+    @Volatile
+    var agentModeProvider: (() -> Boolean)? = null
 
     val groqApiKey: String
         get() {
@@ -83,6 +105,34 @@ object AIConfig {
             } catch (e: Throwable) {
                 ""
             }
+        }
+
+    val openrouterApiKey: String
+        get() {
+            val custom = try {
+                customOpenRouterApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            return custom
+        }
+
+    val tavilyApiKey: String
+        get() {
+            val custom = try {
+                customTavilyApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            return custom
+        }
+
+    /** True when the user turned Agent Mode on in Settings. */
+    val isAgentMode: Boolean
+        get() = try {
+            agentModeProvider?.invoke() ?: false
+        } catch (e: Throwable) {
+            false
         }
 
     val isGroqConfigured: Boolean

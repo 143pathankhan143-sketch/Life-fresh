@@ -3,7 +3,11 @@ package com.example.ai.chat.provider
 import com.example.ai.chat.model.ChatMessage
 
 class AIProviderRouter(
-    private val providers: List<AIProvider> = listOf(GeminiProvider(), GroqProvider())
+    private val providers: List<AIProvider> = listOf(
+        GeminiProvider(),
+        OpenRouterProvider(),
+        GroqProvider()
+    )
 ) {
     /**
      * Routes the chat to the first provider that can answer.
@@ -30,13 +34,21 @@ class AIProviderRouter(
         systemInstruction: String,
         onToken: (String) -> Unit
     ): AIProviderResult {
+        // Tier order: Gemini (primary) -> OpenRouter (second) -> Groq (fast
+        // last resort). Only providers with a saved key are configured.
         val configuredProviders = providers.filter { it.isConfigured }
-            .sortedByDescending { it is GeminiProvider }
+            .sortedByDescending {
+                when (it) {
+                    is GeminiProvider -> 2
+                    is OpenRouterProvider -> 1
+                    else -> 0
+                }
+            }
 
         if (configuredProviders.isEmpty()) {
             return AIProviderResult.Failure(
                 providerName = "Router",
-                errorMessage = "LifeFresh AI is not configured yet. Add a Gemini or Groq API key in Settings to start chatting.",
+                errorMessage = "LifeFresh AI is not configured yet. Add a Gemini, Groq or OpenRouter API key in Settings to start chatting.",
                 isRetryable = false
             )
         }

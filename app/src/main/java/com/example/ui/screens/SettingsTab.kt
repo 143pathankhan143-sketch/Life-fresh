@@ -486,8 +486,24 @@ fun SettingsTab(
                         )
                     }
 
-                    // AI Assistant Configuration (BYOK & Quota Indicator)
-                    AIAssistantConfigCard()
+                    // AI API Keys (BYOK: Gemini / Groq / OpenRouter / Tavily + Agent Mode)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        SettingsMenuItem(
+                            icon = Icons.Default.AutoAwesome,
+                            title = "AI API Keys",
+                            subtitle = "Gemini · Groq · OpenRouter · Tavily + Agent Mode",
+                            onClick = { activeSubScreen = "api_keys" },
+                            testTag = "menu_ai_api_keys"
+                        )
+                    }
 
                     // Account & Data
                     Card(
@@ -557,6 +573,12 @@ fun SettingsTab(
                         fontSize = 14.sp
                     )
                 }
+            }
+
+            "api_keys" -> {
+                SettingsApiKeysScreen(
+                    onBack = { activeSubScreen = null }
+                )
             }
 
             "profile" -> {

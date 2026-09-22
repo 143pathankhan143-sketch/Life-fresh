@@ -14,6 +14,9 @@ object AIQuotaManager {
     private const val PREFS_NAME = "daily_ai_usage_prefs"
     private const val KEY_CUSTOM_GEMINI_KEY = "custom_gemini_api_key"
     private const val KEY_CUSTOM_GROQ_KEY = "custom_groq_api_key"
+    private const val KEY_CUSTOM_OPENROUTER_KEY = "custom_openrouter_api_key"
+    private const val KEY_CUSTOM_TAVILY_KEY = "custom_tavily_api_key"
+    private const val KEY_AGENT_MODE_ENABLED = "agent_mode_enabled"
     private const val KEY_USAGE_COUNT = "daily_usage_count"
     private const val KEY_LAST_USAGE_DATE = "last_usage_date"
 
@@ -98,6 +101,76 @@ object AIQuotaManager {
             }
             apply()
         }
+    }
+
+    @Volatile
+    private var cachedCustomOpenRouterKey: String? = null
+    @Volatile
+    private var isOpenRouterCacheInitialized: Boolean = false
+
+    fun getCustomOpenRouterKey(context: Context): String? {
+        if (isOpenRouterCacheInitialized) {
+            return cachedCustomOpenRouterKey
+        }
+        val key = getPrefs(context).getString(KEY_CUSTOM_OPENROUTER_KEY, null)?.trim()
+        val result = if (!key.isNullOrBlank()) key else null
+        cachedCustomOpenRouterKey = result
+        isOpenRouterCacheInitialized = true
+        return result
+    }
+
+    fun saveCustomOpenRouterKey(context: Context, key: String?) {
+        val cleanKey = key?.trim()
+        val result = if (!cleanKey.isNullOrBlank()) cleanKey else null
+        cachedCustomOpenRouterKey = result
+        isOpenRouterCacheInitialized = true
+        getPrefs(context).edit().apply {
+            if (result == null) {
+                remove(KEY_CUSTOM_OPENROUTER_KEY)
+            } else {
+                putString(KEY_CUSTOM_OPENROUTER_KEY, result)
+            }
+            apply()
+        }
+    }
+
+    @Volatile
+    private var cachedCustomTavilyKey: String? = null
+    @Volatile
+    private var isTavilyCacheInitialized: Boolean = false
+
+    fun getCustomTavilyKey(context: Context): String? {
+        if (isTavilyCacheInitialized) {
+            return cachedCustomTavilyKey
+        }
+        val key = getPrefs(context).getString(KEY_CUSTOM_TAVILY_KEY, null)?.trim()
+        val result = if (!key.isNullOrBlank()) key else null
+        cachedCustomTavilyKey = result
+        isTavilyCacheInitialized = true
+        return result
+    }
+
+    fun saveCustomTavilyKey(context: Context, key: String?) {
+        val cleanKey = key?.trim()
+        val result = if (!cleanKey.isNullOrBlank()) cleanKey else null
+        cachedCustomTavilyKey = result
+        isTavilyCacheInitialized = true
+        getPrefs(context).edit().apply {
+            if (result == null) {
+                remove(KEY_CUSTOM_TAVILY_KEY)
+            } else {
+                putString(KEY_CUSTOM_TAVILY_KEY, result)
+            }
+            apply()
+        }
+    }
+
+    /** Agent Mode: when ON, the AI's lead actions run without a confirmation card. */
+    fun isAgentModeEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_AGENT_MODE_ENABLED, false)
+
+    fun setAgentModeEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_AGENT_MODE_ENABLED, enabled).apply()
     }
 
     private fun checkAndResetDailyUsageIfNeeded(prefs: SharedPreferences): Int {

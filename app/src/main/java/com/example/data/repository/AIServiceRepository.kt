@@ -195,6 +195,108 @@ class AIServiceRepository {
         }
     }
 
+    /**
+     * Tests a custom OpenRouter API key (settings "Test key"):
+     * GET https://openrouter.ai/api/v1/auth/key with the Bearer key.
+     * 200 = valid (the response carries the key label + credit usage);
+     * 401/403 = invalid key.
+     */
+    suspend fun testOpenRouterKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val request = Request.Builder()
+                .url("https://openrouter.ai/api/v1/auth/key")
+                .addHeader("Authorization", "Bearer $trimmed")
+                .get()
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val code = response.code
+
+                if (code == 400 || code == 401 || code == 402 || code == 403) {
+                    val errMsg = try {
+                        JSONObject(body).optJSONObject("error")?.optString("message")
+                    } catch (_: Throwable) { null }
+                    return@withContext Result.failure(
+                        Exception("API Key Invalid: ${errMsg ?: "HTTP $code"}")
+                    )
+                }
+
+                if (response.isSuccessful) {
+                    val label = try {
+                        JSONObject(body).optJSONObject("key")?.optString("label", "")
+                    } catch (_: Throwable) { "" }
+                    val usage = try {
+                        JSONObject(body).optString("usage", "")
+                    } catch (_: Throwable) { "" }
+                    return@withContext Result.success(
+                        if (label.isNotBlank()) "Connected successfully ($label, used $usage)"
+                        else "Connected successfully (key valid)"
+                    )
+                }
+
+                Result.failure(Exception("OpenRouter returned HTTP $code."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Tests a custom Tavily API key (settings "Test key"):
+     * POST https://api.tavily.com/search with a tiny 1-result search.
+     * 200 = valid (consumes 1 free credit); 401/432 = invalid or no credits.
+     */
+    suspend fun testTavilyKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val payload = JSONObject().apply {
+                put("query", "LifeFresh key test")
+                put("search_depth", "basic")
+                put("max_results", 1)
+            }.toString()
+            val request = Request.Builder()
+                .url("https://api.tavily.com/search")
+                .addHeader("Authorization", "Bearer $trimmed")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                val code = response.code
+                response.body?.close()
+
+                if (code == 401 || code == 403) {
+                    return@withContext Result.failure(
+                        Exception("Tavily API key is invalid.")
+                    )
+                }
+                if (code == 432) {
+                    return@withContext Result.failure(
+                        Exception("Tavily credits are empty for this key (HTTP 432).")
+                    )
+                }
+
+                if (response.isSuccessful) {
+                    return@withContext Result.success("Connected successfully (web search ready)")
+                }
+
+                Result.failure(Exception("Tavily returned HTTP $code."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun callSingleGroqModel(apiKey: String, model: String, prompt: String): String {
         val requestJson = JSONObject().apply {
             put("model", model)
