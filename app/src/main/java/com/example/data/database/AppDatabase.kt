@@ -451,6 +451,24 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
     }
 }
 
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v18 adds the manual per-lead call history (device-local; the synced
+        // summary stays on LeadEntity.lastCall).
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `call_logs` (" +
+                "`ownerUid` TEXT NOT NULL, " +
+                "`id` TEXT NOT NULL, " +
+                "`leadId` TEXT NOT NULL, " +
+                "`callTime` TEXT NOT NULL, " +
+                "`outcome` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "PRIMARY KEY(`ownerUid`, `id`)" +
+            ")"
+        )
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -459,14 +477,16 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         LeadSyncMetadataEntity::class,
         SyncOutboxEntity::class,
         SyncConflictEntity::class,
-        SyncCheckpointEntity::class
+        SyncCheckpointEntity::class,
+        CallLogEntity::class
     ], 
-    version = 17, 
+    version = 18, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract val leadDao: LeadDao
     abstract val aiChatDao: AIChatDao
+    abstract val callLogDao: CallLogDao
     abstract val leadSyncMetadataDao: LeadSyncMetadataDao
     abstract val syncDao: SyncDao
 
@@ -495,7 +515,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_13_14,
                         MIGRATION_14_15,
                         MIGRATION_15_16,
-                        MIGRATION_16_17
+                        MIGRATION_16_17,
+                        MIGRATION_17_18
                     )
                     // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
                     // It silently erases the entire database whenever an on-disk

@@ -121,6 +121,7 @@ class RoomAccountDeletionLocalStore(
             database.leadSyncMetadataDao.clearMetadataForUser(expectedUid)
             database.aiChatDao.clearMessagesForUser(expectedUid)
             database.aiChatDao.clearSessionsForUser(expectedUid)
+            database.callLogDao.deleteForOwner(expectedUid)
             database.leadDao.clearLeadsForUser(expectedUid)
         }
 

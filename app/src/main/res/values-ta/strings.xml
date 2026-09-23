@@ -877,4 +877,15 @@
     <string name="repeat_weekly">வாரம்</string>
     <string name="repeat_monthly">மாதம்</string>
     <string name="ai_new_repeat">மீண்டும்: %1$s</string>
+
+    <!-- Call log -->
+    <string name="call_log_title">%1$s அழைப்பு — எப்படி இருந்தது?</string>
+    <string name="call_outcome_answered">பதிலளித்தார்</string>
+    <string name="call_outcome_no_answer">எடுக்கவில்லை</string>
+    <string name="call_outcome_callback">பின்னர் அழைக்கவும்</string>
+    <string name="call_outcome_skip">தவிர்</string>
+    <string name="call_note_ph">குறிப்பு (விருப்பம்)</string>
+    <string name="profile_call_history">அழைப்பு வரலாறு</string>
+    <string name="profile_calls_count">%1$d அழைப்புகள் • கடைசி: %2$s</string>
+    <string name="ai_call_logged">அழைப்பு பதிவு: %1$s</string>
 </resources>

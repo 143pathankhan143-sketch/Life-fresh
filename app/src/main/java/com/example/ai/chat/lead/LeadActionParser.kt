@@ -30,6 +30,7 @@ data class LeadAction(
     val setReminderDate: String = "",
     val setReminderTime: String = "",
     val setReminderRepeat: String = "", // "none"/"daily"/"weekly"/"monthly" - empty = no change
+    val logCallOutcome: String = "",    // "answered"/"no_answer"/"callback" - empty = no call log
     val removeReminder: Boolean = false
 ) {
     enum class Kind {
@@ -178,6 +179,11 @@ object LeadActionParser {
                 "none", "daily", "weekly", "monthly" -> json.optString("setReminderRepeat", "").trim().lowercase()
                 else -> ""
             }
+            val logCallOutcome = when (json.optString("logCallOutcome", "").trim().lowercase().replace(' ', '_')) {
+                "answered", "no_answer", "callback" ->
+                    json.optString("logCallOutcome", "").trim().lowercase().replace(' ', '_')
+                else -> ""
+            }
             val removeReminder = json.optBoolean("removeReminder", false)
 
             val addDiseases = mutableListOf<String>()
@@ -198,6 +204,7 @@ object LeadActionParser {
                 note.isNotEmpty() ||
                 setReminderDate.isNotEmpty() ||
                 setReminderRepeat.isNotEmpty() ||
+                logCallOutcome.isNotEmpty() ||
                 removeReminder
             if (!hasChange) return null
 
@@ -215,6 +222,7 @@ object LeadActionParser {
                 setReminderDate = setReminderDate,
                 setReminderTime = setReminderTime,
                 setReminderRepeat = setReminderRepeat,
+                logCallOutcome = logCallOutcome,
                 removeReminder = removeReminder
             )
         } catch (_: Exception) {

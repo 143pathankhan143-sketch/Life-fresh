@@ -877,4 +877,15 @@
     <string name="repeat_weekly">Weekly</string>
     <string name="repeat_monthly">Monthly</string>
     <string name="ai_new_repeat">Repeat: %1$s</string>
+
+    <!-- Call log -->
+    <string name="call_log_title">Call %1$s — kaisi rahi?</string>
+    <string name="call_outcome_answered">Answered</string>
+    <string name="call_outcome_no_answer">No answer</string>
+    <string name="call_outcome_callback">Call back later</string>
+    <string name="call_outcome_skip">Skip</string>
+    <string name="call_note_ph">Note (optional)</string>
+    <string name="profile_call_history">Call History</string>
+    <string name="profile_calls_count">%1$d calls • last: %2$s</string>
+    <string name="ai_call_logged">Call logged: %1$s</string>
 </resources>

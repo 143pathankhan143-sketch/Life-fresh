@@ -149,6 +149,20 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
                 // Route through the repository so authenticated writes enter the normal outbox/sync path.
                 repository.insertLeads(movedLeads)
+                // Move the guest's call history along, remapping any lead that
+                // had to get a fresh id because the target account already owns it.
+                try {
+                    val guestLogs = database.callLogDao.getAllForOwnerUnordered(guestOwnerUid)
+                    if (guestLogs.isNotEmpty()) {
+                        val idMap = guestLeads.mapIndexed { idx, l -> l.id to movedLeads[idx].id }.toMap()
+                        database.callLogDao.insertAll(
+                            guestLogs.map { it.copy(ownerUid = targetOwnerUid, leadId = idMap[it.leadId] ?: it.leadId) }
+                        )
+                        database.callLogDao.deleteForOwner(guestOwnerUid)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GuestDataTransfer", "Failed to move call logs", e)
+                }
                 database.leadDao.clearLeadsForUser(guestOwnerUid)
                 ReminderScheduler.rescheduleAllReminders(getApplication(), movedLeads)
                 sharedPrefs.edit().remove(preservedGuestOwnerKey).apply()
@@ -196,6 +210,16 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 val restoredLeads = oldGuestLeads.map { it.copy(ownerUid = newGuestOwnerUid) }
                 // Guest sessions stay local-only, so write directly to Room and do not enqueue cloud mutations.
                 database.leadDao.insertLeads(restoredLeads)
+                try {
+                    val oldLogs = database.callLogDao.getAllForOwnerUnordered(sourceOwnerUid)
+                    if (oldLogs.isNotEmpty()) {
+                        // Lead ids are kept as-is here, so only the owner changes.
+                        database.callLogDao.insertAll(oldLogs.map { it.copy(ownerUid = newGuestOwnerUid) })
+                        database.callLogDao.deleteForOwner(sourceOwnerUid)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GuestDataTransfer", "Failed to restore call logs", e)
+                }
                 database.leadDao.clearLeadsForUser(sourceOwnerUid)
                 ReminderScheduler.rescheduleAllReminders(getApplication(), restoredLeads)
                 sharedPrefs.edit().remove(preservedGuestOwnerKey).apply()
@@ -1617,6 +1641,18 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             }
         }
 
+        // 6) Call log from chat ("Rahul ko call kar diya, baat ho gayi"):
+        // a history entry plus a fresh lastCall summary. The note the model
+        // carries is stored in the log as well as in the lead notes.
+        val callOutcome = when (action.logCallOutcome.trim().lowercase(java.util.Locale.ROOT).replace(' ', '_')) {
+            "answered", "no_answer", "callback" ->
+                action.logCallOutcome.trim().lowercase(java.util.Locale.ROOT).replace(' ', '_')
+            else -> ""
+        }
+        if (callOutcome.isNotEmpty()) {
+            updated = updated.copy(lastCall = currentIsoUtcCallStamp())
+        }
+
         if (updated == lead) {
             // Nothing valid was applied - report the warnings (or say so).
             return if (warnings.isNotEmpty()) warnings.joinToString(" ")
@@ -1632,7 +1668,30 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             } else if (reminderChanged) {
                 com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
             }
-            "✅ '${updated.name}' update ho gaya." + warnings.joinToString(" ")
+            var callLogged = false
+            if (callOutcome.isNotEmpty()) {
+                try {
+                    val logUid = updated.ownerUid.ifBlank { uid }
+                    if (logUid.isNotBlank()) {
+                        AppDatabase.getDatabase(getApplication()).callLogDao.insert(
+                            com.example.data.database.CallLogEntity(
+                                ownerUid = logUid,
+                                id = java.util.UUID.randomUUID().toString(),
+                                leadId = updated.id,
+                                callTime = updated.lastCall ?: currentIsoUtcCallStamp(),
+                                outcome = callOutcome,
+                                note = action.note.trim().take(200)
+                            )
+                        )
+                        callLogged = true
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CRMViewModel", "AI call log insert failed", e)
+                }
+            }
+            "✅ '${updated.name}' update ho gaya." +
+                (if (callOutcome.isNotEmpty()) if (callLogged) " Call history me bhi log ho gayi." else "" else "") +
+                warnings.joinToString(" ")
         } catch (error: Exception) {
             "Update nahi ho saka: ${error.message.orEmpty()}"
         }
@@ -1715,6 +1774,14 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
         return try {
             repository.deleteLeadById(lead.id, lead.ownerUid.ifBlank { uid })
+            val logUid = lead.ownerUid.ifBlank { uid }
+            if (logUid.isNotBlank()) {
+                try {
+                    AppDatabase.getDatabase(getApplication()).callLogDao.deleteForLead(logUid, lead.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("CRMViewModel", "AI delete: call log cleanup failed", e)
+                }
+            }
             com.example.audio.ReminderScheduler.cancelReminder(
                 getApplication(), lead.ownerUid, lead.id
             )
@@ -1809,6 +1876,11 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         if (uid.isBlank()) return
         viewModelScope.launch {
             repository.deleteLeadById(lead.id, uid)
+            try {
+                AppDatabase.getDatabase(getApplication()).callLogDao.deleteForLead(uid, lead.id)
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "deleteLead: call log cleanup failed", e)
+            }
             ReminderScheduler.cancelReminder(getApplication(), uid, lead.id)
             if (ringingLead.value?.id == lead.id) {
                 dismissActiveAlarm()
@@ -1830,8 +1902,61 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     fun markCallInitiated(lead: LeadEntity) {
         viewModelScope.launch {
-            val updated = lead.copy(lastCall = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()))
+            val updated = lead.copy(lastCall = currentIsoUtcCallStamp())
             repository.insertLead(updated)
+        }
+    }
+
+    /** Shared ISO format for call timestamps (kept identical to lastCall). */
+    private fun currentIsoUtcCallStamp(): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date())
+
+    /**
+     * Stores a manual call-log entry for the lead (device-local history) and
+     * refreshes the synced `lastCall` summary. Silently ignores a "skip"
+     * (empty outcome) so the caller can always call this after dialing.
+     */
+    fun logCall(lead: LeadEntity, outcome: String, note: String, onLogged: (() -> Unit)? = null) {
+        val normalized = com.example.data.database.CallOutcomes.normalize(outcome) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val db = AppDatabase.getDatabase(getApplication())
+                val uid = lead.ownerUid.ifBlank {
+                    com.example.data.ActiveAccountStore.getActiveUid(getApplication())
+                }
+                if (uid.isBlank()) return@launch
+                val iso = currentIsoUtcCallStamp()
+                db.callLogDao.insert(
+                    com.example.data.database.CallLogEntity(
+                        ownerUid = uid,
+                        id = java.util.UUID.randomUUID().toString(),
+                        leadId = lead.id,
+                        callTime = iso,
+                        outcome = normalized,
+                        note = note.trim().take(200)
+                    )
+                )
+                if (lead.lastCall == null || lead.lastCall!! < iso) {
+                    repository.insertLead(lead.copy(lastCall = iso))
+                }
+                onLogged?.invoke()
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "logCall failed for lead ${lead.id}", e)
+            }
+        }
+    }
+
+    /** Newest-first call history of one lead (max 50) for the profile screen. */
+    suspend fun loadCallLogs(leadId: String): List<com.example.data.database.CallLogEntity> {
+        return try {
+            val uid = _currentUidFlow.value
+                ?: FirebaseAuth.getInstance().currentUser?.uid
+                ?: ""
+            if (uid.isBlank()) return emptyList()
+            AppDatabase.getDatabase(getApplication()).callLogDao.getLogsForLead(uid, leadId)
+        } catch (e: Exception) {
+            android.util.Log.e("CRMViewModel", "loadCallLogs failed", e)
+            emptyList()
         }
     }
 
@@ -1883,6 +2008,11 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             }
             ReminderScheduler.cancelAllRemindersForUser(getApplication(), uid)
             repository.clearLeadsForUser(uid)
+            try {
+                database.callLogDao.deleteForOwner(uid)
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "Wipe: call log cleanup failed", e)
+            }
             aiChatRepository.clearChatHistoryForUser(uid)
 
             withContext(Dispatchers.Main) {
@@ -2221,6 +2351,20 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
     fun exportBackupJson(): String {
         val array = JSONArray()
         val activeList = allLeadsList.value
+        // Device-local call history, keyed per lead and embedded in each lead
+        // object so a backup/restore round-trip keeps it.
+        val logsByLead: Map<String, List<com.example.data.database.CallLogEntity>> = try {
+            val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            if (uid.isBlank()) {
+                emptyMap()
+            } else {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    AppDatabase.getDatabase(getApplication()).callLogDao.getAllForOwnerUnordered(uid)
+                }.groupBy { it.leadId }
+            }
+        } catch (e: Exception) {
+            emptyMap()
+        }
         for (lead in activeList) {
             val obj = JSONObject().apply {
                 put("id", lead.id)
@@ -2240,6 +2384,18 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 put("archived", lead.archived)
                 put("lastCall", lead.lastCall ?: JSONObject.NULL)
                 put("timestamp", lead.timestamp)
+                val logs = logsByLead[lead.id].orEmpty()
+                if (logs.isNotEmpty()) {
+                    val logsArray = JSONArray()
+                    logs.forEach { log ->
+                        logsArray.put(JSONObject().apply {
+                            put("callTime", log.callTime)
+                            put("outcome", log.outcome)
+                            put("note", log.note)
+                        })
+                    }
+                    put("callLogs", logsArray)
+                }
             }
             array.put(obj)
         }
@@ -2254,6 +2410,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
             val currentList = allLeadsList.value
             val listToInsert = mutableListOf<LeadEntity>()
+            val pendingCallLogs = mutableListOf<com.example.data.database.CallLogEntity>()
 
             for (i in 0 until array.length()) {
                 val obj = array.optJSONObject(i) ?: continue
@@ -2300,6 +2457,28 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             ownerUid = activeUid
                         )
                         listToInsert.add(lead)
+                        // Re-attach embedded call history to the new lead id.
+                        val logsArray = obj.optJSONArray("callLogs")
+                        if (logsArray != null && activeUid.isNotBlank()) {
+                            for (j in 0 until logsArray.length()) {
+                                val logObj = logsArray.optJSONObject(j) ?: continue
+                                val callTime = logObj.optString("callTime", "").trim()
+                                if (callTime.isEmpty()) continue
+                                val outcome = com.example.data.database.CallOutcomes.normalize(
+                                    logObj.optString("outcome", "")
+                                ) ?: continue
+                                pendingCallLogs.add(
+                                    com.example.data.database.CallLogEntity(
+                                        ownerUid = activeUid,
+                                        id = UUID.randomUUID().toString(),
+                                        leadId = lead.id,
+                                        callTime = callTime,
+                                        outcome = outcome,
+                                        note = logObj.optString("note", "").trim().take(200)
+                                    )
+                                )
+                            }
+                        }
                         added++
                     } else {
                         skipped++
@@ -2311,6 +2490,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 viewModelScope.launch {
                     runCatching {
                         repository.insertLeads(listToInsert, com.example.sync.LeadWriteOrigin.LOCAL_IMPORT)
+                        if (pendingCallLogs.isNotEmpty()) {
+                            AppDatabase.getDatabase(getApplication()).callLogDao.insertAll(pendingCallLogs)
+                        }
                         ReminderScheduler.rescheduleAllReminders(getApplication(), listToInsert)
                     }.onSuccess {
                         withContext(Dispatchers.Main) {

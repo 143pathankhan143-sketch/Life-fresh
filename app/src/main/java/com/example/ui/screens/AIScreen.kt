@@ -1299,6 +1299,21 @@ private fun PendingLeadActionCard(
                             style = MaterialTheme.typography.bodyMedium
                         )
                 }
+                if (action.logCallOutcome.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_call_logged,
+                            stringResource(
+                                when (action.logCallOutcome) {
+                                    "answered" -> R.string.call_outcome_answered
+                                    "callback" -> R.string.call_outcome_callback
+                                    else -> R.string.call_outcome_no_answer
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 if (!action.removeReminder && action.setReminderRepeat.isNotBlank()) {
                     Text(
                         text = stringResource(

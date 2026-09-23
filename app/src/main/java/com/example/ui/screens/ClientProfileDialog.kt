@@ -62,6 +62,13 @@ fun ClientProfileDialog(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
+    var showCallOutcomeDialog by remember { mutableStateOf(false) }
+    var callLogs by remember { mutableStateOf<List<com.example.data.database.CallLogEntity>>(emptyList()) }
+    var callLogsTick by remember { mutableStateOf(0) }
+
+    LaunchedEffect(lead.id, callLogsTick) {
+        callLogs = viewModel.loadCallLogs(lead.id)
+    }
 
     // Parse raw diseases for save operations
     val rawDiseasesList = remember(lead.diseases) {
@@ -390,10 +397,10 @@ fun ClientProfileDialog(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
-                                    viewModel.markCallInitiated(lead)
                                     try {
                                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                         context.startActivity(intent)
+                                        showCallOutcomeDialog = true
                                     } catch (e: Exception) {
                                         Toast.makeText(context, context.getString(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                                     }
@@ -864,11 +871,97 @@ fun ClientProfileDialog(
                             }
                         }
 
+                        // CARD 6: Call History (manual per-call log entries)
+                        if (callLogs.isNotEmpty()) {
+                            ProfileSectionCard(
+                                title = stringResource(R.string.profile_call_history),
+                                icon = Icons.Outlined.Phone
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    callLogs.forEach { entry ->
+                                        val (labelRes, labelColor) = when (entry.outcome) {
+                                            "answered" -> Pair(R.string.call_outcome_answered, Color(0xFF43A047))
+                                            "callback" -> Pair(R.string.call_outcome_callback, Color(0xFFFB8C00))
+                                            else -> Pair(R.string.call_outcome_no_answer, Color(0xFFE53935))
+                                        }
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                                    RoundedCornerShape(10.dp)
+                                                )
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .background(labelColor, CircleShape)
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = stringResource(labelRes),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = labelColor
+                                                )
+                                                Text(
+                                                    text = remember(entry.callTime) {
+                                                        val callMillis = try {
+                                                            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                                                                .parse(entry.callTime)?.time ?: 0L
+                                                        } catch (e: Exception) {
+                                                            0L
+                                                        }
+                                                        if (callMillis > 0L) {
+                                                            formatDateStr(callMillis) + " • " + formatTimeStr(callMillis)
+                                                        } else {
+                                                            entry.callTime.take(16).replace('T', ' ')
+                                                        }
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                if (entry.note.isNotBlank()) {
+                                                    Text(
+                                                        text = entry.note,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(40.dp))
                     }
                 }
             }
         }
+    }
+
+    // Call outcome popup: shown right after dialing from the profile.
+    if (showCallOutcomeDialog) {
+        CallOutcomeDialog(
+            leadName = lead.name,
+            onDismiss = {
+                // Skipping keeps the old behavior: only lastCall is marked.
+                viewModel.markCallInitiated(lead)
+                showCallOutcomeDialog = false
+            },
+            onResult = { outcome, note ->
+                viewModel.logCall(lead, outcome, note, onLogged = { callLogsTick++ })
+                showCallOutcomeDialog = false
+            }
+        )
     }
 
     // Delete Confirmation Dialog

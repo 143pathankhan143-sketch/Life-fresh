@@ -877,4 +877,15 @@
     <string name="repeat_weekly">ہر ہفتے</string>
     <string name="repeat_monthly">ہر مہینے</string>
     <string name="ai_new_repeat">دہرائی: %1$s</string>
+
+    <!-- Call log -->
+    <string name="call_log_title">%1$s کو کال — کیسی رہی؟</string>
+    <string name="call_outcome_answered">جواب دیا</string>
+    <string name="call_outcome_no_answer">نہیں اٹھایا</string>
+    <string name="call_outcome_callback">بعد میں کال کریں</string>
+    <string name="call_outcome_skip">چھوڑیں</string>
+    <string name="call_note_ph">نوٹ (اختیاری)</string>
+    <string name="profile_call_history">کال کی تاریخ</string>
+    <string name="profile_calls_count">%1$d کالز • آخری: %2$s</string>
+    <string name="ai_call_logged">کال درج: %1$s</string>
 </resources>

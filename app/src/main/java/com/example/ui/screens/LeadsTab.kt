@@ -64,6 +64,7 @@ fun LeadsTab(
 
     val listState = rememberLazyListState()
     var showDeleteConfirmDialog by remember { mutableStateOf<LeadEntity?>(null) }
+    var callOutcomeLead by remember { mutableStateOf<LeadEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -437,10 +438,10 @@ fun LeadsTab(
                         lead = lead,
                         onViewProfile = { onViewLeadProfile(lead) },
                         onCall = {
-                            viewModel.markCallInitiated(lead)
                             try {
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                 context.startActivity(intent)
+                                callOutcomeLead = lead
                             } catch (e: Exception) {
                                 Toast.makeText(context, context.getString(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                             }
@@ -635,6 +636,22 @@ fun LeadsTab(
                 ) {
                     Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        )
+    }
+
+    // Call outcome popup: shown right after dialing from a lead card.
+    callOutcomeLead?.let { callLead ->
+        CallOutcomeDialog(
+            leadName = callLead.name,
+            onDismiss = {
+                // Skipping keeps the old behavior: only lastCall is marked.
+                viewModel.markCallInitiated(callLead)
+                callOutcomeLead = null
+            },
+            onResult = { outcome, note ->
+                viewModel.logCall(callLead, outcome, note)
+                callOutcomeLead = null
             }
         )
     }
