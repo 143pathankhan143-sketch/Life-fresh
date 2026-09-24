@@ -20,6 +20,7 @@ data class LeadAction(
     val note: String = "",
     val reminderDate: String = "", // "yyyy-MM-dd" or empty
     val reminderTime: String = "", // "HH:mm" (24h) or empty
+    val reminderRepeat: String = "", // CONFIRM-only: "daily"/"weekly"/"monthly" (empty/none = one-shot)
     val status: String = "", // "Pending" or "Complete" - only used for STATUS kind
     // UPDATE-only change fields (empty = no change)
     val setMobile: String = "",
@@ -286,6 +287,10 @@ object LeadActionParser {
             val note = json.optString("note", "").trim().take(MAX_NOTE_LENGTH)
             val reminderDate = json.optString("reminderDate", "").trim().take(10)
             val reminderTime = json.optString("reminderTime", "").trim().take(5)
+            val reminderRepeat = when (json.optString("reminderRepeat", "").trim().lowercase()) {
+                "daily", "weekly", "monthly" -> json.optString("reminderRepeat", "").trim().lowercase()
+                else -> ""
+            }
 
             // Nothing collected at all -> not a meaningful action.
             if (name.isEmpty() && mobile.isEmpty()) return null
@@ -297,7 +302,8 @@ object LeadActionParser {
                 diseases = diseases.distinctBy { it.lowercase() },
                 note = note,
                 reminderDate = reminderDate,
-                reminderTime = reminderTime
+                reminderTime = reminderTime,
+                reminderRepeat = reminderRepeat
             )
         } catch (_: Exception) {
             null

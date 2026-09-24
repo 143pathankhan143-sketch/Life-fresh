@@ -1190,6 +1190,63 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         }
     }
 
+    /** Per-lead call-log counts used by the AI snapshot (refreshed async). */
+    data class LeadCallStats(
+        val total: Int,
+        val last7: Int,
+        val answered7: Int,
+        val noAnswer7: Int,
+        val callback7: Int
+    )
+
+    private val _callStatsFlow =
+        MutableStateFlow<Map<String, LeadCallStats>>(emptyMap())
+
+    /** Recomputes call stats from the call_logs table; snapshot uses the
+     *  latest completed load (chat answers may lag by one message). */
+    fun refreshCallStats() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val uid = _currentUidFlow.value
+                    ?: FirebaseAuth.getInstance().currentUser?.uid
+                    ?: ""
+                if (uid.isBlank()) {
+                    _callStatsFlow.value = emptyMap()
+                    return@launch
+                }
+                val cutoff = System.currentTimeMillis() - 7L * 86_400_000L
+                val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                val logs = database.callLogDao.getAllForOwnerUnordered(uid)
+                val map = HashMap<String, LeadCallStats>()
+                logs.groupBy { it.leadId }.forEach { (leadId, entries) ->
+                    var l7 = 0
+                    var a7 = 0
+                    var n7 = 0
+                    var c7 = 0
+                    entries.forEach { e ->
+                        val t = try {
+                            isoFmt.parse(e.callTime)?.time ?: 0L
+                        } catch (pe: Exception) {
+                            0L
+                        }
+                        if (t >= cutoff) {
+                            l7++
+                            when (e.outcome) {
+                                "answered" -> a7++
+                                "no_answer" -> n7++
+                                "callback" -> c7++
+                            }
+                        }
+                    }
+                    map[leadId] = LeadCallStats(entries.size, l7, a7, n7, c7)
+                }
+                _callStatsFlow.value = map
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "refreshCallStats failed", e)
+            }
+        }
+    }
+
     /**
      * Builds the compact read-only CRM snapshot that is appended to the AI
      * system instruction before every request. In-memory only (StateFlow
@@ -1207,6 +1264,24 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         val remOverdue = active.count {
             it.reminderDate.isNotEmpty() && it.reminderDate < todayStr && it.reminderStatus == "Pending"
         }
+        refreshCallStats()
+        val stats = _callStatsFlow.value
+        val nowMillis = System.currentTimeMillis()
+        val isoCallFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        fun lastCallMillis(lead: LeadEntity): Long = try {
+            lead.lastCall?.let { isoCallFmt.parse(it)?.time } ?: 0L
+        } catch (pe: Exception) {
+            0L
+        }
+        fun idleDaysOf(lead: LeadEntity): Long {
+            val act = maxOf(
+                lead.timestamp,
+                lead.notesUpdatedAt,
+                lead.reminderUpdatedAt,
+                lastCallMillis(lead)
+            )
+            return ((nowMillis - act) / 86_400_000L).coerceAtLeast(0L)
+        }
 
         val sb = StringBuilder()
         sb.append("CRM DATA SNAPSHOT (read-only context about the user's current leads, refreshed for every message. Answer questions from it; it never changes data):\n")
@@ -1219,17 +1294,44 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             .append(", overdue reminders=").append(remOverdue)
             .append('\n')
 
-        val recent = full.sortedByDescending { it.timestamp }.take(15)
-        if (recent.isNotEmpty()) {
-            sb.append("Recent clients (name | phone | status | reminderDate-time | wellness | relation | lastCall):\n")
-            recent.forEach { lead ->
+        var wCalls = 0
+        var wAns = 0
+        var wNo = 0
+        var wCb = 0
+        stats.values.forEach { st ->
+            wCalls += st.last7
+            wAns += st.answered7
+            wNo += st.noAnswer7
+            wCb += st.callback7
+        }
+        val remDoneWeek = active.count {
+            (it.reminderStatus == "Completed" || it.reminderStatus == "Dismissed") &&
+                it.reminderUpdatedAt >= nowMillis - 7L * 86_400_000L
+        }
+        sb.append("This week: calls=").append(wCalls)
+            .append(" (answered=").append(wAns)
+            .append(", no-answer=").append(wNo)
+            .append(", callback=").append(wCb)
+            .append("), reminders completed=").append(remDoneWeek)
+            .append('\n')
+
+        val listed = active.sortedWith(
+            compareBy<LeadEntity> { if (it.reminderDate.isNotEmpty()) it.reminderDate else "9999-99-99" }
+                .thenByDescending { it.timestamp }
+        ).take(25)
+        if (listed.isNotEmpty()) {
+            sb.append("Active clients (name | phone | status | reminderDate-time | wellness | relation | lastCall | calls | idle):\n")
+            listed.forEach { lead ->
                 sb.append(lead.name)
-                    .append(if (lead.archived) " [ARCHIVED]" else "")
                     .append(" | ").append(lead.mobile.ifEmpty { "-" })
                     .append(" | ").append(lead.status)
                     .append(" | ").append(
                         when {
                             lead.reminderDate.isEmpty() -> "-"
+                            lead.reminderDate < todayStr && lead.reminderStatus == "Pending" ->
+                                (if (lead.reminderTime.isNotEmpty()) {
+                                    lead.reminderDate + " " + lead.reminderTime
+                                } else lead.reminderDate) + " OVERDUE"
                             lead.reminderTime.isNotEmpty() -> lead.reminderDate + " " + lead.reminderTime
                             else -> lead.reminderDate
                         }
@@ -1246,7 +1348,38 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                     }
                 }
                 sb.append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
+                stats[lead.id]?.let { st ->
+                    sb.append(" | calls=").append(st.total)
+                        .append("(7d:").append(st.last7)
+                        .append(" a=").append(st.answered7)
+                        .append(" n=").append(st.noAnswer7)
+                        .append(" c=").append(st.callback7).append(")")
+                }
+                val idle = idleDaysOf(lead)
+                if (idle >= 10) sb.append(" | idle=").append(idle).append("d")
                 sb.append('\n')
+            }
+            val unlisted = active.size - listed.size
+            if (unlisted > 0) {
+                sb.append("(+").append(unlisted)
+                    .append(" older active clients not listed - ask the user for the name or number to look them up)\n")
+            }
+        }
+
+        val cold = active
+            .filter {
+                it.status.equals("Pending", ignoreCase = true) && idleDaysOf(it) >= 15
+            }
+            .sortedByDescending { idleDaysOf(it) }
+            .take(12)
+        if (cold.isNotEmpty()) {
+            sb.append("COLD clients (pending, no activity for 15+ days, most idle first):\n")
+            cold.forEach { lead ->
+                sb.append("- ").append(lead.name)
+                    .append(" | idle=").append(idleDaysOf(lead)).append("d")
+                    .append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
+                    .append(" | phone=").append(lead.mobile.ifEmpty { "-" })
+                    .append('\n')
             }
         }
 
@@ -1323,6 +1456,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         var reminderDate = ""
         var reminderTime = ""
         var reminderWarning = ""
+        var reminderRepeat = "none"
         if (!isDraft && action.reminderDate.isNotBlank()) {
             val canonicalDate = parseStrictYMD(action.reminderDate)
             when {
@@ -1341,6 +1475,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                     } else {
                         reminderDate = canonicalDate
                         reminderTime = time
+                        reminderRepeat = action.reminderRepeat.ifBlank { "none" }
                     }
                 }
             }
@@ -1371,6 +1506,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             reminderTime = reminderTime,
             reminderNote = if (reminderDate.isNotEmpty()) note else "",
             reminderStatus = "Pending",
+            reminderRepeat = reminderRepeat,
             notes = note,
             archived = false,
             lastCall = null,
@@ -1399,6 +1535,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 try {
                     com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), entity)
                     message += " Reminder set hua: ${formatReminderForDisplay(reminderDate, reminderTime)}."
+                    if (reminderRepeat != "none") {
+                        message += " Ye reminder $reminderRepeat repeat hoga (dismiss karne ke baad agle cycle pe wapas aayega)."
+                    }
                 } catch (error: Exception) {
                     message += " Reminder alarm set nahi ho saka."
                 }

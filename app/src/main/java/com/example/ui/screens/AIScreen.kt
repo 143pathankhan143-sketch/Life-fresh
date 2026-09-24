@@ -1373,6 +1373,21 @@ private fun PendingLeadActionCard(
                         text = stringResource(R.string.ai_reminder_prefix, formatReminderDisplay(action)),
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    if (action.reminderRepeat.isNotBlank()) {
+                        Text(
+                            text = stringResource(
+                                R.string.ai_new_repeat,
+                                stringResource(
+                                    when (action.reminderRepeat) {
+                                        "daily" -> R.string.repeat_daily
+                                        "weekly" -> R.string.repeat_weekly
+                                        else -> R.string.repeat_monthly
+                                    }
+                                )
+                            ),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
                 if (isStatus) {
                     Text(
