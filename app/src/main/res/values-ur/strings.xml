@@ -888,4 +888,15 @@
     <string name="profile_call_history">کال کی تاریخ</string>
     <string name="profile_calls_count">%1$d کالز • آخری: %2$s</string>
     <string name="ai_call_logged">کال درج: %1$s</string>
+
+    <string name="ai_bulk_title">تمام matched leads پر لاگو کریں؟</string>
+    <string name="ai_bulk_op_reminder">ہر match کو reminder: %1$s</string>
+    <string name="ai_bulk_op_archive">ہر match کو Archived میں ڈالیں</string>
+    <string name="ai_bulk_op_complete">ہر match کو Complete کریں</string>
+    <string name="ai_bulk_pending">صرف زیر التواء leads</string>
+    <string name="ai_bulk_overdue">جن کا reminder مقررہ وقت سے نکل چکا</string>
+    <string name="ai_bulk_idle">%1$d+ دن سے غیر فعال</string>
+    <string name="ai_bulk_names">نام سے: %1$s</string>
+    <string name="ai_bulk_hint">ایپ خود مطابقت رکھنے والی active leads چنے گی (زیادہ سے زیادہ 25)۔ Apply کے بعد جواب میں نام نظر آئیں گے۔</string>
+    <string name="ai_bulk_apply">لاگو کریں</string>
 </resources>

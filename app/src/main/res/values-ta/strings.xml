@@ -888,4 +888,15 @@
     <string name="profile_call_history">அழைப்பு வரலாறு</string>
     <string name="profile_calls_count">%1$d அழைப்புகள் • கடைசி: %2$s</string>
     <string name="ai_call_logged">அழைப்பு பதிவு: %1$s</string>
+
+    <string name="ai_bulk_title">பொருந்தும் அனைத்து விவரங்களிலும் பயன்படுத்தவா?</string>
+    <string name="ai_bulk_op_reminder">ஒவ்வொரு match-க்கும் நினைவூட்டல்: %1$s</string>
+    <string name="ai_bulk_op_archive">அனைத்து match-களையும் சேமிப்பிற்கு</string>
+    <string name="ai_bulk_op_complete">அனைத்து match-களையும் முடிந்ததாக</string>
+    <string name="ai_bulk_pending">நிலுவையில் உள்ளவை மட்டும்</string>
+    <string name="ai_bulk_overdue">காலம் தாழ்ந்த நினைவூட்டல் உள்ளவை</string>
+    <string name="ai_bulk_idle">%1$d+ நாட்களாக செயலற்றது</string>
+    <string name="ai_bulk_names">பெயர்களால்: %1$s</string>
+    <string name="ai_bulk_hint">செயலில் உள்ள பொருந்தும் விவரங்களை ஆப் தேர்ந்தெடுக்கும் (25 வரை). Apply-க்கு பின் பதிலில் பெயர்கள் தெரியும்.</string>
+    <string name="ai_bulk_apply">பயன்படுத்து</string>
 </resources>

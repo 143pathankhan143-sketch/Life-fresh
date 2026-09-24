@@ -25,7 +25,8 @@ private val CARD_ACTION_KINDS = setOf(
     LeadAction.Kind.DRAFT,
     LeadAction.Kind.STATUS,
     LeadAction.Kind.UPDATE,
-    LeadAction.Kind.DELETE
+    LeadAction.Kind.DELETE,
+    LeadAction.Kind.BULK
 )
 
 /**
@@ -37,7 +38,8 @@ private val AGENT_AUTO_KINDS = setOf(
     LeadAction.Kind.CONFIRM,
     LeadAction.Kind.DRAFT,
     LeadAction.Kind.STATUS,
-    LeadAction.Kind.UPDATE
+    LeadAction.Kind.UPDATE,
+    LeadAction.Kind.BULK
 )
 
 /**

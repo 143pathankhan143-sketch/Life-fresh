@@ -32,7 +32,13 @@ data class LeadAction(
     val setReminderTime: String = "",
     val setReminderRepeat: String = "", // "none"/"daily"/"weekly"/"monthly" - empty = no change
     val logCallOutcome: String = "",    // "answered"/"no_answer"/"callback" - empty = no call log
-    val removeReminder: Boolean = false
+    val removeReminder: Boolean = false,
+    // BULK-only (LEAD_BULK): same change applied to many active leads at once
+    val bulkOp: String = "",           // "setReminder" | "archive" | "complete"
+    val bulkPendingOnly: Boolean = false,
+    val bulkOverdueOnly: Boolean = false,
+    val bulkIdleDays: Int = 0,         // 0 = no idle filter
+    val bulkNames: List<String> = emptyList() // explicit list from the user, else empty
 ) {
     enum class Kind {
         /** All required details collected; the app offers Save (and Draft). */
@@ -54,7 +60,11 @@ data class LeadAction(
         DELETE,
 
         /** Open WhatsApp for the lead's number - executed directly, no card. */
-        WHATSAPP
+        WHATSAPP,
+
+        /** Same reminder/archive/complete change on many leads; the app
+         * shows a confirm card and applies to the leads that match. */
+        BULK
     }
 
     /** True when at least one real detail was collected (for draft decisions). */
@@ -96,8 +106,8 @@ object LeadActionParser {
     private const val MAX_NOTE_LENGTH = 120
 
     private val markerRegex = Regex(
-        "\\[LEAD_(CONFIRM|DRAFT|STATUS|UPDATE|ARCHIVE|DELETE|WHATSAPP)\\]\\s*(\\{.*?\\})" +
-            "(?:\\s*\\[/LEAD_(?:CONFIRM|DRAFT|STATUS|UPDATE|ARCHIVE|DELETE|WHATSAPP)\\])?",
+        "\\[LEAD_(CONFIRM|DRAFT|STATUS|UPDATE|ARCHIVE|DELETE|WHATSAPP|BULK)\\]\\s*(\\{.*?\\})" +
+            "(?:\\s*\\[/LEAD_(?:CONFIRM|DRAFT|STATUS|UPDATE|ARCHIVE|DELETE|WHATSAPP|BULK)\\])?",
         RegexOption.DOT_MATCHES_ALL
     )
 
@@ -111,6 +121,7 @@ object LeadActionParser {
             "ARCHIVE" -> LeadAction.Kind.ARCHIVE
             "DELETE" -> LeadAction.Kind.DELETE
             "WHATSAPP" -> LeadAction.Kind.WHATSAPP
+            "BULK" -> LeadAction.Kind.BULK
             else -> LeadAction.Kind.DRAFT
         }
 
@@ -120,6 +131,7 @@ object LeadActionParser {
             LeadAction.Kind.ARCHIVE -> parseSimpleAction(match.groupValues[2], kind)
             LeadAction.Kind.DELETE -> parseSimpleAction(match.groupValues[2], kind)
             LeadAction.Kind.WHATSAPP -> parseWhatsAppAction(match.groupValues[2])
+            LeadAction.Kind.BULK -> parseBulkAction(match.groupValues[2])
             else -> parseAction(match.groupValues[2], kind)
         } ?: return ParsedLeadReply.Normal(content)
 
@@ -225,6 +237,51 @@ object LeadActionParser {
                 setReminderRepeat = setReminderRepeat,
                 logCallOutcome = logCallOutcome,
                 removeReminder = removeReminder
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Parses a LEAD_BULK block. Only the op + filters matter; the app itself
+     * decides which active leads match (the model cannot enumerate ids).
+     */
+    private fun parseBulkAction(jsonText: String): LeadAction? {
+        return try {
+            val json = JSONObject(jsonText)
+            val op = json.optString("op", "").trim().lowercase()
+            if (op !in setOf("setreminder", "archive", "complete")) return null
+            val date = json.optString("date", "").trim().take(10)
+            if (op == "setreminder" && date.isEmpty()) return null
+            val time = json.optString("time", "").trim().take(5)
+            val repeat = when (json.optString("repeat", "").trim().lowercase()) {
+                "daily", "weekly", "monthly" -> json.optString("repeat", "").trim().lowercase()
+                else -> ""
+            }
+            val names = mutableListOf<String>()
+            val rawNames = json.optJSONArray("names")
+            if (rawNames != null) {
+                for (i in 0 until rawNames.length()) {
+                    val n = rawNames.optString(i, "").trim().replace(Regex("\\s+"), " ")
+                    if (n.isNotEmpty()) names += n.take(MAX_NAME_LENGTH)
+                    if (names.size >= 25) break
+                }
+            }
+            val idleDays = json.optInt("idleDays", 0).coerceIn(0, 3650)
+            LeadAction(
+                kind = LeadAction.Kind.BULK,
+                name = "",
+                mobile = "",
+                diseases = emptyList(),
+                bulkOp = if (op == "setreminder") "setReminder" else op,
+                setReminderDate = if (op == "setreminder") date else "",
+                setReminderTime = if (op == "setreminder") time else "",
+                setReminderRepeat = if (op == "setreminder") repeat else "",
+                bulkPendingOnly = json.optBoolean("pendingOnly", op != "archive"),
+                bulkOverdueOnly = json.optBoolean("overdueOnly", false),
+                bulkIdleDays = if (op == "archive") idleDays else 0,
+                bulkNames = names.distinctBy { it.lowercase() }
             )
         } catch (_: Exception) {
             null

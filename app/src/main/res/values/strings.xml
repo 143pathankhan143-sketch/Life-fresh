@@ -888,4 +888,15 @@
     <string name="profile_call_history">Call History</string>
     <string name="profile_calls_count">%1$d calls • last: %2$s</string>
     <string name="ai_call_logged">Call logged: %1$s</string>
+
+    <string name="ai_bulk_title">Apply on all matched leads?</string>
+    <string name="ai_bulk_op_reminder">Reminder for every match: %1$s</string>
+    <string name="ai_bulk_op_archive">Move every match to Archived</string>
+    <string name="ai_bulk_op_complete">Mark every match Complete</string>
+    <string name="ai_bulk_pending">Pending leads only</string>
+    <string name="ai_bulk_overdue">Only leads with an overdue reminder</string>
+    <string name="ai_bulk_idle">Inactive for %1$d+ days</string>
+    <string name="ai_bulk_names">Named: %1$s</string>
+    <string name="ai_bulk_hint">The app picks the matching active leads (max 25). The reply after Apply lists who was changed.</string>
+    <string name="ai_bulk_apply">Apply</string>
 </resources>

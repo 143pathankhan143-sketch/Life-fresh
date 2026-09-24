@@ -888,4 +888,15 @@
     <string name="profile_call_history">कॉल इतिहास</string>
     <string name="profile_calls_count">%1$d कॉल • आख़िरी: %2$s</string>
     <string name="ai_call_logged">कॉल दर्ज: %1$s</string>
+
+    <string name="ai_bulk_title">सभी matched leads पर apply करें?</string>
+    <string name="ai_bulk_op_reminder">हर match को reminder: %1$s</string>
+    <string name="ai_bulk_op_archive">हर match को Archived में डालो</string>
+    <string name="ai_bulk_op_complete">हर match को Complete करो</string>
+    <string name="ai_bulk_pending">सिर्फ pending leads</string>
+    <string name="ai_bulk_overdue">जिनका reminder overdue है</string>
+    <string name="ai_bulk_idle">%1$d+ दिन से inactive</string>
+    <string name="ai_bulk_names">नाम से: %1$s</string>
+    <string name="ai_bulk_hint">ऐप खुद active matched leads चुनेगा (max 25). Apply के बाद जवाब में नाम दिखेंगे।</string>
+    <string name="ai_bulk_apply">Apply करो</string>
 </resources>

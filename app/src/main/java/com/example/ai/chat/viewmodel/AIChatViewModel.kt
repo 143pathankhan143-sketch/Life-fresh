@@ -64,6 +64,7 @@ class AIChatViewModel(
                     val message = when (action.kind) {
                         LeadAction.Kind.STATUS -> viewModel.updateLeadStatusFromAIChat(action)
                         LeadAction.Kind.UPDATE -> viewModel.updateLeadFromAIChat(action)
+                        LeadAction.Kind.BULK -> viewModel.applyBulkFromAIChat(action)
                         else -> viewModel.saveLeadFromAIChat(action)
                     }
                     repository.addLocalAssistantMessage(message)
@@ -151,6 +152,8 @@ class AIChatViewModel(
                     crm.updateLeadFromAIChat(action)
                 action.kind == LeadAction.Kind.DELETE ->
                     crm.deleteLeadFromAIChat(action)
+                action.kind == LeadAction.Kind.BULK ->
+                    crm.applyBulkFromAIChat(action)
                 else -> {
                     val effective = if (saveAsDraft) action.copy(kind = LeadAction.Kind.DRAFT) else action
                     crm.saveLeadFromAIChat(effective)

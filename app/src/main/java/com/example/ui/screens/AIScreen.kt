@@ -1222,6 +1222,7 @@ private fun PendingLeadActionCard(
     val isStatus = action.kind == LeadAction.Kind.STATUS
     val isUpdate = action.kind == LeadAction.Kind.UPDATE
     val isDelete = action.kind == LeadAction.Kind.DELETE
+    val isBulk = action.kind == LeadAction.Kind.BULK
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1239,6 +1240,7 @@ private fun PendingLeadActionCard(
                 text = when {
                     isStatus -> "Status update karein?"
                     isUpdate -> "Changes apply karein?"
+                    isBulk -> stringResource(R.string.ai_bulk_title)
                     isDelete -> "Delete karein?"
                     isDraft -> "Draft save karein?"
                     else -> "Lead save karein?"
@@ -1330,6 +1332,68 @@ private fun PendingLeadActionCard(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
+            } else if (isBulk) {
+                // BULK card: what change + which filter picks the leads.
+                Text(
+                    text = when (action.bulkOp) {
+                        "archive" -> stringResource(R.string.ai_bulk_op_archive)
+                        "complete" -> stringResource(R.string.ai_bulk_op_complete)
+                        else -> stringResource(
+                            R.string.ai_bulk_op_reminder,
+                            formatUpdateReminderDisplay(action)
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (action.bulkOp == "setReminder" && action.setReminderRepeat.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_repeat,
+                            stringResource(
+                                when (action.setReminderRepeat) {
+                                    "daily" -> R.string.repeat_daily
+                                    "weekly" -> R.string.repeat_weekly
+                                    else -> R.string.repeat_monthly
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.bulkNames.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_names, action.bulkNames.joinToString(", ")),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkNames.isEmpty() && action.bulkPendingOnly) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_pending),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkOverdueOnly) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_overdue),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkIdleDays > 0) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_idle, action.bulkIdleDays),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.ai_bulk_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else if (isDelete) {
                 // DELETE card: light confirmation only, not a scary dialog.
                 Text(
@@ -1413,6 +1477,12 @@ private fun PendingLeadActionCard(
                         modifier = Modifier.testTag("ai_lead_update_confirm")
                     ) {
                         Text(stringResource(R.string.ai_update))
+                    }
+                    isBulk -> Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_bulk_confirm")
+                    ) {
+                        Text(stringResource(R.string.ai_bulk_apply))
                     }
                     isDelete -> OutlinedButton(
                         onClick = onSave,

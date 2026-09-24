@@ -1836,6 +1836,140 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         }
     }
 
+    /** Days since the lead's last real activity (call, note, reminder or creation). */
+    private fun leadIdleDays(lead: LeadEntity): Long {
+        val callMillis = try {
+            lead.lastCall?.let {
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(it)?.time
+            } ?: 0L
+        } catch (pe: Exception) {
+            0L
+        }
+        val act = maxOf(lead.timestamp, lead.notesUpdatedAt, lead.reminderUpdatedAt, callMillis)
+        return ((System.currentTimeMillis() - act) / 86_400_000L).coerceAtLeast(0L)
+    }
+
+    /**
+     * Applies one change (reminder / archive / complete) to every ACTIVE lead
+     * matching the LEAD_BULK filters. Runs only after the user taps the bulk
+     * card; at most 25 leads per action so a misread request can't sweep the
+     * whole database. Per-lead failures are counted and reported, never thrown.
+     */
+    suspend fun applyBulkFromAIChat(
+        action: com.example.ai.chat.lead.LeadAction
+    ): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Bulk change ke liye pehle login karo."
+
+        val todayStr = getSystemTodayDateStr()
+
+        // Validate the reminder target once for the whole batch.
+        val bulkDate: String
+        val bulkTime: String
+        val bulkRepeat: String
+        if (action.bulkOp == "setReminder") {
+            val parsed = parseStrictYMD(action.setReminderDate)
+            if (parsed == null) return "Bulk reminder: date samajh nahi aayi (yyyy-MM-dd chahiye tha)."
+            val time = normalizeReminderTime(action.setReminderTime)
+            val trigger = reminderTriggerMillis(parsed, time)
+            if (trigger == null || trigger <= System.currentTimeMillis()) {
+                return "Bulk reminder: time past me hai, kuch nahi kiya."
+            }
+            bulkDate = parsed
+            bulkTime = time
+            bulkRepeat = action.setReminderRepeat.ifBlank { "" }
+        } else {
+            bulkDate = ""
+            bulkTime = ""
+            bulkRepeat = ""
+        }
+
+        var targets = allLeadsList.value.filter { !it.isDraft && !it.archived }
+        if (action.bulkNames.isNotEmpty()) {
+            val wanted = action.bulkNames.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+            if (wanted.isEmpty()) return "Bulk: naam samajh nahi aaye."
+            targets = targets.filter { lead -> wanted.any { it == lead.name.trim().lowercase() } }
+        }
+        if (action.bulkPendingOnly && action.bulkNames.isEmpty()) {
+            targets = targets.filter { it.status.equals("Pending", ignoreCase = true) }
+        }
+        if (action.bulkOverdueOnly) {
+            targets = targets.filter {
+                it.reminderDate.isNotEmpty() && it.reminderDate < todayStr && it.reminderStatus == "Pending"
+            }
+        }
+        if (action.bulkIdleDays > 0) {
+            targets = targets.filter { leadIdleDays(it) >= action.bulkIdleDays }
+        }
+        if (targets.isEmpty()) return "Koi lead in conditions se match nahi hua; kuch nahi kiya."
+
+        val batch = targets.sortedByDescending { leadIdleDays(it) }.take(25)
+        val notApplied = targets.size - batch.size
+        var done = 0
+        var failed = 0
+
+        for (lead in batch) {
+            try {
+                when (action.bulkOp) {
+                    "setReminder" -> {
+                        val updated = lead.copy(
+                            reminderDate = bulkDate,
+                            reminderTime = bulkTime,
+                            reminderStatus = "Pending",
+                            reminderRepeat = if (lead.reminderDate.isNotEmpty() && bulkRepeat.isEmpty()) {
+                                lead.reminderRepeat
+                            } else {
+                                bulkRepeat.ifEmpty { "none" }
+                            },
+                            reminderUpdatedAt = System.currentTimeMillis()
+                        )
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+                    }
+                    "archive" -> {
+                        val updated = lead.copy(archived = true)
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.cancelReminder(getApplication(), lead.ownerUid, lead.id)
+                    }
+                    "complete" -> {
+                        if (lead.status.equals("Complete", ignoreCase = true)) {
+                            failed++
+                            continue
+                        }
+                        val updated = lead.copy(status = "Complete", reminderStatus = "Completed")
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.cancelReminder(getApplication(), lead.ownerUid, lead.id)
+                    }
+                    else -> return "Bulk: unknown op '${action.bulkOp}'."
+                }
+                done++
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "Bulk apply failed for lead ${lead.id}", e)
+                failed++
+            }
+        }
+
+        if (action.bulkOp == "setReminder" && done > 0) {
+            triggerExactAlarmPrompt()
+        }
+
+        val opText = when (action.bulkOp) {
+            "setReminder" -> "reminder $bulkDate ${if (bulkTime.isNotEmpty()) bulkTime else ""}".trim() +
+                (if (bulkRepeat.isNotEmpty()) " (har $bulkRepeat)" else "")
+            "archive" -> "archive"
+            else -> "complete"
+        }
+        val names = batch.take(6).joinToString(", ") { it.name } +
+            (if (batch.size > 6) " +${batch.size - 6} aur" else "")
+        val sb = StringBuilder("✅ Bulk '$opText' - $done lead(s) pe apply hua: $names.")
+        if (notApplied > 0) sb.append(" Limit ki wajah se $notApplied match skip hue (dobara bolo to agli batch pe laga dunga).")
+        if (failed > 0) sb.append(" $failed lead(s) pe apply nahi ho saka.")
+        if (action.bulkOp == "archive") sb.append(" Leads tab ke Archived chip se wapas bhi la sakte ho.")
+        return sb.toString()
+    }
+
     /**
      * Moves a lead to Archived (soft delete) - the direct LEAD_ARCHIVE action,
      * which runs without a confirmation card by design. The alarm is
