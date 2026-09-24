@@ -72,6 +72,7 @@ import com.example.ai.chat.formatter.AIMessageFormatter
 import com.example.ai.chat.formatter.FormattedBlock
 import com.example.ai.chat.lead.LeadAction
 import com.example.ai.chat.voice.AiTts
+import com.example.ai.chat.voice.AiVoicePlayer
 import com.example.ai.chat.voice.VoiceInputHelper
 import com.example.ai.chat.voice.VoiceWordMatcher
 import com.example.data.security.AIQuotaManager
@@ -124,9 +125,17 @@ fun AIScreen(
     val latestChatState by rememberUpdatedState(uiState)
     val boloVoice = remember(aiContext) { VoiceInputHelper(aiContext) }
     DisposableEffect(Unit) {
+        // When the phone lacks voice data for the app language, nudge the
+        // user once instead of speaking gibberish with an English accent.
+        AiTts.onVoiceUnavailable = {
+            Toast.makeText(
+                aiContext, aiContext.getString(R.string.ai_tts_pack_missing), Toast.LENGTH_LONG
+            ).show()
+        }
         onDispose {
+            AiTts.onVoiceUnavailable = null
             boloVoice.cancel()
-            AiTts.stop()
+            AiVoicePlayer.stop()
         }
     }
 
@@ -140,21 +149,17 @@ fun AIScreen(
     }
 
     suspend fun awaitSpoken(reply: String) {
-        withTimeoutOrNull(60_000L) {
-            suspendCancellableCoroutine<Unit> { cont ->
-                AiTts.speak(aiContext, reply) {
-                    if (cont.isActive) cont.resume(Unit)
-                }
-                cont.invokeOnCancellation { AiTts.stop() }
-            }
-        }
+        // Natural Gemini voice when available (Settings > AI API keys has a
+        // key), otherwise the phone's engine. Returns when audio is done.
+        AiVoicePlayer.speakSuspend(aiContext, reply)
     }
 
     // Voice-reply only (Bolo OFF): read out each final assistant answer once,
     // and never while the user is mid-typing a fresh mic capture.
     var lastAutoSpokenId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(uiState.messages.size, uiState.isThinking) {
-        if (!voiceReplyOn || boloModeOn || uiState.isThinking) return@LaunchedEffect
+    val lastChatMessage = uiState.messages.lastOrNull()
+    LaunchedEffect(lastChatMessage?.id, lastChatMessage?.isStreaming) {
+        if (!voiceReplyOn || boloModeOn) return@LaunchedEffect
         val last = uiState.messages.lastOrNull() ?: return@LaunchedEffect
         if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
         if (last.id == lastAutoSpokenId) return@LaunchedEffect
@@ -166,7 +171,7 @@ fun AIScreen(
     LaunchedEffect(boloModeOn) {
         if (!boloModeOn) {
             boloListening = false
-            AiTts.stop()
+            AiVoicePlayer.stop()
             return@LaunchedEffect
         }
         AiTts.ensure(aiContext)
@@ -296,7 +301,7 @@ fun AIScreen(
             onToggleVoiceReply = {
                 voiceReplyOn = !voiceReplyOn
                 AIQuotaManager.setVoiceReplyEnabled(aiContext, voiceReplyOn)
-                if (!voiceReplyOn) AiTts.stop()
+                if (!voiceReplyOn) AiVoicePlayer.stop()
             },
             onToggleBoloMode = {
                 boloModeOn = !boloModeOn
@@ -1839,7 +1844,7 @@ private fun AIChatComposer(
     }
 
     val onMicClick: () -> Unit = {
-        AiTts.stop()
+        AiVoicePlayer.stop()
         when {
             isThinking || isConverting -> {}
             isListening -> {
@@ -1859,7 +1864,7 @@ private fun AIChatComposer(
         (inputText.isNotBlank() || isListening)
 
     val onSendClick: () -> Unit = {
-        AiTts.stop()
+        AiVoicePlayer.stop()
         when {
             isThinking || isConverting -> {}
             isListening -> {

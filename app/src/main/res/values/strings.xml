@@ -905,4 +905,12 @@
     <string name="ai_bolo_listening">Listening… just talk</string>
     <string name="ai_bolo_confirm_q">Is this change okay? Say yes or no.</string>
     <string name="ai_bolo_stopped">Bolo mode band ho gaya (mic baar-baar fail hua)</string>
+
+    <string name="settings_ai_voice">AI voice</string>
+    <string name="settings_ai_voice_sub">Reply in a natural voice (free, uses the Gemini key)</string>
+    <string name="settings_ai_voice_pick">Choose voice</string>
+    <string name="settings_ai_voice_test">Test</string>
+    <string name="ai_voice_auto">Auto (AI picks one)</string>
+    <string name="ai_tts_test_sample">Hello! I am LifeFresh AI. I can read your replies aloud in your own language.</string>
+    <string name="ai_tts_pack_missing">This language\'s voice is not installed on the phone. Open Settings &gt; Speech Services and install the voice data, or turn on the free AI voice in Settings.</string>
 </resources>

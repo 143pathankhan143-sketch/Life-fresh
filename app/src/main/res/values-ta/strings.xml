@@ -905,4 +905,12 @@
     <string name="ai_bolo_listening">கேட்கிறேன்… பேசுங்கள்</string>
     <string name="ai_bolo_confirm_q">இந்த மாற்றம் சரியா? ஆம் என்று சொல்லுங்கள் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
     <string name="ai_bolo_stopped">பேசு முறை நிறுத்தப்பட்டது (மைக் தொடர்ந்து தோல்வியடைந்தது)</string>
+
+    <string name="settings_ai_voice">AI குரல்</string>
+    <string name="settings_ai_voice_sub">பதில்கள் இயல்பான குரலில் (இலவசம், Gemini key மூலம்)</string>
+    <string name="settings_ai_voice_pick">குரலைத் தேர்வுசெய்யவும்</string>
+    <string name="settings_ai_voice_test">சோதனை</string>
+    <string name="ai_voice_auto">தானாக (AI தேர்வுசெய்யும்)</string>
+    <string name="ai_tts_test_sample">வணக்கம்! நான் LifeFresh AI. உங்கள் பதில்களை உங்கள் மொழியில் குரலில் சொல்ல முடியும்.</string>
+    <string name="ai_tts_pack_missing">இந்த மொழிக்கான குரல் ஃபோனில் நிறுவப்படவில்லை. Settings &gt; Speech Services-இல் voice data நிறுவுங்கள், அல்லது Settings-இல் இலவச AI குரலை இயக்குங்கள்.</string>
 </resources>

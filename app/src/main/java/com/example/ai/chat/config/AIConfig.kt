@@ -28,6 +28,20 @@ object AIConfig {
     )
 
     /**
+     * Gemini native text-to-speech models (cloud voices for AI replies),
+     * newest stable first. Same AI Studio key as chat, same free tier -
+     * no new signup, no billing. If Google deprecates these the voice just
+     * falls back to the phone's built-in TTS engine, so a stale entry here
+     * is an inconvenience, not a crash. Refresh from
+     * https://ai.google.dev/gemini-api/docs/speech-generation if 404s.
+     */
+    val GEMINI_TTS_MODELS: List<String> = listOf(
+        "gemini-3.8-flash-tts",
+        "gemini-3.1-flash-tts-preview",
+        "gemini-2.5-flash-preview-tts"
+    )
+
+    /**
      * Current Groq text-generation models, ordered by preference
      * (strongest for the hidden-block protocol first, then fast/cheap).
      *

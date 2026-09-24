@@ -16,6 +16,8 @@ object AIQuotaManager {
     private const val KEY_CUSTOM_GROQ_KEY = "custom_groq_api_key"
     private const val KEY_CUSTOM_OPENROUTER_KEY = "custom_openrouter_api_key"
     private const val KEY_CUSTOM_TAVILY_KEY = "custom_tavily_api_key"
+    private const val KEY_NATURAL_TTS_ENABLED = "ai_tts_natural_enabled"
+    private const val KEY_TTS_VOICE_NAME = "ai_tts_voice_name"
     private const val KEY_VOICE_REPLY_ENABLED = "ai_voice_reply_enabled"
     private const val KEY_BOLO_MODE_ENABLED = "ai_bolo_mode_enabled"
     private const val KEY_AGENT_MODE_ENABLED = "agent_mode_enabled"
@@ -191,6 +193,23 @@ object AIQuotaManager {
 
     fun setBoloModeEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_BOLO_MODE_ENABLED, enabled).apply()
+    }
+
+    /** Natural cloud voice (Gemini TTS free tier) for spoken replies.
+     *  ON by default when a Gemini key exists; device TTS is the fallback. */
+    fun isNaturalTtsEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_NATURAL_TTS_ENABLED, true)
+
+    fun setNaturalTtsEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_NATURAL_TTS_ENABLED, enabled).apply()
+    }
+
+    /** Selected Gemini TTS voice name; "auto" lets the model pick. */
+    fun getTtsVoiceName(context: Context): String =
+        getPrefs(context).getString(KEY_TTS_VOICE_NAME, "auto") ?: "auto"
+
+    fun setTtsVoiceName(context: Context, name: String) {
+        getPrefs(context).edit().putString(KEY_TTS_VOICE_NAME, name).apply()
     }
 
     private fun checkAndResetDailyUsageIfNeeded(prefs: SharedPreferences): Int {

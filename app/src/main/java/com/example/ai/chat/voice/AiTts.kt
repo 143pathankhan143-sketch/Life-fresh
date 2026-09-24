@@ -23,6 +23,16 @@ object AiTts {
 
     private var engine: TextToSpeech? = null
     private var ready = false
+
+    /** True when the phone has no voice data for the app language. */
+    @Volatile
+    private var languageMissing = false
+
+    /** Fired on the main thread when voice data is missing, so the screen
+     *  can point the user at the voice-pack install (or the free cloud
+     *  voice in Settings) instead of hearing English-accent gibberish. */
+    @Volatile
+    var onVoiceUnavailable: (() -> Unit)? = null
     private var pendingText: String? = null
     private var onDone: (() -> Unit)? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -68,12 +78,25 @@ object AiTts {
             else -> Locale("en", "IN")
         }
         try {
-            val res = tts.setLanguage(locale)
-            if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
-                tts.setLanguage(Locale.US)
+            var res = tts.setLanguage(locale)
+            if ((res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) &&
+                lang == AppLanguage.ENGLISH
+            ) {
+                // English text reads fine on any English voice pack.
+                res = tts.setLanguage(Locale.US)
             }
             tts.setSpeechRate(0.94f)
             tts.setPitch(1.0f)
+            if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Hindi/Tamil/Urdu read by an English voice is gibberish -
+                // stay silent and tell the user how to fix it instead.
+                languageMissing = true
+                pendingText = null
+                fireDone()
+                mainHandler.post { onVoiceUnavailable?.invoke() }
+                return
+            }
+            languageMissing = false
         } catch (e: Exception) {
             Log.w(TAG, "TTS locale setup failed", e)
         }
@@ -83,6 +106,13 @@ object AiTts {
         ensure(context)
         val text = cleanForVoice(raw)
         if (text.isBlank()) {
+            onFinished?.invoke()
+            return
+        }
+        // Re-evaluate the voice for the current app language on every reply
+        // (activity recreation/language switch + voice-pack install).
+        if (ready) applyVoicePrefs(context)
+        if (languageMissing) {
             onFinished?.invoke()
             return
         }

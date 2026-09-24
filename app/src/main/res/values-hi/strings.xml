@@ -905,4 +905,12 @@
     <string name="ai_bolo_listening">सुन रहा हूँ… बोलिए</string>
     <string name="ai_bolo_confirm_q">यह बदलाव ठीक है? हाँ बोलो या नहीं।</string>
     <string name="ai_bolo_stopped">बोलो मोड बंद कर दिया गया (मिक बार-बार फेल हुआ)</string>
+
+    <string name="settings_ai_voice">AI आवाज़</string>
+    <string name="settings_ai_voice_sub">जवाब असली जैसी आवाज़ में (मुफ़्त, Gemini key से चलता है)</string>
+    <string name="settings_ai_voice_pick">आवाज़ चुनें</string>
+    <string name="settings_ai_voice_test">टेस्ट</string>
+    <string name="ai_voice_auto">अपने आप (AI खुद चुनेगी)</string>
+    <string name="ai_tts_test_sample">नमस्ते! मैं LifeFresh AI हूँ। मैं तुम्हारे जवाब तुम्हारी अपनी भाषा में बोलकर सुना सकता हूँ।</string>
+    <string name="ai_tts_pack_missing">इस भाषा की आवाज़ फोन में इंस्टॉल नहीं है। Settings &gt; Speech Services जाकर वॉइस डेटा इंस्टॉल करो, या Settings में मुफ़्त AI आवाज़ चालू करो।</string>
 </resources>
