@@ -899,4 +899,10 @@
     <string name="ai_bulk_names">نام سے: %1$s</string>
     <string name="ai_bulk_hint">ایپ خود مطابقت رکھنے والی active leads چنے گی (زیادہ سے زیادہ 25)۔ Apply کے بعد جواب میں نام نظر آئیں گے۔</string>
     <string name="ai_bulk_apply">لاگو کریں</string>
+
+    <string name="cd_ai_voice_reply">جواب آواز میں سنائیں</string>
+    <string name="cd_ai_bolo_mode">بولو موڈ (بغیر ہاتھ لگائے)</string>
+    <string name="ai_bolo_listening">سن رہا ہوں… بولیں</string>
+    <string name="ai_bolo_confirm_q">کیا یہ تبدیلی ٹھیک ہے؟ ہاں بولیں یا نہیں۔</string>
+    <string name="ai_bolo_stopped">بولو موڈ بند کر دیا گیا (مائیک بار بار فیل ہوا)</string>
 </resources>

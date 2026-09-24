@@ -16,6 +16,8 @@ object AIQuotaManager {
     private const val KEY_CUSTOM_GROQ_KEY = "custom_groq_api_key"
     private const val KEY_CUSTOM_OPENROUTER_KEY = "custom_openrouter_api_key"
     private const val KEY_CUSTOM_TAVILY_KEY = "custom_tavily_api_key"
+    private const val KEY_VOICE_REPLY_ENABLED = "ai_voice_reply_enabled"
+    private const val KEY_BOLO_MODE_ENABLED = "ai_bolo_mode_enabled"
     private const val KEY_AGENT_MODE_ENABLED = "agent_mode_enabled"
     private const val KEY_USAGE_COUNT = "daily_usage_count"
     private const val KEY_LAST_USAGE_DATE = "last_usage_date"
@@ -171,6 +173,24 @@ object AIQuotaManager {
 
     fun setAgentModeEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_AGENT_MODE_ENABLED, enabled).apply()
+    }
+
+    /** Voice replies (TTS): the AI speaks its answers aloud for users who
+     *  cannot read. Uses the phone's built-in TTS engine. */
+    fun isVoiceReplyEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_VOICE_REPLY_ENABLED, false)
+
+    fun setVoiceReplyEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_VOICE_REPLY_ENABLED, enabled).apply()
+    }
+
+    /** Bolo mode: hands-free loop - the app listens again automatically after
+     *  every answer and applies card actions on a spoken "haan"/"nahi". */
+    fun isBoloModeEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_BOLO_MODE_ENABLED, false)
+
+    fun setBoloModeEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_BOLO_MODE_ENABLED, enabled).apply()
     }
 
     private fun checkAndResetDailyUsageIfNeeded(prefs: SharedPreferences): Int {

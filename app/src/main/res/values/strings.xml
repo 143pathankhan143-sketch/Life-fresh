@@ -899,4 +899,10 @@
     <string name="ai_bulk_names">Named: %1$s</string>
     <string name="ai_bulk_hint">The app picks the matching active leads (max 25). The reply after Apply lists who was changed.</string>
     <string name="ai_bulk_apply">Apply</string>
+
+    <string name="cd_ai_voice_reply">Speak replies aloud</string>
+    <string name="cd_ai_bolo_mode">Hands-free Bolo mode</string>
+    <string name="ai_bolo_listening">Listening… just talk</string>
+    <string name="ai_bolo_confirm_q">Is this change okay? Say yes or no.</string>
+    <string name="ai_bolo_stopped">Bolo mode band ho gaya (mic baar-baar fail hua)</string>
 </resources>

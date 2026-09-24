@@ -899,4 +899,10 @@
     <string name="ai_bulk_names">பெயர்களால்: %1$s</string>
     <string name="ai_bulk_hint">செயலில் உள்ள பொருந்தும் விவரங்களை ஆப் தேர்ந்தெடுக்கும் (25 வரை). Apply-க்கு பின் பதிலில் பெயர்கள் தெரியும்.</string>
     <string name="ai_bulk_apply">பயன்படுத்து</string>
+
+    <string name="cd_ai_voice_reply">பதில்களைக் குரலில் சொல்லு</string>
+    <string name="cd_ai_bolo_mode">பேசு முறை (கை தேவையில்லை)</string>
+    <string name="ai_bolo_listening">கேட்கிறேன்… பேசுங்கள்</string>
+    <string name="ai_bolo_confirm_q">இந்த மாற்றம் சரியா? ஆம் என்று சொல்லுங்கள் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="ai_bolo_stopped">பேசு முறை நிறுத்தப்பட்டது (மைக் தொடர்ந்து தோல்வியடைந்தது)</string>
 </resources>

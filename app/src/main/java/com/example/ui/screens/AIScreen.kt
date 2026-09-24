@@ -41,6 +41,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,13 +71,21 @@ import androidx.compose.ui.text.font.FontFamily
 import com.example.ai.chat.formatter.AIMessageFormatter
 import com.example.ai.chat.formatter.FormattedBlock
 import com.example.ai.chat.lead.LeadAction
+import com.example.ai.chat.voice.AiTts
 import com.example.ai.chat.voice.VoiceInputHelper
+import com.example.ai.chat.voice.VoiceWordMatcher
+import com.example.data.security.AIQuotaManager
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.viewmodel.AIChatViewModel
 import com.example.ui.viewmodel.CRMViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -96,6 +107,143 @@ fun AIScreen(
 
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
     val inputText by chatViewModel.inputText.collectAsStateWithLifecycle()
+
+    // --- Voice power-ups for users who cannot read (Phase A) --------------
+    // voiceReplyOn: AI answers are spoken aloud via the phone's TTS engine.
+    // boloModeOn: hands-free loop - after every spoken answer the app listens
+    // again, and pending confirmation cards accept a spoken "haan"/"nahi".
+    val aiContext = LocalContext.current
+    var voiceReplyOn by remember {
+        mutableStateOf(AIQuotaManager.isVoiceReplyEnabled(aiContext))
+    }
+    var boloModeOn by remember {
+        mutableStateOf(AIQuotaManager.isBoloModeEnabled(aiContext))
+    }
+    var boloListening by remember { mutableStateOf(false) }
+
+    val latestChatState by rememberUpdatedState(uiState)
+    val boloVoice = remember(aiContext) { VoiceInputHelper(aiContext) }
+    DisposableEffect(Unit) {
+        onDispose {
+            boloVoice.cancel()
+            AiTts.stop()
+        }
+    }
+
+    /** One STT capture as a suspending call (null when nothing was heard). */
+    suspend fun awaitOneUtterance(): String? = suspendCancellableCoroutine { cont ->
+        boloVoice.start(
+            onResult = { text -> if (cont.isActive) cont.resume(text) },
+            onError = { if (cont.isActive) cont.resume(null) }
+        )
+        cont.invokeOnCancellation { boloVoice.cancel() }
+    }
+
+    suspend fun awaitSpoken(reply: String) {
+        withTimeoutOrNull(60_000L) {
+            suspendCancellableCoroutine<Unit> { cont ->
+                AiTts.speak(aiContext, reply) {
+                    if (cont.isActive) cont.resume(Unit)
+                }
+                cont.invokeOnCancellation { AiTts.stop() }
+            }
+        }
+    }
+
+    // Voice-reply only (Bolo OFF): read out each final assistant answer once,
+    // and never while the user is mid-typing a fresh mic capture.
+    var lastAutoSpokenId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(uiState.messages.size, uiState.isThinking) {
+        if (!voiceReplyOn || boloModeOn || uiState.isThinking) return@LaunchedEffect
+        val last = uiState.messages.lastOrNull() ?: return@LaunchedEffect
+        if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
+        if (last.id == lastAutoSpokenId) return@LaunchedEffect
+        lastAutoSpokenId = last.id
+        awaitSpoken(last.content)
+    }
+
+    // Bolo mode: talk -> listen -> act -> talk ...
+    LaunchedEffect(boloModeOn) {
+        if (!boloModeOn) {
+            boloListening = false
+            AiTts.stop()
+            return@LaunchedEffect
+        }
+        AiTts.ensure(aiContext)
+        var micFailures = 0
+        while (isActive) {
+            // 1) Listen for one utterance.
+            if (!boloVoice.isAvailable()) {
+                micFailures++
+                if (micFailures >= 3) break
+                delay(1500L)
+                continue
+            }
+            boloListening = true
+            val heard = withTimeoutOrNull(12_000L) { awaitOneUtterance() }
+            boloListening = false
+            if (!isActive) break
+            val text = heard?.trim().orEmpty()
+            if (text.isBlank()) {
+                micFailures++
+                if (micFailures >= 3) break
+                continue
+            }
+            micFailures = 0
+
+            // 2) A pending confirmation card answers yes/no by voice first.
+            if (latestChatState.pendingLeadAction != null) {
+                if (VoiceWordMatcher.isNegation(text)) {
+                    chatViewModel.cancelPendingLead()
+                    continue
+                }
+                if (VoiceWordMatcher.isAffirmation(text)) {
+                    chatViewModel.confirmPendingLead(saveAsDraft = false)
+                    continue
+                }
+            }
+
+            // 3) Otherwise the utterance is a normal chat message.
+            val beforeId = latestChatState.messages.lastOrNull {
+                it.role == ChatRole.ASSISTANT && !it.isStreaming
+            }?.id
+            chatViewModel.sendMessage(text)
+
+            // 4) Wait for the reply to finish (thinking + streaming), max 60s.
+            var waited = 0
+            while (isActive && waited < 200) {
+                val state = latestChatState
+                val last = state.messages.lastOrNull()
+                val replied = state.messages.any {
+                    it.role == ChatRole.ASSISTANT && !it.isStreaming && it.id != beforeId
+                }
+                if (!state.isThinking && replied && last?.isStreaming == false) break
+                delay(300L)
+                waited++
+            }
+            if (!isActive) break
+
+            // 5) Speak the answer, then the card prompt if a card appeared.
+            val reply = latestChatState.messages.lastOrNull {
+                it.role == ChatRole.ASSISTANT && !it.isStreaming && it.id != beforeId
+            }
+            if (reply != null) {
+                awaitSpoken(reply.content)
+                if (latestChatState.pendingLeadAction != null) {
+                    awaitSpoken(aiContext.getString(R.string.ai_bolo_confirm_q))
+                }
+            }
+        }
+        // Loop ended because the mic kept failing - switch the mode off.
+        if (isActive && micFailures >= 3) {
+            boloModeOn = false
+            AIQuotaManager.setBoloModeEnabled(aiContext, false)
+            Toast.makeText(
+                aiContext, aiContext.getString(R.string.ai_bolo_stopped), Toast.LENGTH_LONG
+            ).show()
+        }
+        boloListening = false
+    }
 
     // Chat history (sessions saved in Room, already scoped to the signed-in uid)
     val sessionsFlow = remember(viewModel) {
@@ -143,6 +291,17 @@ fun AIScreen(
         AIChatHeader(
             hasMessages = uiState.messages.isNotEmpty(),
             onExit = onExit,
+            voiceReplyOn = voiceReplyOn,
+            boloModeOn = boloModeOn,
+            onToggleVoiceReply = {
+                voiceReplyOn = !voiceReplyOn
+                AIQuotaManager.setVoiceReplyEnabled(aiContext, voiceReplyOn)
+                if (!voiceReplyOn) AiTts.stop()
+            },
+            onToggleBoloMode = {
+                boloModeOn = !boloModeOn
+                AIQuotaManager.setBoloModeEnabled(aiContext, boloModeOn)
+            },
             onClearChat = { chatViewModel.clearConversation() },
             onOpenHistory = {
                 focusManager.clearFocus()
@@ -221,6 +380,7 @@ fun AIScreen(
                 keyboardController?.hide()
                 focusManager.clearFocus()
             },
+            boloListening = boloModeOn && boloListening,
             onVoiceTranscript = { text ->
                 // Mic stopped -> transcript goes into the textbox for review.
                 chatViewModel.onInputChanged(text)
@@ -340,7 +500,11 @@ private fun AIChatHeader(
     onExit: () -> Unit,
     hasMessages: Boolean,
     onClearChat: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    voiceReplyOn: Boolean,
+    boloModeOn: Boolean,
+    onToggleVoiceReply: () -> Unit,
+    onToggleBoloMode: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -396,6 +560,35 @@ private fun AIChatHeader(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onToggleVoiceReply,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("btn_ai_voice_reply")
+                ) {
+                    Icon(
+                        imageVector = if (voiceReplyOn) Icons.Filled.VolumeUp
+                        else Icons.Filled.VolumeOff,
+                        contentDescription = stringResource(R.string.cd_ai_voice_reply),
+                        tint = if (voiceReplyOn) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onToggleBoloMode,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("btn_ai_bolo_mode")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = stringResource(R.string.cd_ai_bolo_mode),
+                        tint = if (boloModeOn) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 if (hasMessages) {
                     IconButton(
                         onClick = onClearChat,
@@ -1568,7 +1761,8 @@ private fun AIChatComposer(
     onInputChange: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceTranscript: (String) -> Unit = {},
-    onVoiceDirectSend: (String) -> Unit = {}
+    onVoiceDirectSend: (String) -> Unit = {},
+    boloListening: Boolean = false
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -1645,6 +1839,7 @@ private fun AIChatComposer(
     }
 
     val onMicClick: () -> Unit = {
+        AiTts.stop()
         when {
             isThinking || isConverting -> {}
             isListening -> {
@@ -1664,6 +1859,7 @@ private fun AIChatComposer(
         (inputText.isNotBlank() || isListening)
 
     val onSendClick: () -> Unit = {
+        AiTts.stop()
         when {
             isThinking || isConverting -> {}
             isListening -> {
@@ -1709,6 +1905,7 @@ private fun AIChatComposer(
                             Text(
                                 text = when {
                                     isListening -> stringResource(R.string.ai_bolo)
+                                    boloListening -> stringResource(R.string.ai_bolo_listening)
                                     isConverting -> stringResource(R.string.ai_converting)
                                     else -> stringResource(R.string.ai_placeholder)
                                 },

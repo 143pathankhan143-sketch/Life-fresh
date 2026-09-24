@@ -899,4 +899,10 @@
     <string name="ai_bulk_names">नाम से: %1$s</string>
     <string name="ai_bulk_hint">ऐप खुद active matched leads चुनेगा (max 25). Apply के बाद जवाब में नाम दिखेंगे।</string>
     <string name="ai_bulk_apply">Apply करो</string>
+
+    <string name="cd_ai_voice_reply">आवाज़ में जवाब सुनाएँ</string>
+    <string name="cd_ai_bolo_mode">बोलो मोड (हाथ लगाए बिना)</string>
+    <string name="ai_bolo_listening">सुन रहा हूँ… बोलिए</string>
+    <string name="ai_bolo_confirm_q">यह बदलाव ठीक है? हाँ बोलो या नहीं।</string>
+    <string name="ai_bolo_stopped">बोलो मोड बंद कर दिया गया (मिक बार-बार फेल हुआ)</string>
 </resources>
