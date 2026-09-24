@@ -204,9 +204,9 @@ object AIQuotaManager {
         getPrefs(context).edit().putBoolean(KEY_NATURAL_TTS_ENABLED, enabled).apply()
     }
 
-    /** Selected Gemini TTS voice name; "auto" lets the model pick. */
+    /** Selected Gemini TTS voice name; "auto" maps to Kore (stable, no random gender). */
     fun getTtsVoiceName(context: Context): String =
-        getPrefs(context).getString(KEY_TTS_VOICE_NAME, "auto") ?: "auto"
+        getPrefs(context).getString(KEY_TTS_VOICE_NAME, "Kore") ?: "Kore"
 
     fun setTtsVoiceName(context: Context, name: String) {
         getPrefs(context).edit().putString(KEY_TTS_VOICE_NAME, name).apply()

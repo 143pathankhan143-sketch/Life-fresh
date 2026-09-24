@@ -7,17 +7,22 @@ import com.example.ai.chat.config.AIConfig
 import com.example.data.AppLanguage
 import com.example.data.AppLanguageManager
 import com.example.data.security.AIQuotaManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Cloud text-to-speech through Gemini's native TTS models - the voice that
@@ -28,12 +33,15 @@ import java.util.concurrent.TimeUnit
  * correct accent, which is exactly what the phone's built-in engine cannot
  * do for non-English users. Every failure path here returns null so the
  * caller can silently fall back to the device engine - nothing throws.
+ *
+ * FAST PATH: single model + single voice (auto -> Kore) so the first audio
+ * chunk is ready in ~1-2s on good network. No 6-way retry storm.
  */
 object GeminiTtsClient {
 
     private const val TAG = "GeminiTtsClient"
 
-    /** Prebuilt Gemini TTS voices. "auto" omits the voice config entirely. */
+    /** Prebuilt Gemini TTS voices. "auto" is kept for UI but maps to Kore (stable). */
     val VOICES: List<String> = listOf(
         "auto",
         "Kore", "Charon", "Puck", "Zephyr", "Fenrir", "Leda", "Aoede",
@@ -44,39 +52,47 @@ object GeminiTtsClient {
         "Sadachbia", "Sadaltager", "Sulafat"
     )
 
+    private const val STABLE_DEFAULT_VOICE = "Kore"
+
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(8, TimeUnit.SECONDS)
         .build()
 
     fun isConfigured(): Boolean = AIConfig.geminiApiKey.isNotBlank()
+
+    fun stableVoice(context: Context): String {
+        val v = AIQuotaManager.getTtsVoiceName(context)
+        return if (v.isBlank() || v.equals("auto", true)) STABLE_DEFAULT_VOICE else v
+    }
 
     /**
      * Synthesizes [rawText] into a playable audio file in cacheDir.
      * Returns null when cloud TTS is unavailable (no key, offline, bad
      * response) - caller must fall back to the device engine.
+     * Cancellable: if the coroutine is cancelled (user interrupted / new
+     * request started) the HTTP call is aborted immediately.
      */
-    suspend fun synthesize(context: Context, rawText: String): File? = withContext(Dispatchers.IO) {
+    suspend fun synthesize(context: Context, rawText: String): File? {
         val key = AIConfig.geminiApiKey
-        if (key.isBlank()) return@withContext null
+        if (key.isBlank()) return null
         val text = AiTts.cleanForVoice(rawText)
-        if (text.isBlank()) return@withContext null
-
-        val voice = AIQuotaManager.getTtsVoiceName(context)
-        for (model in AIConfig.GEMINI_TTS_MODELS) {
-            // With the chosen voice first, then once without (some newer
-            // models dropped an old voice name; auto always works).
-            for (useVoice in listOf(true, false)) {
-                if (!useVoice && (voice.isBlank() || voice == "auto")) continue
-                val attempt = runAttempt(context, model, key, text, if (useVoice) voice else "auto")
-                if (attempt != null) return@withContext attempt
-            }
+        if (text.isBlank()) return null
+        val voice = stableVoice(context)
+        // Fast path: try the first (newest) model with the chosen voice.
+        // If that fails, try the next model once. No 6-way storm.
+        val models = AIConfig.GEMINI_TTS_MODELS.take(2)
+        for (model in models) {
+            val file = runAttemptCancellable(context, model, key, text, voice)
+            if (file != null) return file
+            // If we were cancelled, don't try next model.
+            if (!kotlinx.coroutines.currentCoroutineContext().isActive) return null
         }
-        null
+        return null
     }
 
-    private fun runAttempt(
+    private suspend fun runAttemptCancellable(
         context: Context,
         model: String,
         key: String,
@@ -92,30 +108,53 @@ object GeminiTtsClient {
                 )
                 .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.w(TAG, "$model ($voice) HTTP ${response.code}")
+            val call = client.newCall(request)
+            val response = call.awaitCancellable()
+            response.use { res ->
+                if (!res.isSuccessful) {
+                    Log.w(TAG, "$model ($voice) HTTP ${res.code}")
                     return null
                 }
-                parseAudio(context, response.body?.string().orEmpty())
+                parseAudio(context, res.body?.string().orEmpty())
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "$model ($voice) failed: ${e.message}")
             null
         }
     }
 
+    /** Await that respects coroutine cancellation (call.cancel on cancel). */
+    private suspend fun Call.awaitCancellable(): Response =
+        suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { try { cancel() } catch (_: Exception) {} }
+            enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isCancelled) return
+                    cont.resumeWithException(e)
+                }
+                override fun onResponse(call: Call, response: Response) {
+                    if (cont.isCancelled) {
+                        try { response.close() } catch (_: Exception) {}
+                        return
+                    }
+                    cont.resume(response)
+                }
+            })
+        }
+
     private fun buildBody(text: String, voice: String, context: Context): JSONObject {
         val speech = JSONObject()
-        if (voice.isNotBlank() && !voice.equals("auto", ignoreCase = true)) {
-            speech.put(
-                "voiceConfig",
-                JSONObject().put(
-                    "prebuiltVoiceConfig",
-                    JSONObject().put("voiceName", voice)
-                )
+        // Always pin a concrete voice - "auto" was random gender each time.
+        val v = if (voice.isBlank() || voice.equals("auto", true)) STABLE_DEFAULT_VOICE else voice
+        speech.put(
+            "voiceConfig",
+            JSONObject().put(
+                "prebuiltVoiceConfig",
+                JSONObject().put("voiceName", v)
             )
-        }
+        )
         speech.put("languageCode", speechLocale(context))
         return JSONObject().apply {
             put("contents", org.json.JSONArray().put(
@@ -186,7 +225,7 @@ object GeminiTtsClient {
 
     private fun writeCache(context: Context, bytes: ByteArray, ext: String): File {
         purgeOld(context)
-        val f = File(context.cacheDir, "ai_tts_${System.currentTimeMillis()}.$ext")
+        val f = File(context.cacheDir, "ai_tts_${System.currentTimeMillis()}_${(0..9999).random()}.$ext")
         f.writeBytes(bytes)
         return f
     }

@@ -154,12 +154,16 @@ fun AIScreen(
         AiVoicePlayer.speakSuspend(aiContext, reply)
     }
 
-    // Voice-reply only (Bolo OFF): read out each final assistant answer once,
-    // and never while the user is mid-typing a fresh mic capture.
+    // Voice-reply only (Bolo OFF): read out each final assistant answer once.
+    // Real-time: stop previous audio instantly when a new request starts
+    // (thinking) so a late cloud chunk never leaks into the thinking phase.
+    LaunchedEffect(uiState.isThinking) {
+        if (uiState.isThinking) AiVoicePlayer.stop()
+    }
     var lastAutoSpokenId by remember { mutableStateOf<String?>(null) }
     val lastChatMessage = uiState.messages.lastOrNull()
-    LaunchedEffect(lastChatMessage?.id, lastChatMessage?.isStreaming) {
-        if (!voiceReplyOn || boloModeOn) return@LaunchedEffect
+    LaunchedEffect(lastChatMessage?.id, lastChatMessage?.isStreaming, uiState.isThinking) {
+        if (!voiceReplyOn || boloModeOn || uiState.isThinking) return@LaunchedEffect
         val last = uiState.messages.lastOrNull() ?: return@LaunchedEffect
         if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
         if (last.id == lastAutoSpokenId) return@LaunchedEffect
