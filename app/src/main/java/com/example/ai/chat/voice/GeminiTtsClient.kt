@@ -7,6 +7,8 @@ import com.example.ai.chat.config.AIConfig
 import com.example.data.AppLanguage
 import com.example.data.AppLanguageManager
 import com.example.data.security.AIQuotaManager
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
