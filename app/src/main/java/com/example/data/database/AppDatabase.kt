@@ -422,6 +422,53 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v13 had no draft support. Every existing lead is a real (non-draft) lead.
+        db.execSQL("ALTER TABLE `leads` ADD COLUMN `isDraft` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v14 never stored how long the AI took to answer. Old rows stay at 0
+        // (0 = unknown, the UI simply does not show a time for them).
+        db.execSQL("ALTER TABLE `ai_chat_messages` ADD COLUMN `responseDurationMs` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v15 had no archive for chat sessions. Existing sessions are active.
+        db.execSQL("ALTER TABLE `ai_chat_sessions` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v16 had no repeating reminders. Existing leads keep one-shot behavior.
+        db.execSQL("ALTER TABLE `leads` ADD COLUMN `reminderRepeat` TEXT NOT NULL DEFAULT 'none'")
+    }
+}
+
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // v18 adds the manual per-lead call history (device-local; the synced
+        // summary stays on LeadEntity.lastCall).
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `call_logs` (" +
+                "`ownerUid` TEXT NOT NULL, " +
+                "`id` TEXT NOT NULL, " +
+                "`leadId` TEXT NOT NULL, " +
+                "`callTime` TEXT NOT NULL, " +
+                "`outcome` TEXT NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "PRIMARY KEY(`ownerUid`, `id`)" +
+            ")"
+        )
+    }
+}
+
 @Database(
     entities = [
         LeadEntity::class, 
@@ -430,14 +477,16 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
         LeadSyncMetadataEntity::class,
         SyncOutboxEntity::class,
         SyncConflictEntity::class,
-        SyncCheckpointEntity::class
+        SyncCheckpointEntity::class,
+        CallLogEntity::class
     ], 
-    version = 13, 
+    version = 18, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract val leadDao: LeadDao
     abstract val aiChatDao: AIChatDao
+    abstract val callLogDao: CallLogDao
     abstract val leadSyncMetadataDao: LeadSyncMetadataDao
     abstract val syncDao: SyncDao
 
@@ -462,9 +511,18 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13,
+                        MIGRATION_13_14,
+                        MIGRATION_14_15,
+                        MIGRATION_15_16,
+                        MIGRATION_16_17,
+                        MIGRATION_17_18
                     )
-                    .fallbackToDestructiveMigration()
+                    // NOTE: Do NOT re-add fallbackToDestructiveMigration() here.
+                    // It silently erases the entire database whenever an on-disk
+                    // version has no migration path. If a version gap is ever
+                    // encountered, add the missing Migration(s) instead.
+                    // See docs2/DB_Migration_Policy.md.
                     .build()
                 INSTANCE = instance
                 instance

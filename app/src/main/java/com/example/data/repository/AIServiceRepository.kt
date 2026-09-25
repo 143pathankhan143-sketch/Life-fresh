@@ -5,12 +5,6 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import com.example.ai.chat.config.AIConfig
-import com.example.data.network.AIProxyRequest
-import com.example.data.network.AIProxyResponse
-import com.example.data.network.AIProxyService
-import com.example.data.security.AIQuotaManager
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,13 +13,16 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
-class AIServiceRepository(
-    private val proxyEndpointUrl: String = DEFAULT_PROXY_ENDPOINT
-) {
+/**
+ * Thin wrapper around the Google Generative Language API used for
+ * API-key validation from Settings ("Test connection").
+ *
+ * The chatbot itself talks to Gemini through its own provider layer
+ * (com.example.ai.chat.provider), NOT through this class.
+ */
+class AIServiceRepository {
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -33,66 +30,11 @@ class AIServiceRepository(
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    private val moshi: Moshi = Moshi.Builder()
-        .addLast(KotlinJsonAdapterFactory())
-        .build()
-
-    private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl("https://generativelanguage.googleapis.com/")
-        .client(okHttpClient)
-        .addConverterFactory(MoshiConverterFactory.create(moshi))
-        .build()
-
-    private val proxyService: AIProxyService = retrofit.create(AIProxyService::class.java)
-
     fun isNetworkAvailable(context: Context): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    /**
-     * Executes an AI prompt through the secure pipeline:
-     * 1. Check AIQuotaManager.canExecuteAI(context)
-     * 2. If customKey exists, call Google Gemini API directly
-     * 3. If no custom key, call default secure proxy endpoint
-     * 4. On success, call AIQuotaManager.incrementUsage(context) and return text response
-     */
-    suspend fun processQuery(context: Context, prompt: String): Result<String> = withContext(Dispatchers.IO) {
-        val trimmedPrompt = prompt.trim()
-        if (trimmedPrompt.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Prompt cannot be blank"))
-        }
-
-        if (!isNetworkAvailable(context)) {
-            return@withContext Result.failure(Exception("No internet connection. Please check your network and try again."))
-        }
-
-        // 1. Quota & Rate Limit Check
-        if (!AIQuotaManager.canExecuteAI(context)) {
-            return@withContext Result.failure(Exception("DAILY_LIMIT_REACHED"))
-        }
-
-        val customKey = AIQuotaManager.getCustomGeminiKey(context)
-        val deviceId = AIQuotaManager.getDeviceId(context)
-
-        try {
-            val responseText: String = if (!customKey.isNullOrBlank()) {
-                // 2. Direct Google Gemini call using user's BYOK key
-                callDirectGeminiApi(customKey, trimmedPrompt)
-            } else {
-                // 3. Backend AI Proxy call with device-bound rate limiting
-                callProxyEndpoint(context, trimmedPrompt, deviceId)
-            }
-
-            // 4. Record usage on success
-            AIQuotaManager.incrementUsage(context)
-            Result.success(responseText)
-        } catch (e: Exception) {
-            Log.e(TAG, "AI processing failed", e)
-            Result.failure(e)
-        }
     }
 
     /**
@@ -140,19 +82,14 @@ class AIServiceRepository(
                         }
                     } catch (_: Throwable) {}
 
-                    // Priority order for modern Gemini models (Fastest first)
-                    val preferredOrder = listOf(
-                        "gemini-2.0-flash",
-                        "gemini-1.5-flash",
-                        "gemini-flash-latest",
-                        "gemini-2.5-flash",
-                        "gemini-2.5-pro"
-                    )
+                    // Priority order for modern Gemini models (Fastest first).
+                    // Single source of truth: AIConfig.GEMINI_TEXT_MODELS.
+                    val preferredOrder = AIConfig.GEMINI_TEXT_MODELS
 
                     val selectedModel = preferredOrder.firstOrNull { supportedModels.contains(it) }
                         ?: supportedModels.firstOrNull { it.contains("flash") }
                         ?: supportedModels.firstOrNull()
-                        ?: "gemini-2.0-flash"
+                        ?: preferredOrder.first()
 
                     val answer = callSingleGeminiModel(trimmed, selectedModel, "Say 'Connected'")
                     return@withContext Result.success("Connected successfully ($selectedModel): $answer")
@@ -171,6 +108,245 @@ class AIServiceRepository(
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Tests a custom Groq API key (settings "Test key"):
+     * 1) probe the models endpoint with the Bearer key to verify validity,
+     * 2) run a tiny "Say 'Connected'" chat completion on the first Groq
+     *    model from AIConfig.GROQ_TEXT_MODELS that the account can access.
+     */
+    suspend fun testGroqKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val probeUrl = "https://api.groq.com/openai/v1/models"
+            val probeRequest = Request.Builder()
+                .url(probeUrl)
+                .addHeader("Authorization", "Bearer $trimmed")
+                .get()
+                .build()
+
+            okHttpClient.newCall(probeRequest).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val code = response.code
+
+                if (code == 400 || code == 401 || code == 403) {
+                    val errMsg = try {
+                        JSONObject(body).optJSONObject("error")?.optString("message")
+                    } catch (_: Throwable) { null } ?: "API Key is invalid or not recognized by Groq."
+                    return@withContext Result.failure(Exception(errMsg))
+                }
+
+                if (response.isSuccessful) {
+                    // Key is verified! Pick the first known production model
+                    // the account can actually use.
+                    val supportedModels = mutableListOf<String>()
+                    try {
+                        val dataArray = JSONObject(body).optJSONArray("data")
+                        if (dataArray != null) {
+                            for (i in 0 until dataArray.length()) {
+                                val id = dataArray.getJSONObject(i).optString("id")
+                                if (id.isNotBlank()) supportedModels.add(id)
+                            }
+                        }
+                    } catch (_: Throwable) {}
+
+                    val preferredOrder = AIConfig.GROQ_TEXT_MODELS
+                    val selectedModel = preferredOrder.firstOrNull { supportedModels.contains(it) }
+                        ?: preferredOrder.first()
+
+                    val answer = callSingleGroqModel(trimmed, selectedModel, "Say 'Connected'")
+                    return@withContext Result.success("Connected successfully ($selectedModel): $answer")
+                }
+
+                // Any other probe error: still try a direct completion below.
+                Log.w(TAG, "Groq probe returned HTTP $code, trying direct test")
+            }
+        } catch (e: Exception) {
+            if (e.message?.contains("API Key", ignoreCase = true) == true) {
+                return@withContext Result.failure(e)
+            }
+            Log.w(TAG, "Groq probe had issue, falling back to direct test: ${e.message}")
+        }
+
+        try {
+            val models = AIConfig.GROQ_TEXT_MODELS
+            var lastException: Exception? = null
+            for (model in models) {
+                try {
+                    val answer = callSingleGroqModel(trimmed, model, "Say 'Connected'")
+                    return@withContext Result.success("Connected successfully ($model): $answer")
+                } catch (e: Exception) {
+                    if (e.message?.startsWith("API Key Invalid") == true) {
+                        return@withContext Result.failure(e)
+                    }
+                    Log.w(TAG, "Groq call to $model failed: ${e.message}")
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Unable to reach Groq API after trying all models."))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Tests a custom OpenRouter API key (settings "Test key"):
+     * GET https://openrouter.ai/api/v1/auth/key with the Bearer key.
+     * 200 = valid (the response carries the key label + credit usage);
+     * 401/403 = invalid key.
+     */
+    suspend fun testOpenRouterKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val request = Request.Builder()
+                .url("https://openrouter.ai/api/v1/auth/key")
+                .addHeader("Authorization", "Bearer $trimmed")
+                .get()
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                val code = response.code
+
+                if (code == 400 || code == 401 || code == 402 || code == 403) {
+                    val errMsg = try {
+                        JSONObject(body).optJSONObject("error")?.optString("message")
+                    } catch (_: Throwable) { null }
+                    return@withContext Result.failure(
+                        Exception("API Key Invalid: ${errMsg ?: "HTTP $code"}")
+                    )
+                }
+
+                if (response.isSuccessful) {
+                    val label = try {
+                        JSONObject(body).optJSONObject("key")?.optString("label", "") ?: ""
+                    } catch (_: Throwable) { "" }
+                    val usage = try {
+                        JSONObject(body).optString("usage", "")
+                    } catch (_: Throwable) { "" }
+                    return@withContext Result.success(
+                        if (label.isNotBlank()) "Connected successfully ($label, used $usage)"
+                        else "Connected successfully (key valid)"
+                    )
+                }
+
+                Result.failure(Exception("OpenRouter returned HTTP $code."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Tests a custom Tavily API key (settings "Test key"):
+     * POST https://api.tavily.com/search with a tiny 1-result search.
+     * 200 = valid (consumes 1 free credit); 401/432 = invalid or no credits.
+     */
+    suspend fun testTavilyKey(apiKey: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be empty."))
+        }
+
+        try {
+            val payload = JSONObject().apply {
+                put("query", "LifeFresh key test")
+                put("search_depth", "basic")
+                put("max_results", 1)
+            }.toString()
+            val request = Request.Builder()
+                .url("https://api.tavily.com/search")
+                .addHeader("Authorization", "Bearer $trimmed")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                val code = response.code
+                response.body?.close()
+
+                if (code == 401 || code == 403) {
+                    return@withContext Result.failure(
+                        Exception("Tavily API key is invalid.")
+                    )
+                }
+                if (code == 432) {
+                    return@withContext Result.failure(
+                        Exception("Tavily credits are empty for this key (HTTP 432).")
+                    )
+                }
+
+                if (response.isSuccessful) {
+                    return@withContext Result.success("Connected successfully (web search ready)")
+                }
+
+                Result.failure(Exception("Tavily returned HTTP $code."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun callSingleGroqModel(apiKey: String, model: String, prompt: String): String {
+        val requestJson = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 512)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val requestBody = requestJson.toString().toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url("https://api.groq.com/openai/v1/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        okHttpClient.newCall(request).execute().use { response ->
+            val bodyString = response.body?.string().orEmpty()
+            val code = response.code
+
+            if (response.isSuccessful) {
+                val json = JSONObject(bodyString)
+                val choices = json.optJSONArray("choices")
+                if (choices != null && choices.length() > 0) {
+                    val text = choices.getJSONObject(0)
+                        .optJSONObject("message")
+                        ?.optString("content", "")
+                        ?.trim()
+                        .orEmpty()
+                    if (text.isNotBlank()) return text
+                }
+                return "Connected"
+            }
+
+            val parsedError = try {
+                JSONObject(bodyString).optJSONObject("error")?.optString("message")
+            } catch (_: Throwable) { null }
+
+            if (code == 400 || code == 401 || code == 403) {
+                throw Exception("API Key Invalid: ${parsedError ?: "HTTP $code"}")
+            }
+            if (code == 429) {
+                throw Exception("Quota Limit: ${parsedError ?: "Rate limit reached."}")
+            }
+            throw Exception("Groq returned HTTP $code for model $model: ${parsedError ?: "no details"}")
         }
     }
 
@@ -225,13 +401,7 @@ class AIServiceRepository(
     }
 
     private fun callDirectGeminiApi(apiKey: String, prompt: String): String {
-        val models = listOf(
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-flash-latest",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro"
-        )
+        val models = AIConfig.GEMINI_TEXT_MODELS
 
         val requestJson = JSONObject().apply {
             val partsArray = JSONArray().apply {
@@ -320,42 +490,7 @@ class AIServiceRepository(
         throw lastException ?: Exception("Unable to reach Google Gemini API after trying all fallback models.")
     }
 
-    private suspend fun callProxyEndpoint(context: Context, prompt: String, deviceId: String): String {
-        val request = AIProxyRequest(prompt = prompt, deviceId = deviceId)
-
-        try {
-            val proxyResponse: AIProxyResponse = proxyService.executeProxyQuery(proxyEndpointUrl, request)
-            if (!proxyResponse.error.isNullOrBlank()) {
-                throw Exception(proxyResponse.error)
-            }
-
-            val text = proxyResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-            if (!text.isNullOrBlank()) {
-                return text
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "AI proxy call failed: ${e.message}", e)
-        }
-
-        // Graceful fallback: If proxy is down, try environment fallback key if configured
-        val fallbackKey = AIConfig.geminiApiKey
-        if (fallbackKey.isNotBlank() && fallbackKey != "DEFAULT_GEMINI_API_KEY") {
-            try {
-                Log.i(TAG, "Proxy unreachable, executing with fallback configuration")
-                return callDirectGeminiApi(fallbackKey, prompt)
-            } catch (e: Exception) {
-                Log.w(TAG, "Fallback key failed: ${e.message}", e)
-                if (e.message?.startsWith("API Key Invalid or Expired") == true) {
-                    throw e
-                }
-            }
-        }
-
-        throw Exception("Default AI proxy is currently updating. Please enter your free personal Gemini API key in Settings > AI Assistant Configuration for instant, unlimited access.")
-    }
-
     companion object {
         private const val TAG = "AIServiceRepository"
-        const val DEFAULT_PROXY_ENDPOINT = "https://lifefresh-ai-proxy.run.app/api/v1/generate"
     }
 }

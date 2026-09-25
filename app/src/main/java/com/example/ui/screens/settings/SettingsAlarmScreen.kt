@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.viewmodel.CRMViewModel
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,11 +64,11 @@ fun SettingsAlarmScreen(
         if (uri != null) {
             val success = viewModel.registerCustomAudioFile(context, uri)
             if (success) {
-                alarmSaveFeedbackMessage = "Settings saved"
-                Toast.makeText(context, "Custom audio registered successfully!", Toast.LENGTH_SHORT).show()
+                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
+                Toast.makeText(context, context.getString(R.string.settings_custom_audio_ok), Toast.LENGTH_SHORT).show()
             } else {
-                alarmSaveFeedbackMessage = "Could not save alarm settings"
-                Toast.makeText(context, "Failed to copy chosen tone files.", Toast.LENGTH_SHORT).show()
+                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_save_failed)
+                Toast.makeText(context, context.getString(R.string.settings_tone_copy_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -81,12 +83,12 @@ fun SettingsAlarmScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back to Settings"
+                            contentDescription = stringResource(R.string.cd_back_settings)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Alarm Settings",
+                        text = stringResource(R.string.settings_alarm_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -174,14 +176,14 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Notification Permission",
+                                    text = stringResource(R.string.settings_notif_permission),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                text = if (isNotificationGranted) "Allowed" else "Disabled (Tap to fix)",
+                                text = if (isNotificationGranted) stringResource(R.string.alarm_allowed) else stringResource(R.string.alarm_disabled_tap),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isNotificationGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
@@ -236,14 +238,14 @@ fun SettingsAlarmScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Exact Alarm Permission",
+                                    text = stringResource(R.string.settings_exact_alarm_permission),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                text = if (isExactAlarmGranted) "Allowed" else "Denied (Tap to fix)",
+                                text = if (isExactAlarmGranted) stringResource(R.string.alarm_allowed) else stringResource(R.string.alarm_denied_tap),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isExactAlarmGranted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
@@ -254,7 +256,7 @@ fun SettingsAlarmScreen(
 
                     if (!isExactAlarmGranted) {
                         Text(
-                            text = "Reminder alarms will not ring until Exact Alarm permission is enabled.",
+                            text = stringResource(R.string.settings_exact_alarm_sub),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier
@@ -298,13 +300,13 @@ fun SettingsAlarmScreen(
                                 )
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
-                                        text = "Background Battery Optimization",
+                                        text = stringResource(R.string.settings_battery_opt),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Disable battery restrictions so reminder alarms trigger immediately even when the device is locked in deep sleep.",
+                                        text = stringResource(R.string.settings_battery_opt_sub),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                     )
@@ -314,7 +316,7 @@ fun SettingsAlarmScreen(
                             if (isIgnoringBatteryOptimizations) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Battery optimization disabled",
+                                    contentDescription = stringResource(R.string.cd_battery_opt_disabled),
                                     tint = Color(0xFF2E7D32),
                                     modifier = Modifier.size(24.dp).testTag("battery_optimization_exempt_icon")
                                 )
@@ -340,7 +342,7 @@ fun SettingsAlarmScreen(
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     modifier = Modifier.testTag("battery_optimization_exempt_button")
                                 ) {
-                                    Text("Exempt", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.settings_exempt), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -369,7 +371,7 @@ fun SettingsAlarmScreen(
                                 value = if (alarmSourceUseCustom) "Use Custom Alarm Audio" else "Use Default Alarm",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Alarm Source") },
+                                label = { Text(stringResource(R.string.settings_alarm_source)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -382,22 +384,22 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { sourceDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Use Default Alarm") },
+                                    text = { Text(stringResource(R.string.settings_default_alarm)) },
                                     onClick = {
                                         if (alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(false)
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         sourceDropdownExpanded = false
                                     },
                                     modifier = Modifier.testTag("source_default_item")
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Use Custom Alarm Audio") },
+                                    text = { Text(stringResource(R.string.settings_custom_alarm_audio)) },
                                     onClick = {
                                         if (!alarmSourceUseCustom) {
                                             viewModel.setAlarmUseCustom(true)
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         sourceDropdownExpanded = false
                                     },
@@ -428,7 +430,7 @@ fun SettingsAlarmScreen(
                                     },
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Alarm Sound Selection") },
+                                    label = { Text(stringResource(R.string.settings_alarm_sound)) },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = soundDropdownExpanded) },
                                     shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier
@@ -441,101 +443,101 @@ fun SettingsAlarmScreen(
                                     onDismissRequest = { soundDropdownExpanded = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("Holiday") },
+                                        text = { Text(stringResource(R.string.alarm_tone_holiday)) },
                                         onClick = {
                                             if (activeAlarmSound != "holiday") {
                                                 viewModel.setAlarmSound("holiday")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Morning Bell") },
+                                        text = { Text(stringResource(R.string.alarm_tone_morning_bell)) },
                                         onClick = {
                                             if (activeAlarmSound != "morning_bell") {
                                                 viewModel.setAlarmSound("morning_bell")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Soft Chime") },
+                                        text = { Text(stringResource(R.string.alarm_tone_soft_chime)) },
                                         onClick = {
                                             if (activeAlarmSound != "soft_chime") {
                                                 viewModel.setAlarmSound("soft_chime")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Wellness Reminder") },
+                                        text = { Text(stringResource(R.string.alarm_tone_wellness_reminder)) },
                                         onClick = {
                                             if (activeAlarmSound != "medical_reminder") {
                                                 viewModel.setAlarmSound("medical_reminder")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Fresh Alert") },
+                                        text = { Text(stringResource(R.string.alarm_tone_fresh_alert)) },
                                         onClick = {
                                             if (activeAlarmSound != "fresh_alert") {
                                                 viewModel.setAlarmSound("fresh_alert")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Nature Bell") },
+                                        text = { Text(stringResource(R.string.alarm_tone_nature_bell)) },
                                         onClick = {
                                             if (activeAlarmSound != "nature_bell") {
                                                 viewModel.setAlarmSound("nature_bell")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Peaceful Glow") },
+                                        text = { Text(stringResource(R.string.alarm_tone_peaceful_glow)) },
                                         onClick = {
                                             if (activeAlarmSound != "peaceful_glow") {
                                                 viewModel.setAlarmSound("peaceful_glow")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Crystal Breeze") },
+                                        text = { Text(stringResource(R.string.alarm_tone_crystal_breeze)) },
                                         onClick = {
                                             if (activeAlarmSound != "crystal_breeze") {
                                                 viewModel.setAlarmSound("crystal_breeze")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Extreme Siren") },
+                                        text = { Text(stringResource(R.string.alarm_tone_extreme_siren)) },
                                         onClick = {
                                             if (activeAlarmSound != "extreme_siren") {
                                                 viewModel.setAlarmSound("extreme_siren")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Critical Alert") },
+                                        text = { Text(stringResource(R.string.alarm_tone_critical_alert)) },
                                         onClick = {
                                             if (activeAlarmSound != "critical_alert") {
                                                 viewModel.setAlarmSound("critical_alert")
-                                                alarmSaveFeedbackMessage = "Settings saved"
+                                                alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                             }
                                             soundDropdownExpanded = false
                                         }
@@ -558,10 +560,10 @@ fun SettingsAlarmScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Custom Audio File", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(stringResource(R.string.settings_custom_audio_file), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
                                     Text(
-                                        text = "Current: $customAudioName",
+                                        text = stringResource(R.string.settings_current_audio, customAudioName),
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -584,7 +586,7 @@ fun SettingsAlarmScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                Text("Select Audio", fontSize = 12.sp, color = Color.White)
+                                                Text(stringResource(R.string.settings_select_audio), fontSize = 12.sp, color = Color.White)
                                             }
                                         }
 
@@ -592,7 +594,7 @@ fun SettingsAlarmScreen(
                                             Button(
                                                 onClick = {
                                                     viewModel.removeCustomAudio(context)
-                                                    alarmSaveFeedbackMessage = "Settings saved"
+                                                    alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                                 },
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                                 shape = RoundedCornerShape(24.dp),
@@ -606,7 +608,7 @@ fun SettingsAlarmScreen(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                    Text("Remove", fontSize = 12.sp, color = Color.White)
+                                                    Text(stringResource(R.string.common_remove), fontSize = 12.sp, color = Color.White)
                                                 }
                                             }
                                         }
@@ -624,7 +626,7 @@ fun SettingsAlarmScreen(
                                 value = activeAlarmVolume.capitalize(),
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Alarm Volume") },
+                                label = { Text(stringResource(R.string.settings_alarm_volume)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = volumeDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -637,31 +639,31 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { volumeDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Low") },
+                                    text = { Text(stringResource(R.string.alarm_low)) },
                                     onClick = {
                                         if (activeAlarmVolume != "low") {
                                             viewModel.setAlarmVolume("low")
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Medium") },
+                                    text = { Text(stringResource(R.string.alarm_medium)) },
                                     onClick = {
                                         if (activeAlarmVolume != "medium") {
                                             viewModel.setAlarmVolume("medium")
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("High") },
+                                    text = { Text(stringResource(R.string.alarm_high)) },
                                     onClick = {
                                         if (activeAlarmVolume != "high") {
                                             viewModel.setAlarmVolume("high")
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         volumeDropdownExpanded = false
                                     }
@@ -682,7 +684,7 @@ fun SettingsAlarmScreen(
                                 },
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Reminder Ring Mode") },
+                                label = { Text(stringResource(R.string.settings_ring_mode)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ringModeDropdownExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
@@ -695,22 +697,22 @@ fun SettingsAlarmScreen(
                                 onDismissRequest = { ringModeDropdownExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Continuous Ringing") },
+                                    text = { Text(stringResource(R.string.settings_ring_continuous)) },
                                     onClick = {
                                         if (activeRingMode != "continuous") {
                                             viewModel.setReminderRingMode("continuous")
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         ringModeDropdownExpanded = false
                                     },
                                     modifier = Modifier.testTag("ring_mode_continuous_item")
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Auto Stop After 2 Minutes") },
+                                    text = { Text(stringResource(R.string.settings_ring_auto_stop)) },
                                     onClick = {
                                         if (activeRingMode != "auto_stop") {
                                             viewModel.setReminderRingMode("auto_stop")
-                                            alarmSaveFeedbackMessage = "Settings saved"
+                                            alarmSaveFeedbackMessage = context.getString(R.string.settings_alarm_saved)
                                         }
                                         ringModeDropdownExpanded = false
                                     },
@@ -727,7 +729,7 @@ fun SettingsAlarmScreen(
                         try {
                             viewModel.toggleTestAlarm(context)
                         } catch (e: Exception) {
-                            alarmSaveFeedbackMessage = "Could not play alarm sound"
+                            alarmSaveFeedbackMessage = context.getString(R.string.alarm_play_failed)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -749,7 +751,7 @@ fun SettingsAlarmScreen(
                             contentDescription = null
                         )
                         Text(
-                            text = if (isTesting) "Playing test sound..." else "Test Selected Alarm Sound",
+                            text = if (isTesting) stringResource(R.string.alarm_playing_test) else stringResource(R.string.alarm_test_btn),
                             fontWeight = FontWeight.Bold
                         )
                     }

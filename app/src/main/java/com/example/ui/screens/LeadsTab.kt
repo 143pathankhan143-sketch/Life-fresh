@@ -64,6 +64,7 @@ fun LeadsTab(
 
     val listState = rememberLazyListState()
     var showDeleteConfirmDialog by remember { mutableStateOf<LeadEntity?>(null) }
+    var callOutcomeLead by remember { mutableStateOf<LeadEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -125,7 +126,7 @@ fun LeadsTab(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search Icon",
+                        contentDescription = stringResource(R.string.cd_search),
                         tint = searchIconColor,
                         modifier = Modifier.size(22.dp)
                     )
@@ -167,7 +168,7 @@ fun LeadsTab(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Cancel,
-                                contentDescription = "Clear Search",
+                                contentDescription = stringResource(R.string.cd_clear_search),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -189,6 +190,12 @@ fun LeadsTab(
                     active = (activeFilter == "all"),
                     icon = if (activeFilter == "all") Icons.Filled.Group else Icons.Outlined.Group,
                     onClick = { viewModel.currentFilter.value = "all" }
+                )
+                FilterChipBtn(
+                    label = stringResource(R.string.leads_filter_drafts),
+                    active = (activeFilter == "drafts"),
+                    icon = if (activeFilter == "drafts") Icons.Filled.Description else Icons.Outlined.Description,
+                    onClick = { viewModel.currentFilter.value = "drafts" }
                 )
                 FilterChipBtn(
                     label = stringResource(R.string.leads_filter_pending),
@@ -245,6 +252,7 @@ fun LeadsTab(
             if (currentLeads.isEmpty()) {
             val isReminderFilter = activeFilter.startsWith("rem-")
             val isSearchMode = searchQuery.isNotEmpty()
+            val isDraftsFilter = activeFilter == "drafts"
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -297,7 +305,7 @@ fun LeadsTab(
                             } else {
                                 Icons.Outlined.Group
                             },
-                            contentDescription = "Empty State Icon",
+                            contentDescription = stringResource(R.string.cd_empty_state),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(52.dp)
                         )
@@ -306,6 +314,8 @@ fun LeadsTab(
                     Text(
                         text = if (isSearchMode) {
                             "No Matching Clients Found"
+                        } else if (isDraftsFilter) {
+                            "No Drafts Found"
                         } else if (isReminderFilter) {
                             when (activeFilter) {
                                 "rem-today" -> "No Reminders Today"
@@ -327,6 +337,8 @@ fun LeadsTab(
                     Text(
                         text = if (isSearchMode) {
                             "We couldn't find any clients matching \"$searchQuery\". Try checking the spelling, searching by mobile number, or wellness issue."
+                        } else if (isDraftsFilter) {
+                            "Jab aap AI chat me lead banate waqt rokte ya cancel karte ho, adhuri details yahan draft ke roop me save hoti hain."
                         } else if (isReminderFilter) {
                             when (activeFilter) {
                                 "rem-today" -> "You're all caught up for today! No wellness follow-ups or alerts are scheduled right now."
@@ -368,7 +380,7 @@ fun LeadsTab(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    text = "Clear Search",
+                                    text = stringResource(R.string.leads_clear_search),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
@@ -384,7 +396,7 @@ fun LeadsTab(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("View All Clients", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                Text(stringResource(R.string.leads_view_all), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     } else if (activeFilter != "all") {
@@ -393,7 +405,7 @@ fun LeadsTab(
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Show All Clients", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.leads_show_all), style = MaterialTheme.typography.labelLarge)
                         }
                     } else {
                         Button(
@@ -406,7 +418,7 @@ fun LeadsTab(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("Add New Client", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.leads_add_new), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -426,12 +438,12 @@ fun LeadsTab(
                         lead = lead,
                         onViewProfile = { onViewLeadProfile(lead) },
                         onCall = {
-                            viewModel.markCallInitiated(lead)
                             try {
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.mobile}"))
                                 context.startActivity(intent)
+                                callOutcomeLead = lead
                             } catch (e: Exception) {
-                                Toast.makeText(context, "No dialer application found.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.common_no_dialer), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onWhatsApp = {
@@ -456,7 +468,7 @@ fun LeadsTab(
                                 Diseases: $parsedDiseases
                                 Status: ${lead.status}
                                 Reminder Status: ${lead.reminderStatus}
-                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}
+                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}${if (lead.reminderRepeat != "none") " (repeats ${lead.reminderRepeat})" else ""}
                                 Notes: ${lead.notes.ifEmpty { "N/A" }}
                                 Last Call: ${lead.lastCall ?: "Never"}
                             """.trimIndent()
@@ -465,7 +477,7 @@ fun LeadsTab(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=91${lead.mobile}&text=${Uri.encode(summary)}"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "WhatsApp has not been found on your device.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.common_no_whatsapp), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onCopyText = {
@@ -490,7 +502,7 @@ fun LeadsTab(
                                 Diseases: $parsedDiseases
                                 Status: ${lead.status}
                                 Reminder Status: ${lead.reminderStatus}
-                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}
+                                Reminder: ${lead.reminderDate.ifEmpty { "None" }}${if (lead.reminderTime.isNotEmpty()) " at ${formatTimeStr(lead.reminderTime)}" else ""}${if (lead.reminderRepeat != "none") " (repeats ${lead.reminderRepeat})" else ""}
                                 Notes: ${lead.notes.ifEmpty { "N/A" }}
                                 Last Call: ${lead.lastCall ?: "Never"}
                             """.trimIndent()
@@ -509,7 +521,7 @@ fun LeadsTab(
                             viewModel.toggleArchive(lead)
                             coroutineScope.launch {
                                 snackbarHostState.currentSnackbarData?.dismiss()
-                                val message = if (isArchivedNow) "Lead restored" else "Lead archived"
+                                val message = if (isArchivedNow) context.getString(R.string.leads_restored_toast) else context.getString(R.string.leads_archived_toast)
                                 val result = snackbarHostState.showSnackbar(
                                     message = message,
                                     actionLabel = "Undo",
@@ -538,15 +550,15 @@ fun LeadsTab(
                                                 if (selectedDateTime != null && selectedDateTime.time > now) {
                                                     val success = viewModel.reactivateReminder(lead.id, selectedDate, selectedTime)
                                                     if (success) {
-                                                        Toast.makeText(context, "Reminder reactivated for $selectedDate at $selectedTime", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, context.getString(R.string.leads_reactivated_toast, selectedDate, selectedTime), Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        Toast.makeText(context, "A reminder already exists at the selected date and time. Please choose a different time.", Toast.LENGTH_LONG).show()
+                                                        Toast.makeText(context, context.getString(R.string.leads_reminder_exists), Toast.LENGTH_LONG).show()
                                                     }
                                                 } else {
-                                                    Toast.makeText(context, "Error: Selected date/time must be in the future.", Toast.LENGTH_LONG).show()
+                                                    Toast.makeText(context, context.getString(R.string.validation_future_error), Toast.LENGTH_LONG).show()
                                                 }
                                             } catch (e: Exception) {
-                                                Toast.makeText(context, "Error parsing selected date and time.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.common_parse_error), Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         c.get(Calendar.HOUR_OF_DAY),
@@ -583,14 +595,14 @@ fun LeadsTab(
             shape = RoundedCornerShape(24.dp),
             title = {
                 Text(
-                    text = "Delete Lead?",
+                    text = stringResource(R.string.leads_delete_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "Permanently delete ${lead.name} and their saved CRM details?",
+                    text = stringResource(R.string.leads_delete_msg, lead.name),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -602,7 +614,7 @@ fun LeadsTab(
                             isDeleting = true
                             viewModel.deleteLead(lead)
                             showDeleteConfirmDialog = null
-                            Toast.makeText(context, "Lead deleted", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.common_lead_deleted), Toast.LENGTH_SHORT).show()
                         }
                     },
                     enabled = !isDeleting,
@@ -613,7 +625,7 @@ fun LeadsTab(
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.testTag("delete_confirm_ok")
                 ) {
-                    Text("Delete", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_delete), style = MaterialTheme.typography.labelMedium)
                 }
             },
             dismissButton = {
@@ -622,8 +634,24 @@ fun LeadsTab(
                     enabled = !isDeleting,
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        )
+    }
+
+    // Call outcome popup: shown right after dialing from a lead card.
+    callOutcomeLead?.let { callLead ->
+        CallOutcomeDialog(
+            leadName = callLead.name,
+            onDismiss = {
+                // Skipping keeps the old behavior: only lastCall is marked.
+                viewModel.markCallInitiated(callLead)
+                callOutcomeLead = null
+            },
+            onResult = { outcome, note ->
+                viewModel.logCall(callLead, outcome, note)
+                callOutcomeLead = null
             }
         )
     }
@@ -773,7 +801,7 @@ fun LeadCardItem(
                                         .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Text("Archived", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.leads_archived_badge), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -825,7 +853,7 @@ fun LeadCardItem(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Relation",
+                            text = stringResource(R.string.leads_relation),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Bold
@@ -838,7 +866,7 @@ fun LeadCardItem(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Wellness Issues",
+                            text = stringResource(R.string.leads_wellness_issues),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Bold
@@ -870,7 +898,7 @@ fun LeadCardItem(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Last Call: $formattedLastCall",
+                                text = stringResource(R.string.leads_last_call, formattedLastCall),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1040,6 +1068,33 @@ fun LeadCardItem(
                             }
                         }
 
+                        // Repeat badge
+                        if (lead.reminderRepeat != "none") {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.EventRepeat,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = stringResource(
+                                        when (lead.reminderRepeat) {
+                                            "daily" -> R.string.repeat_daily
+                                            "weekly" -> R.string.repeat_weekly
+                                            "monthly" -> R.string.repeat_monthly
+                                            else -> R.string.repeat_none
+                                        }
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
                         // Reminder Note
                         if (lead.reminderNote.isNotEmpty()) {
                             Row(
@@ -1094,7 +1149,7 @@ fun LeadCardItem(
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Text(
-                                            text = "Reactivate Reminder",
+                                            text = stringResource(R.string.leads_reactivate),
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                     }
@@ -1124,7 +1179,7 @@ fun LeadCardItem(
                             .size(40.dp)
                             .testTag("action_call_${lead.id}")
                     ) {
-                        Icon(Icons.Outlined.Phone, contentDescription = "Call ${lead.name}", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Phone, contentDescription = stringResource(R.string.cd_call, lead.name), modifier = Modifier.size(18.dp))
                     }
 
                     // WhatsApp Action Button
@@ -1140,7 +1195,7 @@ fun LeadCardItem(
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_whatsapp),
-                            contentDescription = "WhatsApp ${lead.name}",
+                            contentDescription = stringResource(R.string.cd_whatsapp, lead.name),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1156,7 +1211,7 @@ fun LeadCardItem(
                             .size(40.dp)
                             .testTag("action_edit_${lead.id}")
                     ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit ${lead.name}", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.cd_edit, lead.name), modifier = Modifier.size(18.dp))
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -1172,7 +1227,7 @@ fun LeadCardItem(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More actions for ${lead.name}",
+                                contentDescription = stringResource(R.string.cd_more_actions, lead.name),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -1182,7 +1237,7 @@ fun LeadCardItem(
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Copy Lead Details") },
+                                text = { Text(stringResource(R.string.leads_copy_details)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onCopyText()
@@ -1198,7 +1253,7 @@ fun LeadCardItem(
                             )
 
                             DropdownMenuItem(
-                                text = { Text(if (lead.archived) "Restore Lead" else "Archive Lead") },
+                                text = { Text(if (lead.archived) stringResource(R.string.leads_restore) else stringResource(R.string.leads_archive)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onArchiveToggle()
@@ -1214,7 +1269,7 @@ fun LeadCardItem(
                             )
 
                             DropdownMenuItem(
-                                text = { Text("Delete Lead") },
+                                text = { Text(stringResource(R.string.leads_delete)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     onDelete()

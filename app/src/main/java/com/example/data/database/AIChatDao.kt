@@ -36,6 +36,9 @@ interface AIChatDao {
     @Query("UPDATE ai_chat_sessions SET isPinned = :isPinned, updatedTimestamp = :updatedTimestamp WHERE ownerUid = :ownerUid AND id = :sessionId")
     suspend fun updateSessionPinStatus(ownerUid: String, sessionId: String, isPinned: Boolean, updatedTimestamp: Long)
 
+    @Query("UPDATE ai_chat_sessions SET isArchived = :isArchived, updatedTimestamp = :updatedTimestamp WHERE ownerUid = :ownerUid AND id = :sessionId")
+    suspend fun updateSessionArchived(ownerUid: String, sessionId: String, isArchived: Boolean, updatedTimestamp: Long)
+
     @Query("UPDATE ai_chat_sessions SET title = :title, updatedTimestamp = :updatedTimestamp WHERE ownerUid = :ownerUid AND id = :sessionId")
     suspend fun updateSessionTitle(ownerUid: String, sessionId: String, title: String, updatedTimestamp: Long)
 

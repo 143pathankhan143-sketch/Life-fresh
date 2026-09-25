@@ -19,6 +19,11 @@ class LeadRepository(
     suspend fun claimUnownedLeads(ownerUid: String): Int = leadDao.claimUnownedLeads(ownerUid)
 
     suspend fun insertLead(lead: LeadEntity, origin: LeadWriteOrigin = LeadWriteOrigin.LOCAL_USER) {
+        if (lead.isDraft) {
+            // Drafts are incomplete and device-local: never queue them for cloud sync.
+            leadDao.insertLead(lead)
+            return
+        }
         if (mutationCoordinator != null) {
             mutationCoordinator.upsertLead(lead, origin)
         } else {

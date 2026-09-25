@@ -12,5 +12,6 @@ data class AIChatSessionEntity(
     val title: String,
     val createdTimestamp: Long = System.currentTimeMillis(),
     val updatedTimestamp: Long = System.currentTimeMillis(),
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false
 )

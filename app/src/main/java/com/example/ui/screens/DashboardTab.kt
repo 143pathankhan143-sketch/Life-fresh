@@ -53,14 +53,13 @@ import java.util.*
 fun DashboardTab(
     viewModel: CRMViewModel,
     authViewModel: com.example.ui.viewmodel.AuthViewModel,
-    onViewLeadProfile: (LeadEntity) -> Unit,
-    onOpenAIAssistant: () -> Unit = {}
+    onViewLeadProfile: (LeadEntity) -> Unit
 ) {
     val allLeads by viewModel.allLeadsList.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
 
-    // Filter out archived for analytic calculations
-    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived } }
+    // Filter out archived and drafts for analytic calculations
+    val activeLeads = remember(allLeads) { allLeads.filter { !it.archived && !it.isDraft } }
 
     val total = activeLeads.size
     val pending = activeLeads.count { it.status.equals("Pending", ignoreCase = true) }
@@ -193,7 +192,7 @@ fun DashboardTab(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = if (isAnonymous) "Welcome, Guest 👋" else "Welcome back, $displayName 👋",
+                                text = if (isAnonymous) stringResource(R.string.dash_welcome_guest) else stringResource(R.string.dash_welcome_back, displayName),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -201,7 +200,7 @@ fun DashboardTab(
                             )
                             Spacer(modifier = Modifier.height(4.dp)) // On 8dp grid
                             Text(
-                                text = "Empowering health and wellness journeys",
+                                text = stringResource(R.string.dash_tagline),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
@@ -233,7 +232,7 @@ fun DashboardTab(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Overview",
+                            text = stringResource(R.string.dash_overview),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -281,11 +280,12 @@ fun DashboardTab(
                     // Doughnut Chart via Canvas drawings
                     if (total > 0) {
                         val ratio = if (total > 0) (complete * 100 / total) else 0
+                        val progressLabel = stringResource(R.string.dash_progress_cd, ratio, complete, total)
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .semantics(mergeDescendants = true) {
-                                    contentDescription = "Completion progress: $ratio% ($complete of $total completed)"
+                                    contentDescription = progressLabel
                                 },
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -306,7 +306,7 @@ fun DashboardTab(
                             }
 
                             Text(
-                                text = "$complete of $total completed",
+                                text = stringResource(R.string.dash_completed_count, complete, total),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.SemiBold,
@@ -332,7 +332,7 @@ fun DashboardTab(
                                     modifier = Modifier.size(36.dp)
                                 )
                                 Text(
-                                    text = "No leads yet",
+                                    text = stringResource(R.string.dash_no_leads),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -366,7 +366,7 @@ fun DashboardTab(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Reminders Summary",
+                            text = stringResource(R.string.dash_reminders_summary),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -412,7 +412,7 @@ fun DashboardTab(
 
             // Recent Activity List Header
             Text(
-                text = "Recent Activity Log",
+                text = stringResource(R.string.dash_recent_activity),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 4.dp, top = 16.dp) // Large top spacing to breathe
@@ -441,13 +441,13 @@ fun DashboardTab(
                             modifier = Modifier.size(32.dp)
                         )
                         Text(
-                            text = "No Recent Activity",
+                            text = stringResource(R.string.dash_no_activity),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Create or edit wellness client records to see activity updates logged here.",
+                            text = stringResource(R.string.dash_no_activity_sub),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center
@@ -697,7 +697,7 @@ fun RecentActivityItem(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = lead.mobile.ifEmpty { "No phone number" },
+                        text = lead.mobile.ifEmpty { stringResource(R.string.common_no_phone) },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp

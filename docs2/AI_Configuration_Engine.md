@@ -367,3 +367,28 @@ The AI Configuration Engine provides a secure, predictable, and local configurat
 1. Centralized Configuration Management on Edge and Mobile Devices: Architectural Best Practices
 2. NIST SP 800-162: Attribute-Based Agency and Secure Configuration Management Guidelines
 3. Android Keystore System: Best Practices for Token and Key Protection
+
+---
+
+## Appendix: Groq BYOK (added after v1.0)
+
+* **Settings screen** (AI Assistant Configuration card): a second BYOK
+  section mirrors the Gemini one - input `input_custom_groq_key`, buttons
+  `btn_save_groq_key` / `btn_test_groq_key` / `btn_clear_groq_key`, status
+  line `txt_groq_key_status_message`. Keys are stored in the same
+  `daily_ai_usage_prefs` SharedPreferences (`custom_groq_api_key`) and read
+  at runtime through `AIConfig.customGroqApiKeyProvider`
+  (set in `LifeFreshApplication`), never from BuildConfig.
+* **Key testing**: `AIServiceRepository.testGroqKey` probes
+  `GET https://api.groq.com/openai/v1/models` with the Bearer key
+  (401/403 => invalid), then runs a tiny "Say 'Connected'" chat
+  completion on the first usable model.
+* **Model list**: `AIConfig.GROQ_TEXT_MODELS` - ONLY current *Production*
+  text models from https://console.groq.com/docs/models
+  (as of 2026-09: `openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
+  `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`). Deprecated or
+  preview models must never be added. `GroqProvider` retries the next
+  model on 404/503, fails fast on auth errors, and stops on 429.
+* **Quota**: any BYOK key (Gemini OR Groq) counts as unlimited
+  (`AIQuotaManager.isUnlimited`); the router keeps Gemini primary with
+  Groq as the fast fallback.

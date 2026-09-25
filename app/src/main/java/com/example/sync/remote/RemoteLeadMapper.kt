@@ -31,6 +31,7 @@ object RemoteLeadMapper {
             "reminderTime" to lead.reminderTime,
             "reminderNote" to lead.reminderNote,
             "reminderStatus" to lead.reminderStatus,
+            "reminderRepeat" to lead.reminderRepeat,
             "notes" to lead.notes,
             "archived" to lead.archived,
             "lastCall" to lead.lastCall,
@@ -108,6 +109,10 @@ object RemoteLeadMapper {
         val reminderTime = parseString(data["reminderTime"], "")
         val reminderNote = parseString(data["reminderNote"], "")
         val reminderStatus = parseString(data["reminderStatus"], "Pending")
+        val reminderRepeat = when (parseString(data["reminderRepeat"], "none")) {
+            "daily", "weekly", "monthly" -> parseString(data["reminderRepeat"], "none")
+            else -> "none"
+        }
         val notes = parseString(data["notes"], "")
         val archived = parseBoolean(data["archived"], false)
         val lastCall = parseNullableString(data["lastCall"])
@@ -135,6 +140,7 @@ object RemoteLeadMapper {
             reminderTime = reminderTime,
             reminderNote = reminderNote,
             reminderStatus = if (reminderStatus.isBlank()) "Pending" else reminderStatus,
+            reminderRepeat = reminderRepeat,
             notes = notes,
             archived = archived,
             lastCall = lastCall,
@@ -164,6 +170,7 @@ object RemoteLeadMapper {
             reminderTime = record.reminderTime,
             reminderNote = record.reminderNote,
             reminderStatus = record.reminderStatus,
+            reminderRepeat = record.reminderRepeat,
             notes = record.notes,
             archived = record.archived,
             lastCall = record.lastCall,

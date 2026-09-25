@@ -1,12 +1,12 @@
 package com.example.ui.viewmodel
 
 import com.example.BuildConfig
+import com.example.R
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.AudioManager
 import android.net.Uri
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.SavedStateHandle
@@ -26,9 +26,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -39,543 +37,10 @@ import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
-sealed interface AICommandState {
-    object Idle : AICommandState
-    object Loading : AICommandState
-    object Success : AICommandState
-    object Empty : AICommandState
-    data class Error(val message: String) : AICommandState
-    object UnsupportedCommand : AICommandState
-}
-
-data class AICommandResult(
-    val text: String,
-    val actionCardType: String?,
-    val isConfirmation: Boolean = false,
-    val isError: Boolean = false,
-    val isOfflineWarning: Boolean = false,
-    val handled: Boolean = true
-)
-
 class CRMViewModel(application: Application, private val savedStateHandle: SavedStateHandle) : AndroidViewModel(application) {
 
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
         android.util.Log.e("CRMViewModel", "Caught unhandled coroutine exception: ${throwable.message}", throwable)
-    }
-
-    private val _aiCommandState = MutableStateFlow<AICommandState>(AICommandState.Idle)
-    val aiCommandState: StateFlow<AICommandState> = _aiCommandState.asStateFlow()
-
-    fun registerPendingConfirmation(messageId: String, tool: com.example.ai.action.AITool, entities: com.example.ai.intent.ExtractedEntities) {
-        val request = com.example.ai.action.ActionRequest(tool, entities, messageId)
-        val pending = com.example.ai.action.PendingConfirmation(request, com.example.ai.action.ConfirmationStatus.PENDING)
-        _pendingConfirmations.update { it + (messageId to pending) }
-    }
-
-    fun confirmAction(messageId: String) {
-        viewModelScope.launch {
-            val leadAIState = leadAIViewModelBridge.getConfirmationState(messageId)
-            if (leadAIState != null) {
-                val result = leadAIViewModelBridge.confirm(
-                    messageId = messageId,
-                    currentLeads = allLeadsList.value
-                )
-                persistLeadAIConfirmationResult(
-                    messageId = messageId,
-                    result = result
-                )
-                return@launch
-            }
-
-            val pending = _pendingConfirmations.value[messageId] ?: return@launch
-            if (pending.status == com.example.ai.action.ConfirmationStatus.EXECUTING) return@launch
-
-            _pendingConfirmations.update { map ->
-                map + (messageId to pending.copy(status = com.example.ai.action.ConfirmationStatus.EXECUTING))
-            }
-
-            val result = actionDispatcher.executeAction(pending.request, allLeadsList.value)
-
-            val messages = activeSessionMessages.value
-            val currentMessage = messages.find { it.id == messageId }
-            if (currentMessage != null) {
-                val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                if (uid.isNotBlank()) {
-                    val updatedEntity = AIChatMessageEntity(
-                        ownerUid = uid,
-                        id = currentMessage.id,
-                        sessionId = activeSessionId.value ?: "",
-                        text = if (result.success) result.message else "Error: ${result.message}",
-                        sender = "AI",
-                        timestamp = currentMessage.timestamp,
-                        isError = !result.success,
-                        isOfflineWarning = false,
-                        isConfirmation = false,
-                        actionCardType = "confirmation"
-                    )
-                    aiChatRepository.insertMessage(updatedEntity)
-                }
-            }
-
-            if (result.success) {
-                _pendingConfirmations.update { map ->
-                    map + (messageId to pending.copy(
-                        status = com.example.ai.action.ConfirmationStatus.SUCCESS,
-                        successText = result.message
-                    ))
-                }
-            } else {
-                _pendingConfirmations.update { map ->
-                    map + (messageId to pending.copy(
-                        status = com.example.ai.action.ConfirmationStatus.FAILED,
-                        errorText = result.message
-                    ))
-                }
-            }
-        }
-    }
-
-    fun cancelAction(messageId: String) {
-        viewModelScope.launch {
-            val leadAIState = leadAIViewModelBridge.getConfirmationState(messageId)
-            if (leadAIState != null) {
-                val result = leadAIViewModelBridge.cancelConfirmation(messageId)
-                persistLeadAIConfirmationResult(
-                    messageId = messageId,
-                    result = result
-                )
-                return@launch
-            }
-
-            val pending = _pendingConfirmations.value[messageId] ?: return@launch
-            if (pending.status == com.example.ai.action.ConfirmationStatus.EXECUTING) return@launch
-
-            val messages = activeSessionMessages.value
-            val currentMessage = messages.find { it.id == messageId }
-            if (currentMessage != null) {
-                val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                if (uid.isNotBlank()) {
-                    val updatedEntity = AIChatMessageEntity(
-                        ownerUid = uid,
-                        id = currentMessage.id,
-                        sessionId = activeSessionId.value ?: "",
-                        text = "Action cancelled.",
-                        sender = "AI",
-                        timestamp = currentMessage.timestamp,
-                        isError = false,
-                        isOfflineWarning = false,
-                        isConfirmation = false,
-                        actionCardType = "confirmation"
-                    )
-                    aiChatRepository.insertMessage(updatedEntity)
-                }
-            }
-
-            _pendingConfirmations.update { map ->
-                map + (messageId to pending.copy(
-                    status = com.example.ai.action.ConfirmationStatus.CANCELLED
-                ))
-            }
-        }
-    }
-
-    private suspend fun persistLeadAIConfirmationResult(
-        messageId: String,
-        result: com.example.leads.ai.LeadAIChatResult
-    ) {
-        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
-        if (uid.isBlank()) return
-        val currentMessage = activeSessionMessages.value
-            .firstOrNull { it.id == messageId }
-            ?: return
-
-        val remainsInteractive = when (result.status) {
-            com.example.leads.ai.LeadAIChatStatus.EXECUTION_FAILED,
-            com.example.leads.ai.LeadAIChatStatus.REJECTED,
-            com.example.leads.ai.LeadAIChatStatus.ALREADY_RUNNING -> true
-
-            else -> false
-        }
-
-        val updatedEntity = AIChatMessageEntity(
-            ownerUid = uid,
-            id = currentMessage.id,
-            sessionId = activeSessionId.value ?: return,
-            text = result.text,
-            sender = "AI",
-            timestamp = System.currentTimeMillis(),
-            isError = result.isError,
-            isOfflineWarning = false,
-            isConfirmation = remainsInteractive,
-            actionCardType = if (remainsInteractive) {
-                "lead_ai_confirmation"
-            } else {
-                null
-            }
-        )
-
-        aiChatRepository.insertMessage(updatedEntity)
-        aiChatRepository.updateSessionTimestamp(uid, updatedEntity.sessionId)
-    }
-
-    private fun latestActionableLeadAIConfirmation():
-        Pair<String, com.example.leads.ai.LeadAIChatConfirmationState>? {
-        val states = leadAIConfirmationStates.value
-
-        for (message in activeSessionMessages.value.asReversed()) {
-            val state = states[message.id] ?: continue
-            if (state.canConfirm || state.canCancel) {
-                return message.id to state
-            }
-        }
-
-        return null
-    }
-
-    private suspend fun handlePendingLeadAIConfirmationReply(
-        rawText: String
-    ): com.example.leads.ai.LeadAIChatResult? {
-        val decision = com.example.voice.VoiceConfirmationInterpreter.parse(rawText)
-            ?: return null
-        val (confirmationMessageId, state) =
-            latestActionableLeadAIConfirmation() ?: return null
-
-        val result = when (decision) {
-            com.example.voice.VoiceConfirmationDecision.CONFIRM -> {
-                if (!state.canConfirm) return null
-                leadAIViewModelBridge.confirm(
-                    messageId = confirmationMessageId,
-                    currentLeads = allLeadsList.value
-                )
-            }
-
-            com.example.voice.VoiceConfirmationDecision.CANCEL -> {
-                if (!state.canCancel) return null
-                leadAIViewModelBridge.cancelConfirmation(confirmationMessageId)
-            }
-        }
-
-        persistLeadAIConfirmationResult(
-            messageId = confirmationMessageId,
-            result = result
-        )
-        return result
-    }
-
-    suspend fun processAICommand(
-        query: String,
-        messageId: String,
-        onAddLeadTrigger: () -> Unit,
-        sourceMessageId: String? = null
-    ): AICommandResult {
-        if (!BuildConfig.AI_FEATURES_ENABLED) {
-            return AICommandResult(
-                text = "This feature is not available in the current release.",
-                actionCardType = null,
-                isError = true
-            )
-        }
-
-        // A ready data-changing action must be explicitly resolved before a
-        // new command can start. Explicit confirm/cancel replies are handled
-        // in sendAIMessage before this router is called.
-        if (latestActionableLeadAIConfirmation() != null) {
-            return AICommandResult(
-                text = "Lead details confirmation ke liye ready hain. Save karne ke liye 'haan save kar do' ya rokne ke liye 'cancel' boliye.",
-                actionCardType = null
-            )
-        }
-
-        val parsed = kotlinx.coroutines.withContext(Dispatchers.Default) {
-            com.example.ai.intent.IntentParser.parseCommand(query)
-        }
-
-        val sanitizedParsed = if (
-            parsed.intent == com.example.ai.intent.AIIntent.CREATE_LEAD
-        ) {
-            val normalizedPhone = parsed.entities.phone
-                ?.filter(Char::isDigit)
-                ?.takeIf { it.length in 10..15 }
-
-            parsed.copy(
-                entities = parsed.entities.copy(phone = normalizedPhone)
-            )
-        } else {
-            parsed
-        }
-
-        val leadAIResult = leadAIViewModelBridge.handleMessage(
-            rawText = query,
-            parsedCommand = sanitizedParsed,
-            responseMessageId = messageId,
-            sourceMessageId = sourceMessageId,
-            nowMillis = System.currentTimeMillis()
-        )
-
-        if (leadAIResult.handled) {
-            return AICommandResult(
-                text = leadAIResult.text,
-                actionCardType = leadAIResult.actionCardType,
-                isConfirmation = leadAIResult.isConfirmation,
-                isError = leadAIResult.isError
-            )
-        }
-
-        val todayStr = getSystemTodayDateStr()
-        
-        return when (parsed.intent) {
-            com.example.ai.intent.AIIntent.SHOW_PENDING_LEADS -> {
-                val pendingCount = allLeadsList.value.count { it.status == "Pending" && !it.archived }
-                val responseText = if (pendingCount > 0) {
-                    "Aapke business ke pending follow-up leads ki live report niche generate ki gayi hai. Inhe check karein:"
-                } else {
-                    "Aapke local database mein koi pending follow-up leads nahi mile. Sab kuch up-to-date hai!"
-                }
-                AICommandResult(
-                    text = responseText,
-                    actionCardType = "leads"
-                )
-            }
-            com.example.ai.intent.AIIntent.SHOW_TODAY_REMINDERS -> {
-                val todayRemindersCount = allLeadsList.value.count { it.reminderDate == todayStr && it.reminderDate.isNotEmpty() }
-                val responseText = if (todayRemindersCount > 0) {
-                    "Aaj ke active reminders scheduled alerts list niche di gayi hai:"
-                } else {
-                    "No readable reminders found for today."
-                }
-                AICommandResult(
-                    text = responseText,
-                    actionCardType = "reminders"
-                )
-            }
-            com.example.ai.intent.AIIntent.OPEN_ADD_LEAD -> {
-                onAddLeadTrigger()
-                AICommandResult(
-                    text = "Opening the real New Lead registration form for you. Please enter client details to save.",
-                    actionCardType = null
-                )
-            }
-            com.example.ai.intent.AIIntent.SHOW_WEEKLY_REPORT -> {
-                AICommandResult(
-                    text = "Weekly Lead Conversion status and reports calculated from actual database records:",
-                    actionCardType = "report"
-                )
-            }
-            com.example.ai.intent.AIIntent.CREATE_LEAD -> {
-                if (parsed.validationStatus == "INCOMPLETE") {
-                    AICommandResult(
-                        text = parsed.clarificationQuestion ?: "Please provide lead details.",
-                        actionCardType = "unsupported"
-                    )
-                } else if (parsed.validationStatus == "INVALID") {
-                    AICommandResult(
-                        text = "The phone number provided (${parsed.entities.phone}) is invalid. Action execution aborted.",
-                        actionCardType = "unsupported",
-                        isError = true
-                    )
-                } else {
-                    val name = parsed.entities.name?.trim() ?: ""
-                    val phone = parsed.entities.phone?.trim() ?: ""
-                    val isDuplicate = allLeadsList.value.any { it.mobile == phone }
-                    if (isDuplicate) {
-                        AICommandResult(
-                            text = "A lead with phone number $phone already exists in the system.",
-                            actionCardType = "unsupported",
-                            isError = true
-                        )
-                    } else {
-                        registerPendingConfirmation(messageId, com.example.ai.action.AITool.CREATE_LEAD, parsed.entities)
-                        AICommandResult(
-                            text = "I understood that you want to create a lead for $name with phone $phone. Action execution will require confirmation.",
-                            actionCardType = "confirmation",
-                            isConfirmation = true
-                        )
-                    }
-                }
-            }
-            com.example.ai.intent.AIIntent.CREATE_REMINDER -> {
-                if (parsed.validationStatus == "INCOMPLETE") {
-                    AICommandResult(
-                        text = parsed.clarificationQuestion ?: "Please provide reminder details.",
-                        actionCardType = "unsupported"
-                    )
-                } else {
-                    val name = parsed.entities.name
-                    if (name == null) {
-                        AICommandResult(
-                            text = "Kiske liye reminder set karna hai? (Please provide the person's name)",
-                            actionCardType = "unsupported"
-                        )
-                    } else {
-                        val matches = actionDispatcher.resolveLeads(name, allLeadsList.value)
-                        when {
-                            matches.isEmpty() -> {
-                                AICommandResult(
-                                    text = "Mujhe aapke database mein '$name' naam ka koi lead nahi mila. Kripya pahle lead banayein.",
-                                    actionCardType = "unsupported"
-                                )
-                            }
-                            matches.size > 1 -> {
-                                val namesStr = matches.joinToString(", ") { it.name }
-                                AICommandResult(
-                                    text = "Aapke database mein '$name' naam ke multiple matches hain: $namesStr. Kiske liye action perform karna hai? Please clarify.",
-                                    actionCardType = "unsupported"
-                                )
-                            }
-                            else -> {
-                                val matchedLead = matches.first()
-                                if (parsed.entities.resolvedDate == null) {
-                                    AICommandResult(
-                                        text = "Reminder kis din ke liye lagana hai? (Please provide a date like aaj or kal)",
-                                        actionCardType = "unsupported"
-                                    )
-                                } else if (parsed.entities.time == null) {
-                                    AICommandResult(
-                                        text = "Kis samay ka reminder set karna hai? (Please provide a specific time, as guessing is disabled for safety)",
-                                        actionCardType = "unsupported"
-                                    )
-                                } else {
-                                    val date = parsed.entities.resolvedDate
-                                    val time = parsed.entities.time
-                                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-                                    val triggerTimeMs = try {
-                                        val triggerDate = sdf.parse("$date $time")
-                                        triggerDate?.time ?: 0L
-                                    } catch (e: Exception) {
-                                        0L
-                                    }
-                                    if (triggerTimeMs == 0L) {
-                                        AICommandResult(
-                                            text = "Provided reminder date or time format is invalid.",
-                                            actionCardType = "unsupported"
-                                        )
-                                    } else if (triggerTimeMs <= System.currentTimeMillis()) {
-                                        AICommandResult(
-                                            text = "Reminder cannot be scheduled in the past ($date $time).",
-                                            actionCardType = "unsupported"
-                                        )
-                                    } else {
-                                        registerPendingConfirmation(messageId, com.example.ai.action.AITool.CREATE_REMINDER, parsed.entities)
-                                        val relDate = parsed.entities.relativeDate ?: "tomorrow"
-                                        AICommandResult(
-                                            text = "I understood that you want to create a reminder for ${matchedLead.name} $relDate at $time. Action execution will require confirmation.",
-                                            actionCardType = "confirmation",
-                                            isConfirmation = true
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            com.example.ai.intent.AIIntent.UPDATE_LEAD_STATUS -> {
-                val name = parsed.entities.name
-                if (name == null) {
-                    AICommandResult(
-                        text = "Kiska status update karna hai? Please provide the name.",
-                        actionCardType = "unsupported"
-                    )
-                } else {
-                    val matches = actionDispatcher.resolveLeads(name, allLeadsList.value)
-                    when {
-                        matches.isEmpty() -> {
-                            AICommandResult(
-                                text = "Mujhe aapke database mein '$name' naam ka koi lead nahi mila.",
-                                actionCardType = "unsupported"
-                            )
-                        }
-                        matches.size > 1 -> {
-                            val namesStr = matches.joinToString(", ") { it.name }
-                            AICommandResult(
-                                text = "Aapke database mein '$name' naam ke multiple matches hain: $namesStr. Kiske liye action perform karna hai? Please clarify.",
-                                actionCardType = "unsupported"
-                            )
-                        }
-                        else -> {
-                            val matchedLead = matches.first()
-                            val targetStatus = parsed.entities.status
-                            if (targetStatus == null) {
-                                AICommandResult(
-                                    text = "Kya status set karna hai? (Pending or Complete)",
-                                    actionCardType = "unsupported"
-                                )
-                            } else {
-                                val normalized = targetStatus.lowercase(Locale.getDefault()).trim()
-                                val mappedStatus = when {
-                                    normalized.contains("complete") || normalized.contains("done") || normalized.contains("sarthak") || normalized.contains("khatam") -> "Complete"
-                                    normalized.contains("pending") || normalized.contains("active") || normalized.contains("baaki") || normalized.contains("baki") -> "Pending"
-                                    else -> null
-                                }
-                                if (mappedStatus == null) {
-                                    AICommandResult(
-                                        text = "Unsupported status '$targetStatus'. Status must be 'Pending' or 'Complete'.",
-                                        actionCardType = "unsupported"
-                                    )
-                                } else {
-                                    registerPendingConfirmation(messageId, com.example.ai.action.AITool.UPDATE_LEAD_STATUS, parsed.entities)
-                                    AICommandResult(
-                                        text = "I understood that you want to update status of ${matchedLead.name} from '${matchedLead.status}' to '$mappedStatus'. Action execution will require confirmation.",
-                                        actionCardType = "confirmation",
-                                        isConfirmation = true
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            com.example.ai.intent.AIIntent.ADD_LEAD_NOTE -> {
-                val name = parsed.entities.name
-                if (name == null) {
-                    AICommandResult(
-                        text = "Please provide the lead's name for adding a note.",
-                        actionCardType = "unsupported"
-                    )
-                } else {
-                    val matches = actionDispatcher.resolveLeads(name, allLeadsList.value)
-                    when {
-                        matches.isEmpty() -> {
-                            AICommandResult(
-                                text = "Mujhe aapke database mein '$name' naam ka koi lead nahi mila.",
-                                actionCardType = "unsupported"
-                            )
-                        }
-                        matches.size > 1 -> {
-                            val namesStr = matches.joinToString(", ") { it.name }
-                            AICommandResult(
-                                text = "Aapke database mein '$name' naam ke multiple matches hain: $namesStr. Kiske liye action perform karna hai? Please clarify.",
-                                actionCardType = "unsupported"
-                            )
-                        }
-                        else -> {
-                            val matchedLead = matches.first()
-                            val noteText = parsed.entities.noteText
-                            if (noteText == null || noteText.trim().isEmpty()) {
-                                AICommandResult(
-                                    text = "Please specify the note text to add.",
-                                    actionCardType = "unsupported"
-                                )
-                            } else {
-                                registerPendingConfirmation(messageId, com.example.ai.action.AITool.ADD_LEAD_NOTE, parsed.entities)
-                                AICommandResult(
-                                    text = "I understood that you want to add note '$noteText' for ${matchedLead.name}. Action execution will require confirmation.",
-                                    actionCardType = "confirmation",
-                                    isConfirmation = true
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            com.example.ai.intent.AIIntent.UNKNOWN -> {
-                AICommandResult(
-                    text = "",
-                    actionCardType = null,
-                    handled = false
-                )
-            }
-        }
     }
 
     private val sharedPrefs: SharedPreferences =
@@ -684,6 +149,20 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
                 // Route through the repository so authenticated writes enter the normal outbox/sync path.
                 repository.insertLeads(movedLeads)
+                // Move the guest's call history along, remapping any lead that
+                // had to get a fresh id because the target account already owns it.
+                try {
+                    val guestLogs = database.callLogDao.getAllForOwnerUnordered(guestOwnerUid)
+                    if (guestLogs.isNotEmpty()) {
+                        val idMap = guestLeads.mapIndexed { idx, l -> l.id to movedLeads[idx].id }.toMap()
+                        database.callLogDao.insertAll(
+                            guestLogs.map { it.copy(ownerUid = targetOwnerUid, leadId = idMap[it.leadId] ?: it.leadId) }
+                        )
+                        database.callLogDao.deleteForOwner(guestOwnerUid)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GuestDataTransfer", "Failed to move call logs", e)
+                }
                 database.leadDao.clearLeadsForUser(guestOwnerUid)
                 ReminderScheduler.rescheduleAllReminders(getApplication(), movedLeads)
                 sharedPrefs.edit().remove(preservedGuestOwnerKey).apply()
@@ -731,6 +210,16 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 val restoredLeads = oldGuestLeads.map { it.copy(ownerUid = newGuestOwnerUid) }
                 // Guest sessions stay local-only, so write directly to Room and do not enqueue cloud mutations.
                 database.leadDao.insertLeads(restoredLeads)
+                try {
+                    val oldLogs = database.callLogDao.getAllForOwnerUnordered(sourceOwnerUid)
+                    if (oldLogs.isNotEmpty()) {
+                        // Lead ids are kept as-is here, so only the owner changes.
+                        database.callLogDao.insertAll(oldLogs.map { it.copy(ownerUid = newGuestOwnerUid) })
+                        database.callLogDao.deleteForOwner(sourceOwnerUid)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GuestDataTransfer", "Failed to restore call logs", e)
+                }
                 database.leadDao.clearLeadsForUser(sourceOwnerUid)
                 ReminderScheduler.rescheduleAllReminders(getApplication(), restoredLeads)
                 sharedPrefs.edit().remove(preservedGuestOwnerKey).apply()
@@ -757,82 +246,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         ringingLead.value = null
         searchQuery.value = ""
         currentFilter.value = "all"
-        _aiCommandState.value = AICommandState.Idle
-        _pendingConfirmations.value = emptyMap()
-        _isThinking.value = false
         setActiveSession(null)
-        _voiceManager?.stopVoiceMode()
         dismissActiveAlarm()
     }
-
-    private val _pendingConfirmations = MutableStateFlow<Map<String, com.example.ai.action.PendingConfirmation>>(emptyMap())
-    val pendingConfirmations: StateFlow<Map<String, com.example.ai.action.PendingConfirmation>> = _pendingConfirmations.asStateFlow()
-
-    private val actionDispatcher by lazy {
-        com.example.ai.action.ActionDispatcher(application, repository)
-    }
-
-    // Voice Conversation Support
-    private var activeAddLeadTrigger: (() -> Unit)? = null
-    private var _voiceManager: com.example.voice.VoiceConversationManager? = null
-
-    val voiceManager: com.example.voice.VoiceConversationManager
-        get() {
-            check(BuildConfig.AI_FEATURES_ENABLED) {
-                "AI and voice features are disabled in this release."
-            }
-            if (_voiceManager == null) {
-                val vm = com.example.voice.VoiceConversationManager(
-                    context = getApplication(),
-                    coroutineScope = viewModelScope,
-                    onSendText = { text ->
-                        sendAIMessage(text, activeAddLeadTrigger ?: {})
-                    }
-                )
-                _voiceManager = vm
-                
-                vm.setInitialLastSpokenMessage(
-                    activeSessionMessages.value.lastOrNull { it.sender == Sender.AI }
-                )
-
-                // One combined observer prevents races between a message
-                // update, thinking completion, and either confirmation engine.
-                viewModelScope.launch {
-                    combine(
-                        activeSessionMessages,
-                        isThinking,
-                        pendingConfirmations,
-                        leadAIConfirmationStates
-                    ) { messages, thinking, legacyConfirmations, leadConfirmations ->
-                        val isConfirmationExecuting =
-                            legacyConfirmations.values.any {
-                                it.status == com.example.ai.action.ConfirmationStatus.EXECUTING
-                            } || leadConfirmations.values.any {
-                                it.lifecycle ==
-                                    com.example.leads.ai.LeadAIConfirmationLifecycle.EXECUTING
-                            }
-
-                        Triple(messages, thinking, isConfirmationExecuting)
-                    }.collect { (messages, thinking, isConfirmationExecuting) ->
-                        vm.onMessagesUpdated(
-                            messages = messages,
-                            isThinking = thinking,
-                            isConfirmationExecuting = isConfirmationExecuting
-                        )
-                    }
-                }
-            }
-            return _voiceManager!!
-        }
-
-    val voiceState: StateFlow<com.example.voice.VoiceConversationState>
-        get() = voiceManager.state
-
-    val liveSpokenText: StateFlow<String>
-        get() = voiceManager.liveSpokenText
-
-    val isVoiceModeEnabled: StateFlow<Boolean>
-        get() = voiceManager.isVoiceModeEnabled
 
     private val leadOperationService by lazy {
         com.example.leads.operation.LeadOperationService(
@@ -841,120 +257,75 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         )
     }
 
-    private val leadAIController by lazy {
-        com.example.leads.ai.LeadAIControllerFactory.create(
-            context = application,
-            repository = repository
-        )
-    }
-
-    private val leadAIViewModelBridge by lazy {
-        com.example.leads.ai.LeadAIViewModelBridge(leadAIController)
-    }
-
-    val leadAIConfirmationStates:
-        StateFlow<Map<String, com.example.leads.ai.LeadAIChatConfirmationState>>
-        by lazy {
-            leadAIViewModelBridge.confirmationStates
-        }
-
-    fun getActiveLeadAIDraft(): com.example.leads.ai.LeadAIDraft? {
-        return leadAIViewModelBridge.getActiveDraft()
-    }
-
-    fun cancelActiveLeadAIDraft(): com.example.leads.ai.LeadAIChatResult {
-        return leadAIViewModelBridge.cancelActiveDraft()
-    }
-
     val activeSessionId = savedStateHandle.getStateFlow<String?>("active_session_id", null)
-
-    private val _isThinking = MutableStateFlow(false)
-    val isThinking: StateFlow<Boolean> = _isThinking.asStateFlow()
-
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val activeSessionMessages: StateFlow<List<MockMessage>> = combine(
-        _currentUidFlow,
-        activeSessionId
-    ) { uid, sessionId ->
-        uid to sessionId
-    }.flatMapLatest { (uid, sessionId) ->
-        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) {
-            flowOf(emptyList())
-        } else {
-            aiChatRepository.getMessagesForSession(uid, sessionId).map { list ->
-                list.map { msg ->
-                    MockMessage(
-                        id = msg.id,
-                        text = msg.text,
-                        sender = if (msg.sender == "USER") Sender.USER else Sender.AI,
-                        timestamp = msg.timestamp,
-                        isError = msg.isError,
-                        isOfflineWarning = msg.isOfflineWarning,
-                        isConfirmation = msg.isConfirmation,
-                        actionCardType = msg.actionCardType
-                    )
-                }.sortedBy { it.timestamp }
-            }
-        }
-    }
-    .flowOn(Dispatchers.IO)
-    .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val activeSession: StateFlow<ChatSession?> = combine(
-        _currentUidFlow,
-        activeSessionId
-    ) { uid, sessionId ->
-        uid to sessionId
-    }.flatMapLatest { (uid, sessionId) ->
-        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) {
-            flowOf(null)
-        } else {
-            aiChatRepository.getAllSessionsWithMessages(uid).map { list ->
-                list.firstOrNull { it.session.id == sessionId }?.let { swm ->
-                    ChatSession(
-                        id = swm.session.id,
-                        title = swm.session.title,
-                        messages = swm.messages.map { msg ->
-                            MockMessage(
-                                id = msg.id,
-                                text = msg.text,
-                                sender = if (msg.sender == "USER") Sender.USER else Sender.AI,
-                                timestamp = msg.timestamp,
-                                isError = msg.isError,
-                                isOfflineWarning = msg.isOfflineWarning,
-                                isConfirmation = msg.isConfirmation,
-                                actionCardType = msg.actionCardType
-                            )
-                        }.sortedBy { it.timestamp },
-                        timestamp = swm.session.updatedTimestamp,
-                        isPinned = swm.session.isPinned
-                    )
-                }
-            }
-        }
-    }
-    .flowOn(Dispatchers.IO)
-    .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = null
-    )
-
-    val isNewChatEmpty: StateFlow<Boolean> = activeSessionId
-        .map { it == null }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = true
-        )
 
     fun setActiveSession(sessionId: String?) {
         savedStateHandle["active_session_id"] = sessionId
+    }
+
+    /**
+     * One-shot, deterministic read of the active session's messages from Room.
+     *
+     * Goes straight to the database (no shared flow, no WhileSubscribed caching),
+     * so it always returns the current rows even right after process death.
+     * Used by the AI chat view model to restore the last conversation.
+     */
+    suspend fun loadActiveSessionMessagesOnce(): List<MockMessage> {
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid
+        val sessionId = activeSessionId.value
+        if (uid.isNullOrBlank() || sessionId.isNullOrBlank()) return emptyList()
+        return withContext(Dispatchers.IO) {
+            aiChatRepository.getMessagesForSessionList(uid, sessionId)
+        }.map { msg ->
+            MockMessage(
+                id = msg.id,
+                text = msg.text,
+                sender = if (msg.sender == "USER") Sender.USER else Sender.AI,
+                timestamp = msg.timestamp,
+                isError = msg.isError,
+                isOfflineWarning = msg.isOfflineWarning,
+                isConfirmation = msg.isConfirmation,
+                actionCardType = msg.actionCardType
+            )
+        }.sortedBy { it.timestamp }
+    }
+
+    /**
+     * Returns the active chat session id, creating a new Room session first if
+     * none is active. Safe to call on every message; returns null when the user
+     * is not signed in or AI features are disabled (nothing is persisted then).
+     *
+     * The session insert happens synchronously (on IO) before the id is
+     * returned, so callers can immediately write messages without a foreign-key
+     * race against the sessions table.
+     */
+    suspend fun ensureActiveSession(titleHint: String? = null): String? {
+        if (!BuildConfig.AI_FEATURES_ENABLED) return null
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid
+        if (uid.isNullOrBlank()) return null
+        val existing = activeSessionId.value
+        if (!existing.isNullOrBlank()) return existing
+        val newId = "session_${System.currentTimeMillis()}"
+        val hint = titleHint?.trim()?.takeIf { it.isNotEmpty() }
+        val title = if (hint != null) {
+            if (hint.length > 25) hint.substring(0, 22) + "..." else hint
+        } else {
+            "New Chat"
+        }
+        withContext(Dispatchers.IO) {
+            aiChatRepository.insertSession(
+                AIChatSessionEntity(
+                    ownerUid = uid,
+                    id = newId,
+                    title = title,
+                    createdTimestamp = System.currentTimeMillis(),
+                    updatedTimestamp = System.currentTimeMillis(),
+                    isPinned = false
+                )
+            )
+        }
+        setActiveSession(newId)
+        return newId
     }
 
     init {
@@ -996,11 +367,13 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     isError = msg.isError,
                                     isOfflineWarning = msg.isOfflineWarning,
                                     isConfirmation = msg.isConfirmation,
-                                    actionCardType = msg.actionCardType
+                                    actionCardType = msg.actionCardType,
+                                    responseDurationMs = msg.responseDurationMs
                                 )
                             }.sortedBy { it.timestamp },
                             timestamp = swm.session.updatedTimestamp,
-                            isPinned = swm.session.isPinned
+                            isPinned = swm.session.isPinned,
+                            isArchived = swm.session.isArchived
                         )
                     }
                 }
@@ -1045,124 +418,11 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 isError = message.isError,
                 isOfflineWarning = message.isOfflineWarning,
                 isConfirmation = message.isConfirmation,
-                actionCardType = message.actionCardType
+                actionCardType = message.actionCardType,
+                responseDurationMs = message.responseDurationMs
             )
             aiChatRepository.insertMessage(msgEntity)
             aiChatRepository.updateSessionTimestamp(uid, sessionId)
-        }
-    }
-
-    fun sendAIMessage(
-        text: String,
-        onAddLeadTrigger: () -> Unit
-    ) {
-        if (!BuildConfig.AI_FEATURES_ENABLED) return
-        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
-        if (uid.isBlank()) return
-        activeAddLeadTrigger = onAddLeadTrigger
-        viewModelScope.launch {
-            // 1. If there's no current session ID, create one!
-            var sessionId = activeSessionId.value
-            if (sessionId == null) {
-                val newId = "session_${System.currentTimeMillis()}"
-                val title = if (text.length > 25) text.substring(0, 22) + "..." else text
-                
-                val session = AIChatSessionEntity(
-                    ownerUid = uid,
-                    id = newId,
-                    title = title,
-                    createdTimestamp = System.currentTimeMillis(),
-                    updatedTimestamp = System.currentTimeMillis(),
-                    isPinned = false
-                )
-                aiChatRepository.insertSession(session)
-                setActiveSession(newId)
-                sessionId = newId
-            }
-
-            // 2. Add User query
-            val userMsg = AIChatMessageEntity(
-                ownerUid = uid,
-                id = "user_${System.currentTimeMillis()}",
-                sessionId = sessionId!!,
-                text = text,
-                sender = "USER",
-                timestamp = System.currentTimeMillis(),
-                isError = false,
-                isOfflineWarning = false,
-                isConfirmation = false,
-                actionCardType = null
-            )
-            aiChatRepository.insertMessage(userMsg)
-            aiChatRepository.updateSessionTimestamp(uid, sessionId)
-
-            // 3. Trigger async co-pilot thinking block
-            _isThinking.value = true
-            _aiCommandState.value = AICommandState.Loading
-
-            val confirmationResult =
-                handlePendingLeadAIConfirmationReply(text)
-            if (confirmationResult != null) {
-                _isThinking.value = false
-                _aiCommandState.value = if (confirmationResult.isError) {
-                    AICommandState.Error(confirmationResult.text)
-                } else {
-                    AICommandState.Success
-                }
-                return@launch
-            }
-
-            delay(300)
-            if (_currentUidFlow.value != uid) {
-                _isThinking.value = false
-                return@launch
-            }
-            _isThinking.value = false
-
-            // 4. Smart command routing delegation to ViewModel
-            val responseMsgId = "ai_${System.currentTimeMillis()}"
-            val commandResult = processAICommand(
-                query = text,
-                messageId = responseMsgId,
-                onAddLeadTrigger = onAddLeadTrigger,
-                sourceMessageId = userMsg.id
-            )
-            
-            if (_currentUidFlow.value != uid) return@launch
-
-            val responseMsg = AIChatMessageEntity(
-                ownerUid = uid,
-                id = responseMsgId,
-                sessionId = sessionId,
-                text = commandResult.text,
-                sender = "AI",
-                timestamp = System.currentTimeMillis(),
-                isError = commandResult.isError,
-                isOfflineWarning = commandResult.isOfflineWarning,
-                isConfirmation = commandResult.isConfirmation,
-                actionCardType = commandResult.actionCardType
-            )
-            aiChatRepository.insertMessage(responseMsg)
-            aiChatRepository.updateSessionTimestamp(uid, sessionId)
-
-            // Update AI command state
-            val state = when (commandResult.actionCardType) {
-                "unsupported" -> AICommandState.UnsupportedCommand
-                "leads" -> {
-                    val pendingCount = allLeadsList.value.count { it.status == "Pending" && !it.archived }
-                    if (pendingCount > 0) AICommandState.Success else AICommandState.Empty
-                }
-                "reminders" -> {
-                    val todayStr = getSystemTodayDateStr()
-                    val todayCount = allLeadsList.value.count { it.reminderDate == todayStr && it.reminderDate.isNotEmpty() }
-                    if (todayCount > 0) AICommandState.Success else AICommandState.Empty
-                }
-                "report" -> {
-                    if (allLeadsList.value.isNotEmpty()) AICommandState.Success else AICommandState.Empty
-                }
-                else -> AICommandState.Success
-            }
-            _aiCommandState.value = state
         }
     }
 
@@ -1172,6 +432,15 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         if (uid.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
             aiChatRepository.updateSessionPinStatus(uid, sessionId, isPinned)
+        }
+    }
+
+    fun archiveSession(sessionId: String, isArchived: Boolean) {
+        if (!BuildConfig.AI_FEATURES_ENABLED) return
+        val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (uid.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            aiChatRepository.updateSessionArchived(uid, sessionId, isArchived)
         }
     }
 
@@ -1195,7 +464,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     // Application state
     val searchQuery = MutableStateFlow("")
-    val currentFilter = MutableStateFlow("all") // "all", "pending", "complete", "archived", "rem-today", "rem-upcoming", "rem-overdue", "rem-all"
+    val currentFilter = MutableStateFlow("all") // "all", "drafts", "pending", "complete", "archived", "rem-today", "rem-upcoming", "rem-overdue", "rem-all"
 
     // Theme state
     val isDarkMode = MutableStateFlow(sharedPrefs.getBoolean("lifefresh_theme", false))
@@ -1517,6 +786,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             val reminderTime = doc.getString("reminderTime") ?: ""
                             val reminderNote = doc.getString("reminderNote") ?: ""
                             val reminderStatus = doc.getString("reminderStatus") ?: "Pending"
+                            val reminderRepeat = doc.getString("reminderRepeat") ?: "none"
                             val notes = doc.getString("notes") ?: ""
                             val archived = doc.getBoolean("archived") ?: false
                             val lastCall = doc.getString("lastCall")
@@ -1536,6 +806,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     reminderTime = reminderTime,
                                     reminderNote = reminderNote,
                                     reminderStatus = reminderStatus,
+                                    reminderRepeat = reminderRepeat,
                                     notes = notes,
                                     archived = archived,
                                     lastCall = lastCall,
@@ -1628,6 +899,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             val reminderTime = doc.getString("reminderTime") ?: ""
                             val reminderNote = doc.getString("reminderNote") ?: ""
                             val reminderStatus = doc.getString("reminderStatus") ?: "Pending"
+                            val reminderRepeat = doc.getString("reminderRepeat") ?: "none"
                             val notes = doc.getString("notes") ?: ""
                             val archived = doc.getBoolean("archived") ?: false
                             val lastCall = doc.getString("lastCall")
@@ -1647,6 +919,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                                     reminderTime = reminderTime,
                                     reminderNote = reminderNote,
                                     reminderStatus = reminderStatus,
+                                    reminderRepeat = reminderRepeat,
                                     notes = notes,
                                     archived = archived,
                                     lastCall = lastCall,
@@ -1704,7 +977,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                     }
                     withContext(Dispatchers.Main) {
                         android.util.Log.d("FirestoreSync", "Cloud restore completed successfully. Restored ${filteredLeads.size} leads.")
-                        android.widget.Toast.makeText(getApplication(), "Restore Completed Successfully", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(getApplication(), getApplication<Application>().getString(R.string.vm_restore_done), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("FirestoreSync", "Failed to insert restored leads", e)
@@ -1751,6 +1024,14 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         val todayStr = getSystemTodayDateStr()
 
         leads.filter { lead ->
+            // Drafts (incomplete leads from the AI chat) only appear under
+            // the Drafts filter - they are hidden from every other view.
+            if (filter == "drafts") {
+                if (!lead.isDraft) return@filter false
+            } else {
+                if (lead.isDraft) return@filter false
+            }
+
             // Filter out archived unless explicitly viewing archive
             if (filter == "archived") {
                 if (!lead.archived) return@filter false
@@ -1810,135 +1091,6 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         }
         ReminderScheduler.startChecking(getApplication())
         checkAndShowChangelog()
-        if (BuildConfig.AI_FEATURES_ENABLED) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val activeUid = FirebaseAuth.getInstance().currentUser?.uid ?: com.example.data.ActiveAccountStore.getActiveUid(getApplication())
-                if (activeUid.isNotBlank()) {
-                    val sessionCount = database.aiChatDao.getAllSessionsList(activeUid).size
-                    if (sessionCount == 0) {
-                    val session1Id = "session_1"
-                    database.aiChatDao.insertSession(
-                        AIChatSessionEntity(
-                            ownerUid = activeUid,
-                            id = session1Id,
-                            title = "Lead Follow-up Strategy",
-                            createdTimestamp = System.currentTimeMillis() - 3600000 * 3,
-                            updatedTimestamp = System.currentTimeMillis() - 3600000 * 3,
-                            isPinned = false
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "user_init_1",
-                            sessionId = session1Id,
-                            text = "Strategy review for followups",
-                            sender = "USER",
-                            timestamp = System.currentTimeMillis() - 3600000 * 3,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = null
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "ai_init_1",
-                            sessionId = session1Id,
-                            text = "Aapke business ke pending follow-up leads ki live report niche generate ki gayi hai. Inhe check karein:",
-                            sender = "AI",
-                            timestamp = System.currentTimeMillis() - 3600000 * 3 + 1000,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = "leads"
-                        )
-                    )
-
-                    val session2Id = "session_2"
-                    database.aiChatDao.insertSession(
-                        AIChatSessionEntity(
-                            ownerUid = activeUid,
-                            id = session2Id,
-                            title = "Weekly Conversion Analysis",
-                            createdTimestamp = System.currentTimeMillis() - 3600000 * 2,
-                            updatedTimestamp = System.currentTimeMillis() - 3600000 * 2,
-                            isPinned = false
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "user_init_2",
-                            sessionId = session2Id,
-                            text = "Report for last week",
-                            sender = "USER",
-                            timestamp = System.currentTimeMillis() - 3600000 * 2,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = null
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "ai_init_2",
-                            sessionId = session2Id,
-                            text = "Weekly Lead Conversion status and reports summarized perfectly.",
-                            sender = "AI",
-                            timestamp = System.currentTimeMillis() - 3600000 * 2 + 1000,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = "report"
-                        )
-                    )
-
-                    val session3Id = "session_3"
-                    database.aiChatDao.insertSession(
-                        AIChatSessionEntity(
-                            ownerUid = activeUid,
-                            id = session3Id,
-                            title = "Today's Sync reminders",
-                            createdTimestamp = System.currentTimeMillis() - 3600000,
-                            updatedTimestamp = System.currentTimeMillis() - 3600000,
-                            isPinned = false
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "user_init_3",
-                            sessionId = session3Id,
-                            text = "Reminders check",
-                            sender = "USER",
-                            timestamp = System.currentTimeMillis() - 3600000,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = null
-                        )
-                    )
-                    database.aiChatDao.insertMessage(
-                        AIChatMessageEntity(
-                            ownerUid = activeUid,
-                            id = "ai_init_3",
-                            sessionId = session3Id,
-                            text = "Aaj ke active reminders scheduled alerts list niche di gayi hai.",
-                            sender = "AI",
-                            timestamp = System.currentTimeMillis() - 3600000 + 1000,
-                            isError = false,
-                            isOfflineWarning = false,
-                            isConfirmation = false,
-                            actionCardType = "reminders"
-                        )
-                    )
-                    }
-                }
-            }
-        }
         viewModelScope.launch {
             ReminderScheduler.activeRingingLead.collect { lead ->
                 if (lead != null) {
@@ -1987,6 +1139,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         reminderDate: String,
         reminderTime: String,
         reminderNote: String,
+        reminderRepeat: String = "none",
         notes: String
     ): SaveLeadResult {
         val draft = com.example.leads.domain.LeadDraft(
@@ -2001,6 +1154,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             reminderDate = reminderDate,
             reminderTime = reminderTime,
             reminderNote = reminderNote,
+            reminderRepeat = reminderRepeat,
             notes = notes
         )
 
@@ -2036,11 +1190,970 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         }
     }
 
+    /** Per-lead call-log counts used by the AI snapshot (refreshed async). */
+    data class LeadCallStats(
+        val total: Int,
+        val last7: Int,
+        val answered7: Int,
+        val noAnswer7: Int,
+        val callback7: Int
+    )
+
+    private val _callStatsFlow =
+        MutableStateFlow<Map<String, LeadCallStats>>(emptyMap())
+
+    /** Recomputes call stats from the call_logs table; snapshot uses the
+     *  latest completed load (chat answers may lag by one message). */
+    fun refreshCallStats() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val uid = _currentUidFlow.value
+                    ?: FirebaseAuth.getInstance().currentUser?.uid
+                    ?: ""
+                if (uid.isBlank()) {
+                    _callStatsFlow.value = emptyMap()
+                    return@launch
+                }
+                val cutoff = System.currentTimeMillis() - 7L * 86_400_000L
+                val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                val logs = database.callLogDao.getAllForOwnerUnordered(uid)
+                val map = HashMap<String, LeadCallStats>()
+                logs.groupBy { it.leadId }.forEach { (leadId, entries) ->
+                    var l7 = 0
+                    var a7 = 0
+                    var n7 = 0
+                    var c7 = 0
+                    entries.forEach { e ->
+                        val t = try {
+                            isoFmt.parse(e.callTime)?.time ?: 0L
+                        } catch (pe: Exception) {
+                            0L
+                        }
+                        if (t >= cutoff) {
+                            l7++
+                            when (e.outcome) {
+                                "answered" -> a7++
+                                "no_answer" -> n7++
+                                "callback" -> c7++
+                            }
+                        }
+                    }
+                    map[leadId] = LeadCallStats(entries.size, l7, a7, n7, c7)
+                }
+                _callStatsFlow.value = map
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "refreshCallStats failed", e)
+            }
+        }
+    }
+
+    /**
+     * Builds the compact read-only CRM snapshot that is appended to the AI
+     * system instruction before every request. In-memory only (StateFlow
+     * snapshot) - no database access, so it is safe to call per message.
+     */
+    fun buildCrmSnapshot(): String {
+        val leads = allLeadsList.value
+        val full = leads.filter { !it.isDraft }
+        val active = full.filter { !it.archived }
+        val drafts = leads.filter { it.isDraft }
+        val pending = active.count { it.status.equals("Pending", ignoreCase = true) }
+        val complete = active.count { it.status.equals("Complete", ignoreCase = true) }
+        val todayStr = getSystemTodayDateStr()
+        val remToday = active.count { it.reminderDate == todayStr && it.reminderStatus == "Pending" }
+        val remOverdue = active.count {
+            it.reminderDate.isNotEmpty() && it.reminderDate < todayStr && it.reminderStatus == "Pending"
+        }
+        refreshCallStats()
+        val stats = _callStatsFlow.value
+        val nowMillis = System.currentTimeMillis()
+        val isoCallFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        fun lastCallMillis(lead: LeadEntity): Long = try {
+            lead.lastCall?.let { isoCallFmt.parse(it)?.time } ?: 0L
+        } catch (pe: Exception) {
+            0L
+        }
+        fun idleDaysOf(lead: LeadEntity): Long {
+            val act = maxOf(
+                lead.timestamp,
+                lead.notesUpdatedAt,
+                lead.reminderUpdatedAt,
+                lastCallMillis(lead)
+            )
+            return ((nowMillis - act) / 86_400_000L).coerceAtLeast(0L)
+        }
+
+        val sb = StringBuilder()
+        sb.append("CRM DATA SNAPSHOT (read-only context about the user's current leads, refreshed for every message. Answer questions from it; it never changes data):\n")
+        sb.append("Counts: total clients=").append(active.size)
+            .append(", pending=").append(pending)
+            .append(", complete=").append(complete)
+            .append(", archived=").append(full.size - active.size)
+            .append(", drafts=").append(drafts.size)
+            .append(", reminders due today=").append(remToday)
+            .append(", overdue reminders=").append(remOverdue)
+            .append('\n')
+
+        var wCalls = 0
+        var wAns = 0
+        var wNo = 0
+        var wCb = 0
+        stats.values.forEach { st ->
+            wCalls += st.last7
+            wAns += st.answered7
+            wNo += st.noAnswer7
+            wCb += st.callback7
+        }
+        val remDoneWeek = active.count {
+            (it.reminderStatus == "Completed" || it.reminderStatus == "Dismissed") &&
+                it.reminderUpdatedAt >= nowMillis - 7L * 86_400_000L
+        }
+        sb.append("This week: calls=").append(wCalls)
+            .append(" (answered=").append(wAns)
+            .append(", no-answer=").append(wNo)
+            .append(", callback=").append(wCb)
+            .append("), reminders completed=").append(remDoneWeek)
+            .append('\n')
+
+        val listed = active.sortedWith(
+            compareBy<LeadEntity> { if (it.reminderDate.isNotEmpty()) it.reminderDate else "9999-99-99" }
+                .thenByDescending { it.timestamp }
+        ).take(25)
+        if (listed.isNotEmpty()) {
+            sb.append("Active clients (name | phone | status | reminderDate-time | wellness | relation | lastCall | calls | idle):\n")
+            listed.forEach { lead ->
+                sb.append(lead.name)
+                    .append(" | ").append(lead.mobile.ifEmpty { "-" })
+                    .append(" | ").append(lead.status)
+                    .append(" | ").append(
+                        when {
+                            lead.reminderDate.isEmpty() -> "-"
+                            lead.reminderDate < todayStr && lead.reminderStatus == "Pending" ->
+                                (if (lead.reminderTime.isNotEmpty()) {
+                                    lead.reminderDate + " " + lead.reminderTime
+                                } else lead.reminderDate) + " OVERDUE"
+                            lead.reminderTime.isNotEmpty() -> lead.reminderDate + " " + lead.reminderTime
+                            else -> lead.reminderDate
+                        }
+                    )
+                if (lead.reminderDate.isNotEmpty() && lead.reminderRepeat != "none") {
+                    sb.append(" (repeats ").append(lead.reminderRepeat).append(")")
+                }
+                val wellness = diseasesCompact(lead.diseases)
+                if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                if (lead.relation.isNotEmpty()) {
+                    sb.append(" | relation=").append(lead.relation)
+                    if (lead.otherRelation.isNotEmpty()) {
+                        sb.append("(").append(lead.otherRelation).append(")")
+                    }
+                }
+                sb.append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
+                stats[lead.id]?.let { st ->
+                    sb.append(" | calls=").append(st.total)
+                        .append("(7d:").append(st.last7)
+                        .append(" a=").append(st.answered7)
+                        .append(" n=").append(st.noAnswer7)
+                        .append(" c=").append(st.callback7).append(")")
+                }
+                val idle = idleDaysOf(lead)
+                if (idle >= 10) sb.append(" | idle=").append(idle).append("d")
+                sb.append('\n')
+            }
+            val unlisted = active.size - listed.size
+            if (unlisted > 0) {
+                sb.append("(+").append(unlisted)
+                    .append(" older active clients not listed - ask the user for the name or number to look them up)\n")
+            }
+        }
+
+        val cold = active
+            .filter {
+                it.status.equals("Pending", ignoreCase = true) && idleDaysOf(it) >= 15
+            }
+            .sortedByDescending { idleDaysOf(it) }
+            .take(12)
+        if (cold.isNotEmpty()) {
+            sb.append("COLD clients (pending, no activity for 15+ days, most idle first):\n")
+            cold.forEach { lead ->
+                sb.append("- ").append(lead.name)
+                    .append(" | idle=").append(idleDaysOf(lead)).append("d")
+                    .append(" | lastCall=").append((lead.lastCall ?: "").take(10).ifEmpty { "-" })
+                    .append(" | phone=").append(lead.mobile.ifEmpty { "-" })
+                    .append('\n')
+            }
+        }
+
+        if (drafts.isNotEmpty()) {
+            sb.append("Incomplete drafts (from AI chat, not yet saved as real clients):\n")
+            drafts.sortedByDescending { it.timestamp }.take(10).forEach { lead ->
+                sb.append("- ").append(lead.name)
+                    .append(" | ").append(lead.mobile.ifEmpty { "no phone yet" })
+                val wellness = diseasesCompact(lead.diseases)
+                if (wellness.isNotEmpty()) sb.append(" | ").append(wellness)
+                sb.append('\n')
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun diseasesCompact(diseasesJson: String): String {
+        if (diseasesJson.isBlank()) return ""
+        return try {
+            val arr = JSONArray(diseasesJson)
+            val items = (0 until arr.length()).map { arr.optString(it, "") }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(4)
+            items.joinToString(", ").take(60)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /**
+     * Saves a lead collected through the AI chat (LEAD-COLLECT protocol).
+     *
+     * The AI never saves on its own: this is only called after the user taps a
+     * button on the chat confirmation card. Drafts are device-local and never
+     * sync to cloud (see LeadRepository); drafts never schedule alarms either.
+     * Full leads reuse the normal insert path with the LOCAL_AI origin.
+     *
+     * Returns the chat message to show after the save attempt
+     * (success, success-with-warning, or error).
+     */
+    suspend fun saveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead save ke liye pehle login karo."
+
+        val isDraft = action.kind == com.example.ai.chat.lead.LeadAction.Kind.DRAFT
+        val name = action.name.trim().ifBlank { "Unknown" }
+        val mobile = action.mobile.filter(Char::isDigit)
+
+        if (!isDraft && mobile.length !in 10..15) {
+            return "Number sahi nahi lag raha (10-15 digits chahiye). Lead save nahi hua."
+        }
+
+        // Drafts do not block a real lead with the same number - the user
+        // may be completing one of them right now.
+        if (!isDraft && mobile.isNotEmpty() &&
+            allLeadsList.value.any { !it.isDraft && it.mobile.filter(Char::isDigit) == mobile }
+        ) {
+            return "Yeh number pehle se maujood hai, isliye naya lead save nahi hua."
+        }
+
+        val diseases = action.diseases
+            .map { it.trim().replace(Regex("\\s+"), " ") }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase(Locale.getDefault()) }
+            .take(5)
+
+        val note = action.note.trim()
+
+        // Reminder: validate strictly before saving. Invalid/past/duplicate
+        // reminders are skipped (the lead still saves) with a warning message.
+        var reminderDate = ""
+        var reminderTime = ""
+        var reminderWarning = ""
+        var reminderRepeat = "none"
+        if (!isDraft && action.reminderDate.isNotBlank()) {
+            val canonicalDate = parseStrictYMD(action.reminderDate)
+            when {
+                canonicalDate == null ->
+                    reminderWarning = " Reminder date samajh nahi aayi, isliye alarm set nahi hua."
+                else -> {
+                    val time = normalizeReminderTime(action.reminderTime)
+                    val triggerMillis = reminderTriggerMillis(canonicalDate, time)
+                    if (triggerMillis != null && triggerMillis <= System.currentTimeMillis()) {
+                        reminderWarning = " Reminder time past me hai, isliye alarm set nahi hua."
+                    } else if (leadOperationService.hasDuplicateReminder(
+                            null, canonicalDate, time, allLeadsList.value
+                        )
+                    ) {
+                        reminderWarning = " Isi date-time pe doosra reminder pehle se hai, isliye yeh alarm set nahi hua."
+                    } else {
+                        reminderDate = canonicalDate
+                        reminderTime = time
+                        reminderRepeat = action.reminderRepeat.ifBlank { "none" }
+                    }
+                }
+            }
+        }
+
+        // Draft completion: when this save matches an existing draft (same
+        // mobile, or same name when saving a draft without a mobile), reuse
+        // that draft's row instead of creating a new one.
+        val matchingDraft = when {
+            mobile.isNotEmpty() ->
+                allLeadsList.value.firstOrNull { it.isDraft && it.mobile.filter(Char::isDigit) == mobile }
+            isDraft && name.isNotBlank() ->
+                allLeadsList.value.firstOrNull { it.isDraft && it.name.equals(name, ignoreCase = true) }
+            else -> null
+        }
+
+        val now = System.currentTimeMillis()
+        val entity = LeadEntity(
+            id = matchingDraft?.id ?: UUID.randomUUID().toString(),
+            name = name,
+            mobile = mobile,
+            diseases = JSONArray(diseases).toString(),
+            otherDisease = "",
+            relation = "",
+            otherRelation = "",
+            status = "Pending",
+            reminderDate = reminderDate,
+            reminderTime = reminderTime,
+            reminderNote = if (reminderDate.isNotEmpty()) note else "",
+            reminderStatus = "Pending",
+            reminderRepeat = reminderRepeat,
+            notes = note,
+            archived = false,
+            lastCall = null,
+            timestamp = matchingDraft?.timestamp ?: now,
+            notesUpdatedAt = if (note.isNotEmpty()) now else 0L,
+            reminderUpdatedAt = if (reminderDate.isNotEmpty()) now else 0L,
+            isDraft = isDraft,
+            ownerUid = uid
+        )
+
+        return try {
+            repository.insertLead(entity, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+
+            var message = when {
+                isDraft && matchingDraft != null ->
+                    "📝 Draft '$name' update ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+                isDraft ->
+                    "📝 '$name' Drafts me save ho gaya. Leads tab me 'Drafts' chip se kholo aur complete karo."
+                matchingDraft != null ->
+                    "✅ Draft '$name' complete ho gaya - ab proper lead ban gaya."
+                else ->
+                    "✅ Lead '$name' save ho gaya. Leads tab me dikhega."
+            }
+
+            if (reminderDate.isNotEmpty()) {
+                try {
+                    com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), entity)
+                    message += " Reminder set hua: ${formatReminderForDisplay(reminderDate, reminderTime)}."
+                    if (reminderRepeat != "none") {
+                        message += " Ye reminder $reminderRepeat repeat hoga (dismiss karne ke baad agle cycle pe wapas aayega)."
+                    }
+                } catch (error: Exception) {
+                    message += " Reminder alarm set nahi ho saka."
+                }
+            }
+
+            message + reminderWarning
+        } catch (error: Exception) {
+            "Lead save nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Applies a status change (Pending/Complete) proposed by the AI chat.
+     * Only callable from the chat confirmation card. The lead is matched by
+     * mobile first (exact), then by name - ambiguous names are rejected so
+     * the AI can ask the user for the phone number.
+     *
+     * Returns the chat message to show after the update attempt.
+     */
+    suspend fun updateLeadStatusFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead update ke liye pehle login karo."
+
+        val newStatus = if (action.status.equals("Complete", ignoreCase = true)) "Complete" else "Pending"
+        val mobile = action.mobile.filter(Char::isDigit)
+        val leads = allLeadsList.value.filter { !it.isDraft }
+
+        val nameMatches = if (action.name.isNotBlank()) {
+            leads.filter { it.name.equals(action.name, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+
+        val lead = when {
+            mobile.isNotEmpty() -> leads.firstOrNull { it.mobile.filter(Char::isDigit) == mobile }
+            nameMatches.size == 1 -> nameMatches.first()
+            nameMatches.size > 1 ->
+                return "'${action.name}' ke naam se multiple leads hain. Phone number batayein taaki sahi lead update ho."
+            else -> null
+        }
+
+        if (lead == null) {
+            return "Lead nahi mila. Naam ya number dobara check karke try karo."
+        }
+
+        val updated = lead.copy(
+            status = newStatus,
+            reminderStatus = when {
+                newStatus == "Complete" -> "Completed"
+                lead.reminderDate.isNotEmpty() -> "Pending"
+                else -> lead.reminderStatus
+            }
+        )
+
+        return try {
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            if (newStatus == "Complete") {
+                com.example.audio.ReminderScheduler.cancelReminder(getApplication(), updated.ownerUid, updated.id)
+            } else if (lead.reminderDate.isNotEmpty()) {
+                com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+            }
+            "✅ '${lead.name}' ka status ab $newStatus hai."
+        } catch (error: Exception) {
+            "Status update nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Matches an AI chat action (UPDATE/ARCHIVE/DELETE/WHATSAPP) to an
+     * existing lead: mobile first (exact digits), then a unique exact name.
+     * Returns Pair(lead, message) - the message is set when the user must be
+     * asked to clarify; Pair(null, "") means no match found.
+     */
+    private suspend fun findLeadForAI(
+        action: com.example.ai.chat.lead.LeadAction,
+        includeArchived: Boolean
+    ): Pair<LeadEntity?, String> {
+        val mobile = action.mobile.filter(Char::isDigit)
+        val leads = allLeadsList.value.filter { !it.isDraft && (includeArchived || !it.archived) }
+
+        val nameMatches = if (action.name.isNotBlank()) {
+            leads.filter { it.name.equals(action.name, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+
+        val lead = when {
+            mobile.isNotEmpty() -> leads.firstOrNull { it.mobile.filter(Char::isDigit) == mobile }
+            nameMatches.size == 1 -> nameMatches.first()
+            nameMatches.size > 1 ->
+                return Pair(
+                    null,
+                    "'${action.name}' ke naam se multiple leads hain. Phone number batayein taaki sahi lead par action ho."
+                )
+            else -> null
+        }
+        return Pair(lead, "")
+    }
+
+    /** Parses the stored diseases JSON array into a clean, de-duplicated list. */
+    private fun parseDiseaseList(diseasesJson: String): List<String> {
+        if (diseasesJson.isBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(diseasesJson)
+            (0 until arr.length()).map { arr.optString(it, "") }
+                .map { it.trim().replace(Regex("\\s+"), " ") }
+                .filter { it.isNotEmpty() }
+                .distinctBy { it.lowercase(Locale.getDefault()) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Applies a change set proposed by the AI chat (LEAD_UPDATE). Called only
+     * from the chat confirmation card after the user taps "Update karo".
+     * Invalid values (bad number, duplicate number, past/duplicate reminder)
+     * are skipped with a warning; the valid ones are still applied.
+     * Returns the chat message to show after the update attempt.
+     */
+    suspend fun updateLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead update ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = false)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) return "Lead nahi mila. Naam ya number dobara check karke try karo."
+
+        var updated = lead
+        var reminderChanged = false
+        val warnings = mutableListOf<String>()
+
+        // 1) Mobile number change (strict validation + duplicate check).
+        val newMobile = action.setMobile.filter(Char::isDigit)
+        if (newMobile.isNotEmpty()) {
+            when {
+                newMobile.length !in 10..15 ->
+                    warnings += " Number sahi nahi lag raha (10-15 digits), number waisa hi rakha."
+                allLeadsList.value.any {
+                    !it.isDraft && it.id != lead.id && it.mobile.filter(Char::isDigit) == newMobile
+                } -> warnings += " Yeh number doosre client ka hai, number waisa hi rakha."
+                else -> updated = updated.copy(mobile = newMobile)
+            }
+        }
+
+        // 2) Name change.
+        val newName = action.setName.trim()
+        if (newName.isNotEmpty()) {
+            updated = updated.copy(name = newName)
+        }
+
+        // 2b. Relation change: replaces the stored relation and its detail.
+        // An empty setOtherRelation clears the old detail, for example when
+        // "grand mother" is replaced by "Self".
+        val newRelation = action.setRelation.trim()
+        if (newRelation.isNotEmpty()) {
+            updated = updated.copy(
+                relation = newRelation,
+                otherRelation = action.setOtherRelation.trim()
+            )
+        }
+
+        // 3) Append new diseases (skipping ones already present).
+        val toAdd = action.addDiseases
+            .map { it.trim().replace(Regex("\\s+"), " ") }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase(Locale.getDefault()) }
+            .filter { candidate ->
+                parseDiseaseList(updated.diseases).none { it.equals(candidate, ignoreCase = true) }
+            }
+        if (toAdd.isNotEmpty()) {
+            val merged = (parseDiseaseList(updated.diseases) + toAdd).take(10)
+            updated = updated.copy(diseases = JSONArray(merged).toString())
+        }
+
+        // 4) Append a note (capped so the stored field never overflows).
+        val newNote = action.note.trim()
+        if (newNote.isNotEmpty()) {
+            val base = updated.notes.trimEnd()
+            val appended = if (base.isEmpty()) newNote else "$base\n$newNote"
+            updated = updated.copy(notes = appended.take(1000))
+        }
+
+        // 5) Reminder: remove it, set/change it (strict validation), or change
+        // its repeat pattern. Repeating reminders re-arm on the next cycle.
+        val repeatVal = when (action.setReminderRepeat.trim().lowercase(java.util.Locale.ROOT)) {
+            "none", "daily", "weekly", "monthly" -> action.setReminderRepeat.trim().lowercase(java.util.Locale.ROOT)
+            else -> ""
+        }
+        if (action.removeReminder) {
+            if (lead.reminderDate.isNotEmpty()) {
+                updated = updated.copy(
+                    reminderDate = "",
+                    reminderTime = "",
+                    reminderStatus = "Completed",
+                    reminderRepeat = "none",
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            }
+        } else if (repeatVal.isNotEmpty() && action.setReminderDate.isBlank()) {
+            // Only the repeat pattern changed - the next alarm time stays as is.
+            if (updated.reminderDate.isNotEmpty() && updated.reminderTime.isNotEmpty()) {
+                updated = updated.copy(
+                    reminderRepeat = repeatVal,
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            } else {
+                warnings += " Is lead ka reminder set nahi hai, pehle date-time do."
+            }
+        } else if (action.setReminderDate.isNotBlank()) {
+            val canonicalDate = parseStrictYMD(action.setReminderDate)
+            when {
+                canonicalDate == null ->
+                    warnings += " Reminder date samajh nahi aayi, reminder waisa hi rakha."
+                else -> {
+                    val time = normalizeReminderTime(action.setReminderTime.ifBlank { lead.reminderTime })
+                    val triggerMillis = reminderTriggerMillis(canonicalDate, time)
+                    if (triggerMillis != null && triggerMillis <= System.currentTimeMillis()) {
+                        warnings += " Reminder time past me hai, reminder waisa hi rakha."
+                    } else if (leadOperationService.hasDuplicateReminder(
+                            lead.id, canonicalDate, time, allLeadsList.value
+                        )
+                    ) {
+                        warnings += " Isi date-time pe doosra reminder pehle se hai, reminder waisa hi rakha."
+                    } else {
+                        updated = updated.copy(
+                            reminderDate = canonicalDate,
+                            reminderTime = time,
+                            reminderStatus = "Pending",
+                            reminderRepeat = repeatVal.ifBlank { updated.reminderRepeat },
+                            reminderUpdatedAt = System.currentTimeMillis()
+                        )
+                        reminderChanged = true
+                    }
+                }
+            }
+        }
+
+        // 6) Call log from chat ("Rahul ko call kar diya, baat ho gayi"):
+        // a history entry plus a fresh lastCall summary. The note the model
+        // carries is stored in the log as well as in the lead notes.
+        val callOutcome = when (action.logCallOutcome.trim().lowercase(java.util.Locale.ROOT).replace(' ', '_')) {
+            "answered", "no_answer", "callback" ->
+                action.logCallOutcome.trim().lowercase(java.util.Locale.ROOT).replace(' ', '_')
+            else -> ""
+        }
+        if (callOutcome.isNotEmpty()) {
+            updated = updated.copy(lastCall = currentIsoUtcCallStamp())
+        }
+
+        if (updated == lead) {
+            // Nothing valid was applied - report the warnings (or say so).
+            return if (warnings.isNotEmpty()) warnings.joinToString(" ")
+            else "Koi change nahi mila apply karne ke liye."
+        }
+
+        return try {
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            if (updated.reminderDate.isEmpty() && lead.reminderDate.isNotEmpty()) {
+                com.example.audio.ReminderScheduler.cancelReminder(
+                    getApplication(), updated.ownerUid, updated.id
+                )
+            } else if (reminderChanged) {
+                com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+            }
+            var callLogged = false
+            if (callOutcome.isNotEmpty()) {
+                try {
+                    val logUid = updated.ownerUid.ifBlank { uid }
+                    if (logUid.isNotBlank()) {
+                        AppDatabase.getDatabase(getApplication()).callLogDao.insert(
+                            com.example.data.database.CallLogEntity(
+                                ownerUid = logUid,
+                                id = java.util.UUID.randomUUID().toString(),
+                                leadId = updated.id,
+                                callTime = updated.lastCall ?: currentIsoUtcCallStamp(),
+                                outcome = callOutcome,
+                                note = action.note.trim().take(200)
+                            )
+                        )
+                        callLogged = true
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CRMViewModel", "AI call log insert failed", e)
+                }
+            }
+            "✅ '${updated.name}' update ho gaya." +
+                (if (callOutcome.isNotEmpty()) if (callLogged) " Call history me bhi log ho gayi." else "" else "") +
+                warnings.joinToString(" ")
+        } catch (error: Exception) {
+            "Update nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /** Days since the lead's last real activity (call, note, reminder or creation). */
+    private fun leadIdleDays(lead: LeadEntity): Long {
+        val callMillis = try {
+            lead.lastCall?.let {
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(it)?.time
+            } ?: 0L
+        } catch (pe: Exception) {
+            0L
+        }
+        val act = maxOf(lead.timestamp, lead.notesUpdatedAt, lead.reminderUpdatedAt, callMillis)
+        return ((System.currentTimeMillis() - act) / 86_400_000L).coerceAtLeast(0L)
+    }
+
+    /**
+     * Applies one change (reminder / archive / complete) to every ACTIVE lead
+     * matching the LEAD_BULK filters. Runs only after the user taps the bulk
+     * card; at most 25 leads per action so a misread request can't sweep the
+     * whole database. Per-lead failures are counted and reported, never thrown.
+     */
+    suspend fun applyBulkFromAIChat(
+        action: com.example.ai.chat.lead.LeadAction
+    ): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Bulk change ke liye pehle login karo."
+
+        val todayStr = getSystemTodayDateStr()
+
+        // Validate the reminder target once for the whole batch.
+        val bulkDate: String
+        val bulkTime: String
+        val bulkRepeat: String
+        if (action.bulkOp == "setReminder") {
+            val parsed = parseStrictYMD(action.setReminderDate)
+            if (parsed == null) return "Bulk reminder: date samajh nahi aayi (yyyy-MM-dd chahiye tha)."
+            val time = normalizeReminderTime(action.setReminderTime)
+            val trigger = reminderTriggerMillis(parsed, time)
+            if (trigger == null || trigger <= System.currentTimeMillis()) {
+                return "Bulk reminder: time past me hai, kuch nahi kiya."
+            }
+            bulkDate = parsed
+            bulkTime = time
+            bulkRepeat = action.setReminderRepeat.ifBlank { "" }
+        } else {
+            bulkDate = ""
+            bulkTime = ""
+            bulkRepeat = ""
+        }
+
+        var targets = allLeadsList.value.filter { !it.isDraft && !it.archived }
+        if (action.bulkNames.isNotEmpty()) {
+            val wanted = action.bulkNames.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+            if (wanted.isEmpty()) return "Bulk: naam samajh nahi aaye."
+            targets = targets.filter { lead -> wanted.any { it == lead.name.trim().lowercase() } }
+        }
+        if (action.bulkPendingOnly && action.bulkNames.isEmpty()) {
+            targets = targets.filter { it.status.equals("Pending", ignoreCase = true) }
+        }
+        if (action.bulkOverdueOnly) {
+            targets = targets.filter {
+                it.reminderDate.isNotEmpty() && it.reminderDate < todayStr && it.reminderStatus == "Pending"
+            }
+        }
+        if (action.bulkIdleDays > 0) {
+            targets = targets.filter { leadIdleDays(it) >= action.bulkIdleDays }
+        }
+        if (targets.isEmpty()) return "Koi lead in conditions se match nahi hua; kuch nahi kiya."
+
+        val batch = targets.sortedByDescending { leadIdleDays(it) }.take(25)
+        val notApplied = targets.size - batch.size
+        var done = 0
+        var failed = 0
+
+        for (lead in batch) {
+            try {
+                when (action.bulkOp) {
+                    "setReminder" -> {
+                        val updated = lead.copy(
+                            reminderDate = bulkDate,
+                            reminderTime = bulkTime,
+                            reminderStatus = "Pending",
+                            reminderRepeat = if (lead.reminderDate.isNotEmpty() && bulkRepeat.isEmpty()) {
+                                lead.reminderRepeat
+                            } else {
+                                bulkRepeat.ifEmpty { "none" }
+                            },
+                            reminderUpdatedAt = System.currentTimeMillis()
+                        )
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.scheduleReminder(getApplication(), updated)
+                    }
+                    "archive" -> {
+                        val updated = lead.copy(archived = true)
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.cancelReminder(getApplication(), lead.ownerUid, lead.id)
+                    }
+                    "complete" -> {
+                        if (lead.status.equals("Complete", ignoreCase = true)) {
+                            failed++
+                            continue
+                        }
+                        val updated = lead.copy(status = "Complete", reminderStatus = "Completed")
+                        repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                        com.example.audio.ReminderScheduler.cancelReminder(getApplication(), lead.ownerUid, lead.id)
+                    }
+                    else -> return "Bulk: unknown op '${action.bulkOp}'."
+                }
+                done++
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "Bulk apply failed for lead ${lead.id}", e)
+                failed++
+            }
+        }
+
+        if (action.bulkOp == "setReminder" && done > 0) {
+            triggerExactAlarmPrompt()
+        }
+
+        val opText = when (action.bulkOp) {
+            "setReminder" -> "reminder $bulkDate ${if (bulkTime.isNotEmpty()) bulkTime else ""}".trim() +
+                (if (bulkRepeat.isNotEmpty()) " (har $bulkRepeat)" else "")
+            "archive" -> "archive"
+            else -> "complete"
+        }
+        val names = batch.take(6).joinToString(", ") { it.name } +
+            (if (batch.size > 6) " +${batch.size - 6} aur" else "")
+        val sb = StringBuilder("✅ Bulk '$opText' - $done lead(s) pe apply hua: $names.")
+        if (notApplied > 0) sb.append(" Limit ki wajah se $notApplied match skip hue (dobara bolo to agli batch pe laga dunga).")
+        if (failed > 0) sb.append(" $failed lead(s) pe apply nahi ho saka.")
+        if (action.bulkOp == "archive") sb.append(" Leads tab ke Archived chip se wapas bhi la sakte ho.")
+        return sb.toString()
+    }
+
+    /**
+     * Moves a lead to Archived (soft delete) - the direct LEAD_ARCHIVE action,
+     * which runs without a confirmation card by design. The alarm is
+     * cancelled; the lead keeps all its fields and can be restored from the
+     * Archived chip in the Leads tab.
+     */
+    suspend fun archiveLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead archive karne ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = false)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) {
+            // Not found among active leads - it may already be archived.
+            val mobile = action.mobile.filter(Char::isDigit)
+            val alreadyArchived = allLeadsList.value.firstOrNull {
+                it.archived && !it.isDraft &&
+                    (
+                        (mobile.isNotEmpty() && it.mobile.filter(Char::isDigit) == mobile) ||
+                            (action.name.isNotBlank() && it.name.equals(action.name, ignoreCase = true))
+                        )
+            }
+            return if (alreadyArchived != null) {
+                "'${alreadyArchived.name}' pehle se archived me hai. Wapas chahiye ho to Leads tab me Archived chip se restore karo."
+            } else {
+                "Lead nahi mila. Naam ya number dobara check karke try karo."
+            }
+        }
+
+        return try {
+            val updated = lead.copy(archived = true)
+            repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+            com.example.audio.ReminderScheduler.cancelReminder(
+                getApplication(), updated.ownerUid, updated.id
+            )
+            "📦 '${lead.name}' archived me chala gaya. Permanent delete sirf 'archived se bhi delete karo' se hoga; wapas chahiye ho to Leads tab me Archived chip se restore karo."
+        } catch (error: Exception) {
+            "Archive nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Permanently deletes a lead proposed by the AI chat (LEAD_DELETE), shown
+     * in the chat only as a light confirmation. Safety guard: if the matched
+     * lead is NOT archived, it is archived instead (soft delete), so a
+     * permanent deletion through chat can never touch a live lead.
+     */
+    suspend fun deleteLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction): String {
+        val uid = _currentUidFlow.value
+            ?: FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
+        if (uid.isBlank()) return "Lead delete karne ke liye pehle login karo."
+
+        val (lead, clarification) = findLeadForAI(action, includeArchived = true)
+        if (clarification.isNotEmpty()) return clarification
+        if (lead == null) {
+            return "Lead nahi mila (active aur archived dono me). Naam ya number dobara check karke try karo."
+        }
+
+        if (!lead.archived) {
+            // Guard: chat never permanently deletes a live lead - archive it.
+            return try {
+                val updated = lead.copy(archived = true)
+                repository.insertLead(updated, com.example.sync.LeadWriteOrigin.LOCAL_AI)
+                com.example.audio.ReminderScheduler.cancelReminder(
+                    getApplication(), updated.ownerUid, updated.id
+                )
+                "📦 '$(lead.name)' abhi archived nahi tha, isliye permanent delete ki jagah archived kar diya. Wapas chahiye ho to Leads tab me Archived chip se restore karo."
+            } catch (error: Exception) {
+                "Archive nahi ho saka: ${error.message.orEmpty()}"
+            }
+        }
+
+        return try {
+            repository.deleteLeadById(lead.id, lead.ownerUid.ifBlank { uid })
+            val logUid = lead.ownerUid.ifBlank { uid }
+            if (logUid.isNotBlank()) {
+                try {
+                    AppDatabase.getDatabase(getApplication()).callLogDao.deleteForLead(logUid, lead.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("CRMViewModel", "AI delete: call log cleanup failed", e)
+                }
+            }
+            com.example.audio.ReminderScheduler.cancelReminder(
+                getApplication(), lead.ownerUid, lead.id
+            )
+            if (ringingLead.value?.id == lead.id) {
+                dismissActiveAlarm()
+            }
+            "🗑️ '${lead.name}' hamesha ke liye delete ho gaya."
+        } catch (error: Exception) {
+            "Delete nahi ho saka: ${error.message.orEmpty()}"
+        }
+    }
+
+    /**
+     * Opens WhatsApp for the lead's number - the direct LEAD_WHATSAPP action,
+     * which runs without a confirmation card by design. 10-digit numbers get
+     * the Indian country code; other lengths (11-15 digits) are used as-is.
+     */
+    fun openWhatsAppForLeadFromAIChat(action: com.example.ai.chat.lead.LeadAction) {
+        val mobile = action.mobile.filter(Char::isDigit).take(15)
+        if (mobile.length < 10) {
+            android.widget.Toast.makeText(
+                getApplication(),
+                "WhatsApp ke liye number nahi mila",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        val withCountryCode = if (mobile.length == 10) "91$mobile" else mobile
+        try {
+            val intent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://wa.me/$withCountryCode")
+            )
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            getApplication<Application>().startActivity(intent)
+        } catch (error: Exception) {
+            // WhatsApp not installed - at least show the number.
+            android.widget.Toast.makeText(
+                getApplication(),
+                "WhatsApp khol nahi saka. Number: $withCountryCode",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    /** Strict yyyy-MM-dd parse; returns the canonical date string or null. */
+    private fun parseStrictYMD(value: String): String? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val position = java.text.ParsePosition(0)
+        val parsed = formatter.parse(value, position) ?: return null
+        if (position.index != value.length) return null
+        return formatter.format(parsed)
+    }
+
+    /** Accepts HH:mm (24h); falls back to 09:00 when missing or invalid. */
+    private fun normalizeReminderTime(value: String): String {
+        val clean = value.trim()
+        if (
+            clean.length == 5 &&
+            clean[2] == ':' &&
+            clean.substring(0, 2).all(Char::isDigit) &&
+            clean.substring(3).all(Char::isDigit)
+        ) {
+            val hour = clean.substring(0, 2).toInt()
+            val minute = clean.substring(3).toInt()
+            if (hour in 0..23 && minute in 0..59) return clean
+        }
+        return "09:00"
+    }
+
+    private fun reminderTriggerMillis(date: String, time: String): Long? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+        return try {
+            formatter.parse("$date $time")?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun formatReminderForDisplay(date: String, time: String): String {
+        val pretty = try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
+            if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed) else date
+        } catch (e: Exception) {
+            date
+        }
+        return if (time.isNotEmpty()) "$pretty, $time" else pretty
+    }
+
     fun deleteLead(lead: LeadEntity) {
         val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: lead.ownerUid
         if (uid.isBlank()) return
         viewModelScope.launch {
             repository.deleteLeadById(lead.id, uid)
+            try {
+                AppDatabase.getDatabase(getApplication()).callLogDao.deleteForLead(uid, lead.id)
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "deleteLead: call log cleanup failed", e)
+            }
             ReminderScheduler.cancelReminder(getApplication(), uid, lead.id)
             if (ringingLead.value?.id == lead.id) {
                 dismissActiveAlarm()
@@ -2062,8 +2175,61 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     fun markCallInitiated(lead: LeadEntity) {
         viewModelScope.launch {
-            val updated = lead.copy(lastCall = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()))
+            val updated = lead.copy(lastCall = currentIsoUtcCallStamp())
             repository.insertLead(updated)
+        }
+    }
+
+    /** Shared ISO format for call timestamps (kept identical to lastCall). */
+    private fun currentIsoUtcCallStamp(): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date())
+
+    /**
+     * Stores a manual call-log entry for the lead (device-local history) and
+     * refreshes the synced `lastCall` summary. Silently ignores a "skip"
+     * (empty outcome) so the caller can always call this after dialing.
+     */
+    fun logCall(lead: LeadEntity, outcome: String, note: String, onLogged: (() -> Unit)? = null) {
+        val normalized = com.example.data.database.CallOutcomes.normalize(outcome) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val db = AppDatabase.getDatabase(getApplication())
+                val uid = lead.ownerUid.ifBlank {
+                    com.example.data.ActiveAccountStore.getActiveUid(getApplication())
+                }
+                if (uid.isBlank()) return@launch
+                val iso = currentIsoUtcCallStamp()
+                db.callLogDao.insert(
+                    com.example.data.database.CallLogEntity(
+                        ownerUid = uid,
+                        id = java.util.UUID.randomUUID().toString(),
+                        leadId = lead.id,
+                        callTime = iso,
+                        outcome = normalized,
+                        note = note.trim().take(200)
+                    )
+                )
+                if (lead.lastCall == null || lead.lastCall!! < iso) {
+                    repository.insertLead(lead.copy(lastCall = iso))
+                }
+                onLogged?.invoke()
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "logCall failed for lead ${lead.id}", e)
+            }
+        }
+    }
+
+    /** Newest-first call history of one lead (max 50) for the profile screen. */
+    suspend fun loadCallLogs(leadId: String): List<com.example.data.database.CallLogEntity> {
+        return try {
+            val uid = _currentUidFlow.value
+                ?: FirebaseAuth.getInstance().currentUser?.uid
+                ?: ""
+            if (uid.isBlank()) return emptyList()
+            AppDatabase.getDatabase(getApplication()).callLogDao.getLogsForLead(uid, leadId)
+        } catch (e: Exception) {
+            android.util.Log.e("CRMViewModel", "loadCallLogs failed", e)
+            emptyList()
         }
     }
 
@@ -2115,6 +2281,11 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
             }
             ReminderScheduler.cancelAllRemindersForUser(getApplication(), uid)
             repository.clearLeadsForUser(uid)
+            try {
+                database.callLogDao.deleteForOwner(uid)
+            } catch (e: Exception) {
+                android.util.Log.e("CRMViewModel", "Wipe: call log cleanup failed", e)
+            }
             aiChatRepository.clearChatHistoryForUser(uid)
 
             withContext(Dispatchers.Main) {
@@ -2374,7 +2545,22 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
         stopAlarmAndTesting()
 
         viewModelScope.launch {
-            val updated = lead.copy(reminderStatus = "Dismissed")
+            // Repeating reminders move to the next cycle and stay Pending;
+            // one-shot reminders simply become Dismissed (kept in sync with
+            // the notification Dismiss path in AlarmReceiver).
+            val next = ReminderScheduler.nextRepeatOccurrence(
+                lead.reminderDate, lead.reminderTime, lead.reminderRepeat
+            )
+            val updated = if (next != null) {
+                lead.copy(
+                    reminderDate = next.first,
+                    reminderTime = next.second,
+                    reminderStatus = "Pending",
+                    reminderUpdatedAt = System.currentTimeMillis()
+                )
+            } else {
+                lead.copy(reminderStatus = "Dismissed")
+            }
             repository.insertLead(updated)
             ReminderScheduler.scheduleReminder(getApplication(), updated)
             ringingLead.value = null
@@ -2429,7 +2615,6 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
     override fun onCleared() {
         super.onCleared()
-        _voiceManager?.onDestroy()
         reminderCheckJob?.cancel()
         stopAlarmAndTesting()
     }
@@ -2439,6 +2624,20 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
     fun exportBackupJson(): String {
         val array = JSONArray()
         val activeList = allLeadsList.value
+        // Device-local call history, keyed per lead and embedded in each lead
+        // object so a backup/restore round-trip keeps it.
+        val logsByLead: Map<String, List<com.example.data.database.CallLogEntity>> = try {
+            val uid = _currentUidFlow.value ?: FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            if (uid.isBlank()) {
+                emptyMap()
+            } else {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    AppDatabase.getDatabase(getApplication()).callLogDao.getAllForOwnerUnordered(uid)
+                }.groupBy { it.leadId }
+            }
+        } catch (e: Exception) {
+            emptyMap()
+        }
         for (lead in activeList) {
             val obj = JSONObject().apply {
                 put("id", lead.id)
@@ -2453,10 +2652,23 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 put("reminderTime", lead.reminderTime)
                 put("reminderNote", lead.reminderNote)
                 put("reminderStatus", lead.reminderStatus)
+                put("reminderRepeat", lead.reminderRepeat)
                 put("notes", lead.notes)
                 put("archived", lead.archived)
                 put("lastCall", lead.lastCall ?: JSONObject.NULL)
                 put("timestamp", lead.timestamp)
+                val logs = logsByLead[lead.id].orEmpty()
+                if (logs.isNotEmpty()) {
+                    val logsArray = JSONArray()
+                    logs.forEach { log ->
+                        logsArray.put(JSONObject().apply {
+                            put("callTime", log.callTime)
+                            put("outcome", log.outcome)
+                            put("note", log.note)
+                        })
+                    }
+                    put("callLogs", logsArray)
+                }
             }
             array.put(obj)
         }
@@ -2471,6 +2683,7 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
 
             val currentList = allLeadsList.value
             val listToInsert = mutableListOf<LeadEntity>()
+            val pendingCallLogs = mutableListOf<com.example.data.database.CallLogEntity>()
 
             for (i in 0 until array.length()) {
                 val obj = array.optJSONObject(i) ?: continue
@@ -2506,6 +2719,10 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             reminderTime = obj.optString("reminderTime", ""),
                             reminderNote = obj.optString("reminderNote", ""),
                             reminderStatus = obj.optString("reminderStatus", "Pending"),
+                            reminderRepeat = when (obj.optString("reminderRepeat", "none")) {
+                                "daily", "weekly", "monthly" -> obj.optString("reminderRepeat", "none")
+                                else -> "none"
+                            },
                             notes = obj.optString("notes", ""),
                             archived = obj.optBoolean("archived", false),
                             lastCall = if (obj.isNull("lastCall") || !obj.has("lastCall")) null else obj.optString("lastCall", "").takeIf { it.isNotEmpty() && it != "null" },
@@ -2513,6 +2730,28 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                             ownerUid = activeUid
                         )
                         listToInsert.add(lead)
+                        // Re-attach embedded call history to the new lead id.
+                        val logsArray = obj.optJSONArray("callLogs")
+                        if (logsArray != null && activeUid.isNotBlank()) {
+                            for (j in 0 until logsArray.length()) {
+                                val logObj = logsArray.optJSONObject(j) ?: continue
+                                val callTime = logObj.optString("callTime", "").trim()
+                                if (callTime.isEmpty()) continue
+                                val outcome = com.example.data.database.CallOutcomes.normalize(
+                                    logObj.optString("outcome", "")
+                                ) ?: continue
+                                pendingCallLogs.add(
+                                    com.example.data.database.CallLogEntity(
+                                        ownerUid = activeUid,
+                                        id = UUID.randomUUID().toString(),
+                                        leadId = lead.id,
+                                        callTime = callTime,
+                                        outcome = outcome,
+                                        note = logObj.optString("note", "").trim().take(200)
+                                    )
+                                )
+                            }
+                        }
                         added++
                     } else {
                         skipped++
@@ -2524,6 +2763,9 @@ class CRMViewModel(application: Application, private val savedStateHandle: Saved
                 viewModelScope.launch {
                     runCatching {
                         repository.insertLeads(listToInsert, com.example.sync.LeadWriteOrigin.LOCAL_IMPORT)
+                        if (pendingCallLogs.isNotEmpty()) {
+                            AppDatabase.getDatabase(getApplication()).callLogDao.insertAll(pendingCallLogs)
+                        }
                         ReminderScheduler.rescheduleAllReminders(getApplication(), listToInsert)
                     }.onSuccess {
                         withContext(Dispatchers.Main) {

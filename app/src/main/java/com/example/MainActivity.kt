@@ -7,7 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -67,6 +69,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.AppLanguageManager
 import com.example.data.LocalAppLanguage
 import com.example.data.LocalActiveLanguageMetadata
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.lifecycleScope
@@ -128,8 +131,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Language change: recreate the activity so Compose re-resolves
+            // EVERY string (and RTL) in the new locale from the first frame.
+            // The old approach (applyLocale -> resources.updateConfiguration)
+            // was invisible to Compose: screens kept the old language until an
+            // unrelated touch/typing forced a recomposition, and the bottom
+            // nav lagged one switch behind. recreate() is the same pattern
+            // already used for Play language-pack installs below.
+            var appliedLanguageMeta by remember { mutableStateOf(activeLanguageMeta) }
             LaunchedEffect(activeLanguageMeta) {
-                AppLanguageManager.applyLocale(this@MainActivity, activeLanguageMeta)
+                if (appliedLanguageMeta != activeLanguageMeta) {
+                    appliedLanguageMeta = activeLanguageMeta
+                    this@MainActivity.recreate()
+                }
             }
 
             val playInstallState by viewModel.playLanguageInstallState.collectAsStateWithLifecycle()
@@ -287,7 +301,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.splash_screen_pro_v2),
+            painter = painterResource(id = R.drawable.splash_screen_pro_v3),
             contentDescription = "LifeFresh Pro Splash Screen",
             modifier = Modifier
                 .fillMaxSize()
@@ -387,6 +401,15 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         (currentRoute == "dashboard" || currentRoute == "leads" || currentRoute == "reports" || currentRoute == "settings" || currentRoute == "ai") && activeSettingsSubScreen == null
     }
 
+    // Hide the bottom nav while the keyboard is up: the IME insets
+    // (imePadding in chat/form screens) already push input fields above the
+    // keyboard, and a visible nav bar would leave a dead gap between the
+    // input field and the keyboard.
+    // (Uses WindowInsets.ime.getBottom — WindowInsets.isImeVisible needs
+    // Compose 1.9+, this project is on 1.7.)
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+
     val activeTab = remember(currentRoute) {
         when {
             currentRoute?.startsWith("dashboard") == true -> "dashboard"
@@ -453,7 +476,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         } else {
             {}
         },
-        bottomBar = if (isMainTab) {
+        bottomBar = if (isMainTab && !imeVisible) {
             {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -473,7 +496,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Analytics, contentDescription = "Dashboard", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Analytics, contentDescription = stringResource(R.string.nav_dashboard), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_dashboard").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -490,7 +513,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.People, contentDescription = "Leads", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.People, contentDescription = stringResource(R.string.nav_leads), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_leads").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -507,7 +530,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Co-Pilot", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.AutoAwesome, contentDescription = stringResource(R.string.nav_ai), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_ai").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -524,7 +547,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = stringResource(R.string.nav_reports), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_reports").padding(horizontal = 1.dp)
                     )
                     NavigationBarItem(
@@ -541,7 +564,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                                 modifier = Modifier.wrapContentWidth(unbounded = true)
                             )
                         },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp)) },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.nav_settings), modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.testTag("nav_item_settings").padding(horizontal = 1.dp)
                     )
                 }
@@ -558,7 +581,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     contentColor = Color.White,
                     modifier = Modifier.testTag("btn_fab_add_lead")
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Customer Context")
+                    Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_customer))
                 }
             }
         }
@@ -680,17 +703,17 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
             onDismissRequest = {},
             title = {
                 Text(
-                    text = "Guest data found on this device",
+                    text = stringResource(R.string.main_guest_data_found),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "We found $guestDataLeadCount guest lead${if (guestDataLeadCount == 1) "" else "s"}, including any saved notes and reminders attached to those leads."
+                        text = stringResource(R.string.main_guest_data_count, guestDataLeadCount)
                     )
                     Text(
-                        text = "Choose whether to move this local guest workspace into your signed-in account or keep it separate on this device.",
+                        text = stringResource(R.string.main_guest_data_choose),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!guestDataTransferError.isNullOrBlank()) {
@@ -727,7 +750,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     enabled = !guestDataTransferBusy,
                     modifier = Modifier.testTag("btn_move_guest_data")
                 ) {
-                    Text("Move / Sync to My Account")
+                    Text(stringResource(R.string.main_move_sync))
                 }
             },
             dismissButton = {
@@ -744,7 +767,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     enabled = !guestDataTransferBusy,
                     modifier = Modifier.testTag("btn_keep_guest_data_separate")
                 ) {
-                    Text("Keep Guest Data Separate")
+                    Text(stringResource(R.string.main_keep_guest))
                 }
             },
             modifier = Modifier.testTag("guest_data_transition_dialog")
@@ -757,17 +780,17 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         AlertDialog(
             onDismissRequest = { viewModel.skipCloudRestore() },
             title = {
-                Text(text = "Cloud Backup Found", fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.main_backup_found), fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(text = "A cloud backup is available for your account.\n\nWould you like to restore your data to this device?")
+                Text(text = stringResource(R.string.main_backup_restore_prompt))
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.performCloudRestore() },
                     modifier = Modifier.testTag("btn_restore_confirm")
                 ) {
-                    Text("Restore")
+                    Text(stringResource(R.string.main_restore))
                 }
             },
             dismissButton = {
@@ -775,7 +798,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     onClick = { viewModel.skipCloudRestore() },
                     modifier = Modifier.testTag("btn_restore_skip")
                 ) {
-                    Text("Skip")
+                    Text(stringResource(R.string.main_skip))
                 }
             },
             modifier = Modifier.testTag("cloud_restore_dialog")
@@ -793,10 +816,10 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         AlertDialog(
             onDismissRequest = { viewModel.dismissExactAlarmPrompt() },
             title = {
-                Text(text = "Reminder Alarms Disabled", fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.main_alarms_disabled), fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(text = "LifeFresh QuickNote Pro cannot ring reminder alarms until Exact Alarm permission is enabled.")
+                Text(text = stringResource(R.string.main_alarms_disabled_sub))
             },
             confirmButton = {
                 Button(
@@ -821,7 +844,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     },
                     modifier = Modifier.testTag("btn_enable_exact_alarm")
                 ) {
-                    Text("Enable Exact Alarms")
+                    Text(stringResource(R.string.main_enable_exact))
                 }
             },
             dismissButton = {
@@ -829,7 +852,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
                     onClick = { viewModel.dismissExactAlarmPrompt() },
                     modifier = Modifier.testTag("btn_dismiss_exact_alarm")
                 ) {
-                    Text("Remind Me Later")
+                    Text(stringResource(R.string.main_remind_later))
                 }
             },
             modifier = Modifier.testTag("exact_alarm_onboarding_dialog")
@@ -850,7 +873,7 @@ fun ChangelogDialog(viewModel: com.example.ui.viewmodel.CRMViewModel) {
         title = {
             Column {
                 Text(
-                    text = "What’s New in LifeFresh QuickNote Pro",
+                    text = stringResource(R.string.what_new_heading),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -902,7 +925,7 @@ fun ChangelogDialog(viewModel: com.example.ui.viewmodel.CRMViewModel) {
                 onClick = { viewModel.dismissChangelog() },
                 modifier = Modifier.testTag("btn_close_changelog")
             ) {
-                Text("Close")
+                Text(stringResource(R.string.common_close))
             }
         },
         modifier = Modifier.testTag("changelog_dialog")

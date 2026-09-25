@@ -1,5 +1,14 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -16,16 +25,33 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -33,8 +59,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.horizontalScroll
@@ -42,11 +70,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.text.font.FontFamily
 import com.example.ai.chat.formatter.AIMessageFormatter
 import com.example.ai.chat.formatter.FormattedBlock
+import com.example.ai.chat.lead.LeadAction
+import com.example.ai.chat.voice.AiTts
+import com.example.ai.chat.voice.AiVoicePlayer
+import com.example.ai.chat.voice.VoiceInputHelper
+import com.example.ai.chat.voice.VoiceWordMatcher
+import com.example.data.security.AIQuotaManager
 import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import com.example.ai.chat.viewmodel.AIChatViewModel
 import com.example.ui.viewmodel.CRMViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.R
 
 @Composable
 fun AIScreen(
@@ -61,19 +106,180 @@ fun AIScreen(
         chatViewModel.attachCrmViewModel(viewModel)
     }
 
-    val legacyConfirmations = viewModel?.pendingConfirmations?.collectAsStateWithLifecycle()?.value ?: emptyMap()
-    val leadConfirmations = viewModel?.leadAIConfirmationStates?.collectAsStateWithLifecycle()?.value ?: emptyMap()
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
     val inputText by chatViewModel.inputText.collectAsStateWithLifecycle()
+
+    // --- Voice power-ups for users who cannot read (Phase A) --------------
+    // voiceReplyOn: AI answers are spoken aloud via the phone's TTS engine.
+    // boloModeOn: hands-free loop - after every spoken answer the app listens
+    // again, and pending confirmation cards accept a spoken "haan"/"nahi".
+    val aiContext = LocalContext.current
+    var voiceReplyOn by remember {
+        mutableStateOf(AIQuotaManager.isVoiceReplyEnabled(aiContext))
+    }
+    var boloModeOn by remember {
+        mutableStateOf(AIQuotaManager.isBoloModeEnabled(aiContext))
+    }
+    var boloListening by remember { mutableStateOf(false) }
+
+    val latestChatState by rememberUpdatedState(uiState)
+    val boloVoice = remember(aiContext) { VoiceInputHelper(aiContext) }
+    DisposableEffect(Unit) {
+        // When the phone lacks voice data for the app language, nudge the
+        // user once instead of speaking gibberish with an English accent.
+        AiTts.onVoiceUnavailable = {
+            Toast.makeText(
+                aiContext, aiContext.getString(R.string.ai_tts_pack_missing), Toast.LENGTH_LONG
+            ).show()
+        }
+        onDispose {
+            AiTts.onVoiceUnavailable = null
+            boloVoice.cancel()
+            AiVoicePlayer.stop()
+        }
+    }
+
+    /** One STT capture as a suspending call (null when nothing was heard). */
+    suspend fun awaitOneUtterance(): String? = suspendCancellableCoroutine { cont ->
+        boloVoice.start(
+            onResult = { text -> if (cont.isActive) cont.resume(text) },
+            onError = { if (cont.isActive) cont.resume(null) }
+        )
+        cont.invokeOnCancellation { boloVoice.cancel() }
+    }
+
+    suspend fun awaitSpoken(reply: String) {
+        // Natural Gemini voice when available (Settings > AI API keys has a
+        // key), otherwise the phone's engine. Returns when audio is done.
+        AiVoicePlayer.speakSuspend(aiContext, reply)
+    }
+
+    // Voice-reply only (Bolo OFF): read out each final assistant answer once.
+    // Real-time: stop previous audio instantly when a new request starts
+    // (thinking) so a late cloud chunk never leaks into the thinking phase.
+    LaunchedEffect(uiState.isThinking) {
+        if (uiState.isThinking) AiVoicePlayer.stop()
+    }
+    var lastAutoSpokenId by remember { mutableStateOf<String?>(null) }
+    val lastChatMessage = uiState.messages.lastOrNull()
+    LaunchedEffect(lastChatMessage?.id, lastChatMessage?.isStreaming, uiState.isThinking) {
+        if (!voiceReplyOn || boloModeOn || uiState.isThinking) return@LaunchedEffect
+        val last = uiState.messages.lastOrNull() ?: return@LaunchedEffect
+        if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
+        if (last.id == lastAutoSpokenId) return@LaunchedEffect
+        lastAutoSpokenId = last.id
+        awaitSpoken(last.content)
+    }
+
+    // Bolo mode: talk -> listen -> act -> talk ...
+    LaunchedEffect(boloModeOn) {
+        if (!boloModeOn) {
+            boloListening = false
+            AiVoicePlayer.stop()
+            return@LaunchedEffect
+        }
+        AiTts.ensure(aiContext)
+        var micFailures = 0
+        while (isActive) {
+            // 1) Listen for one utterance.
+            if (!boloVoice.isAvailable()) {
+                micFailures++
+                if (micFailures >= 3) break
+                delay(1500L)
+                continue
+            }
+            boloListening = true
+            val heard = withTimeoutOrNull(12_000L) { awaitOneUtterance() }
+            boloListening = false
+            if (!isActive) break
+            val text = heard?.trim().orEmpty()
+            if (text.isBlank()) {
+                micFailures++
+                if (micFailures >= 3) break
+                continue
+            }
+            micFailures = 0
+
+            // 2) A pending confirmation card answers yes/no by voice first.
+            if (latestChatState.pendingLeadAction != null) {
+                if (VoiceWordMatcher.isNegation(text)) {
+                    chatViewModel.cancelPendingLead()
+                    continue
+                }
+                if (VoiceWordMatcher.isAffirmation(text)) {
+                    chatViewModel.confirmPendingLead(saveAsDraft = false)
+                    continue
+                }
+            }
+
+            // 3) Otherwise the utterance is a normal chat message.
+            val beforeId = latestChatState.messages.lastOrNull {
+                it.role == ChatRole.ASSISTANT && !it.isStreaming
+            }?.id
+            chatViewModel.sendMessage(text)
+
+            // 4) Wait for the reply to finish (thinking + streaming), max 60s.
+            var waited = 0
+            while (isActive && waited < 200) {
+                val state = latestChatState
+                val last = state.messages.lastOrNull()
+                val replied = state.messages.any {
+                    it.role == ChatRole.ASSISTANT && !it.isStreaming && it.id != beforeId
+                }
+                if (!state.isThinking && replied && last?.isStreaming == false) break
+                delay(300L)
+                waited++
+            }
+            if (!isActive) break
+
+            // 5) Speak the answer, then the card prompt if a card appeared.
+            val reply = latestChatState.messages.lastOrNull {
+                it.role == ChatRole.ASSISTANT && !it.isStreaming && it.id != beforeId
+            }
+            if (reply != null) {
+                awaitSpoken(reply.content)
+                if (latestChatState.pendingLeadAction != null) {
+                    awaitSpoken(aiContext.getString(R.string.ai_bolo_confirm_q))
+                }
+            }
+        }
+        // Loop ended because the mic kept failing - switch the mode off.
+        if (isActive && micFailures >= 3) {
+            boloModeOn = false
+            AIQuotaManager.setBoloModeEnabled(aiContext, false)
+            Toast.makeText(
+                aiContext, aiContext.getString(R.string.ai_bolo_stopped), Toast.LENGTH_LONG
+            ).show()
+        }
+        boloListening = false
+    }
+
+    // Chat history (sessions saved in Room, already scoped to the signed-in uid)
+    val sessionsFlow = remember(viewModel) {
+        viewModel?.dbChatSessions ?: MutableStateFlow<List<ChatSession>>(emptyList())
+    }
+    val sessions by sessionsFlow.collectAsStateWithLifecycle()
+    val activeSessionId = viewModel?.activeSessionId?.value
+    var showHistoryPanel by remember { mutableStateOf(false) }
+    var pendingDeleteSession by remember { mutableStateOf<ChatSession?>(null) }
+    var pendingRenameSession by remember { mutableStateOf<ChatSession?>(null) }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Automatically scroll to latest message or thinking state
-    LaunchedEffect(uiState.messages.size, uiState.isThinking) {
-        val totalItems = uiState.messages.size + if (uiState.isThinking) 1 else 0
+    // Automatically scroll to the latest message, the thinking state, the
+    // pending lead card - and follow the growing text while a reply is
+    // streaming in.
+    val hasPendingLeadCard = uiState.pendingLeadAction != null
+    val streamingLength = uiState.messages.lastOrNull()?.let {
+        if (it.isStreaming) it.content.length else 0
+    } ?: 0
+    LaunchedEffect(uiState.messages.size, uiState.isThinking, hasPendingLeadCard, streamingLength) {
+        val totalItems = uiState.messages.size +
+            (if (uiState.isThinking && streamingLength == 0) 1 else 0) +
+            (if (hasPendingLeadCard) 1 else 0)
         if (totalItems > 0) {
             coroutineScope.launch {
                 listState.animateScrollToItem(totalItems - 1)
@@ -81,16 +287,36 @@ fun AIScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
             .testTag("ai_chat_screen")
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
     ) {
         AIChatHeader(
             hasMessages = uiState.messages.isNotEmpty(),
             onExit = onExit,
-            onClearChat = { chatViewModel.clearConversation() }
+            voiceReplyOn = voiceReplyOn,
+            boloModeOn = boloModeOn,
+            onToggleVoiceReply = {
+                voiceReplyOn = !voiceReplyOn
+                AIQuotaManager.setVoiceReplyEnabled(aiContext, voiceReplyOn)
+                if (!voiceReplyOn) AiVoicePlayer.stop()
+            },
+            onToggleBoloMode = {
+                boloModeOn = !boloModeOn
+                AIQuotaManager.setBoloModeEnabled(aiContext, boloModeOn)
+            },
+            onClearChat = { chatViewModel.clearConversation() },
+            onOpenHistory = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                showHistoryPanel = true
+            }
         )
 
         Box(
@@ -122,21 +348,31 @@ fun AIScreen(
                             ChatRole.USER -> UserMessageBubble(message)
                             ChatRole.ASSISTANT -> AssistantMessageBubble(
                                 message = message,
-                                canRetry = uiState.canRetry && message.id == uiState.messages.lastOrNull()?.id,
+                                showRetry = !uiState.isThinking &&
+                                    message.id == uiState.messages.lastOrNull()?.id,
                                 onRetry = { chatViewModel.retry() },
-                                onNavigateToSettings = onNavigateToSettings,
-                                showConfirmation = legacyConfirmations[message.id]?.let { it.status == com.example.ai.action.ConfirmationStatus.PENDING || it.status == com.example.ai.action.ConfirmationStatus.FAILED } == true || leadConfirmations[message.id]?.canConfirm == true,
-                                onConfirm = { viewModel?.confirmAction(message.id) },
-                                onCancel = { viewModel?.cancelAction(message.id) },
-                                confirmationStatusText = legacyConfirmations[message.id]?.let { when (it.status) { com.example.ai.action.ConfirmationStatus.SUCCESS -> it.successText; com.example.ai.action.ConfirmationStatus.FAILED -> it.errorText; com.example.ai.action.ConfirmationStatus.CANCELLED -> "Action cancelled."; com.example.ai.action.ConfirmationStatus.EXECUTING -> "Executing..."; else -> null } } ?: leadConfirmations[message.id]?.let { when (it.lifecycle) { com.example.leads.ai.LeadAIConfirmationLifecycle.SUCCESS -> it.successText; com.example.leads.ai.LeadAIConfirmationLifecycle.FAILED -> it.errorText; com.example.leads.ai.LeadAIConfirmationLifecycle.CANCELLED -> "Lead action cancelled."; com.example.leads.ai.LeadAIConfirmationLifecycle.EXECUTING -> "Executing..."; else -> null } }
+                                onNavigateToSettings = onNavigateToSettings
                             )
                             ChatRole.SYSTEM -> {}
                         }
                     }
 
-                    if (uiState.isThinking) {
+                    // Hide "Thinking..." once the streamed text starts appearing
+                    if (uiState.isThinking && streamingLength == 0) {
                         item(key = "thinking_state_item") {
                             AIThinkingBubble()
+                        }
+                    }
+
+                    // Pending lead proposed by the AI - only the user's tap saves it
+                    uiState.pendingLeadAction?.let { pendingAction ->
+                        item(key = "pending_lead_action_card") {
+                            PendingLeadActionCard(
+                                action = pendingAction,
+                                onSave = { chatViewModel.confirmPendingLead(saveAsDraft = false) },
+                                onSaveAsDraft = { chatViewModel.confirmPendingLead(saveAsDraft = true) },
+                                onDismiss = { chatViewModel.cancelPendingLead() }
+                            )
                         }
                     }
                 }
@@ -152,6 +388,117 @@ fun AIScreen(
                 chatViewModel.sendMessage()
                 keyboardController?.hide()
                 focusManager.clearFocus()
+            },
+            boloListening = boloModeOn && boloListening,
+            onVoiceTranscript = { text ->
+                // Mic stopped -> transcript goes into the textbox for review.
+                chatViewModel.onInputChanged(text)
+            },
+            onVoiceDirectSend = { text ->
+                // Send tapped while the mic was on -> straight to the AI.
+                chatViewModel.sendMessage(text)
+                keyboardController?.hide()
+                focusManager.clearFocus()
+            }
+        )
+    }
+
+        // Half-screen history panel sliding in from the left (ChatGPT-style)
+        if (showHistoryPanel) {
+            AIChatHistoryPanel(
+                sessions = sessions,
+                activeSessionId = activeSessionId,
+                onOpenSession = { session ->
+                    showHistoryPanel = false
+                    chatViewModel.openSession(session.id, session.messages)
+                },
+                onRequestDelete = { session -> pendingDeleteSession = session },
+                onNewChat = {
+                    showHistoryPanel = false
+                    chatViewModel.clearConversation()
+                },
+                onTogglePin = { session ->
+                    viewModel?.updateSessionPin(session.id, !session.isPinned)
+                },
+                onRenameRequested = { session -> pendingRenameSession = session },
+                onToggleArchive = { session ->
+                    viewModel?.archiveSession(session.id, !session.isArchived)
+                },
+                onDismiss = { showHistoryPanel = false }
+            )
+        }
+    }
+
+    pendingDeleteSession?.let { session ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSession = null },
+            title = { Text(stringResource(R.string.ai_delete_chat_title)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.ai_delete_chat_msg, session.title),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel?.deleteSession(session.id)
+                        // If the deleted session was on screen, start fresh
+                        if (session.id == activeSessionId) chatViewModel.clearConversation()
+                        pendingDeleteSession = null
+                        showHistoryPanel = false
+                    },
+                    modifier = Modifier.testTag("history_delete_confirm")
+                ) {
+                    Text(
+                        text = stringResource(R.string.common_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteSession = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+
+    pendingRenameSession?.let { session ->
+        var draftTitle by remember(session) { mutableStateOf(session.title) }
+        AlertDialog(
+            onDismissRequest = { pendingRenameSession = null },
+            title = { Text(stringResource(R.string.ai_rename_chat)) },
+            text = {
+                OutlinedTextField(
+                    value = draftTitle,
+                    onValueChange = { draftTitle = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("rename_input"),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.ai_rename_label)) }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val title = draftTitle.trim()
+                        if (title.isNotEmpty()) {
+                            viewModel?.renameSession(session.id, title)
+                        }
+                        pendingRenameSession = null
+                    },
+                    modifier = Modifier.testTag("rename_confirm_btn")
+                ) {
+                    Text(stringResource(R.string.common_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRenameSession = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             }
         )
     }
@@ -161,7 +508,12 @@ fun AIScreen(
 private fun AIChatHeader(
     onExit: () -> Unit,
     hasMessages: Boolean,
-    onClearChat: () -> Unit
+    onClearChat: () -> Unit,
+    onOpenHistory: () -> Unit,
+    voiceReplyOn: Boolean,
+    boloModeOn: Boolean,
+    onToggleVoiceReply: () -> Unit,
+    onToggleBoloMode: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -186,7 +538,7 @@ private fun AIChatHeader(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = stringResource(R.string.cd_back)
                     )
                 }
                 Box(
@@ -204,7 +556,7 @@ private fun AIChatHeader(
                     )
                 }
                 Text(
-                    text = "LifeFresh AI",
+                    text = stringResource(R.string.ai_title),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-0.2).sp
@@ -213,22 +565,389 @@ private fun AIChatHeader(
                 )
             }
 
-            if (hasMessages) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 IconButton(
-                    onClick = onClearChat,
+                    onClick = onToggleVoiceReply,
                     modifier = Modifier
                         .size(36.dp)
-                        .testTag("btn_clear_chat")
+                        .testTag("btn_ai_voice_reply")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.RestartAlt,
-                        contentDescription = "New Chat",
+                        imageVector = if (voiceReplyOn) Icons.Filled.VolumeUp
+                        else Icons.Filled.VolumeOff,
+                        contentDescription = stringResource(R.string.cd_ai_voice_reply),
+                        tint = if (voiceReplyOn) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onToggleBoloMode,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("btn_ai_bolo_mode")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = stringResource(R.string.cd_ai_bolo_mode),
+                        tint = if (boloModeOn) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                if (hasMessages) {
+                    IconButton(
+                        onClick = onClearChat,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("btn_clear_chat")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.cd_new_chat),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onOpenHistory,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("btn_history_ai")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = stringResource(R.string.cd_chat_history),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AIChatHistoryPanel(
+    sessions: List<ChatSession>,
+    activeSessionId: String?,
+    onOpenSession: (ChatSession) -> Unit,
+    onRequestDelete: (ChatSession) -> Unit,
+    onNewChat: () -> Unit,
+    onTogglePin: (ChatSession) -> Unit,
+    onRenameRequested: (ChatSession) -> Unit,
+    onToggleArchive: (ChatSession) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val panelOffset = remember { Animatable(0f) }
+    var isClosing by remember { mutableStateOf(false) }
+
+    fun requestClose() {
+        if (isClosing) return
+        isClosing = true
+        scope.launch {
+            panelOffset.animateTo(
+                0f,
+                tween(durationMillis = 200, easing = FastOutSlowInEasing)
+            )
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        panelOffset.snapTo(0f)
+        panelOffset.animateTo(
+            1f,
+            tween(durationMillis = 280, easing = FastOutSlowInEasing)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Dimmed background - tap anywhere to close
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+                .clickable { requestClose() }
+        )
+
+        // Half-screen panel sliding in from the left (ChatGPT-style).
+        // graphicsLayer: the receiver exposes the laid-out size in px, so the
+        // panel can slide exactly its own width in/out of the screen.
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.85f)
+                .align(Alignment.CenterStart)
+                .graphicsLayer {
+                    translationX = (1f - panelOffset.value) * size.width
+                }
+                .background(MaterialTheme.colorScheme.surface)
+                .testTag("history_panel")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.ai_chat_history),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { requestClose() },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("history_close_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.cd_close),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = onNewChat,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("history_new_chat_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.ai_new_chat))
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (sessions.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ai_no_chats),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
+                    )
+                } else {
+                    val activeSessions = sessions.filter { !it.isArchived }
+                    val archivedSessions = sessions.filter { it.isArchived }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(activeSessions, key = { it.id }) { session ->
+                            HistorySessionRow(
+                                session = session,
+                                isActive = session.id == activeSessionId,
+                                onOpen = { onOpenSession(session) },
+                                onTogglePin = { onTogglePin(session) },
+                                onRename = { onRenameRequested(session) },
+                                onToggleArchive = { onToggleArchive(session) },
+                                onDelete = { onRequestDelete(session) }
+                            )
+                        }
+                        if (archivedSessions.isNotEmpty()) {
+                            item(key = "archived_header") {
+                                Text(
+                                    text = stringResource(R.string.ai_archived),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp, start = 10.dp)
+                                )
+                            }
+                            items(archivedSessions, key = { it.id }) { session ->
+                                HistorySessionRow(
+                                    session = session,
+                                    isActive = session.id == activeSessionId,
+                                    onOpen = { onOpenSession(session) },
+                                    onTogglePin = { onTogglePin(session) },
+                                    onRename = { onRenameRequested(session) },
+                                    onToggleArchive = { onToggleArchive(session) },
+                                    onDelete = { onRequestDelete(session) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One chat row in the history panel: tap to open, and a 3-dot menu with
+ * Pin/Unpin, Rename, Archive/Unarchive and Delete.
+ */
+@Composable
+private fun HistorySessionRow(
+    session: ChatSession,
+    isActive: Boolean,
+    onOpen: () -> Unit,
+    onTogglePin: () -> Unit,
+    onRename: () -> Unit,
+    onToggleArchive: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onOpen, onClickLabel = "Open chat")
+                .padding(start = 10.dp, end = 42.dp, top = 10.dp, bottom = 10.dp)
+                .testTag("history_session_row"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (session.isPinned) {
+                Icon(
+                    imageVector = Icons.Filled.PushPin,
+                    contentDescription = stringResource(R.string.cd_pinned),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (isActive) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = session.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${formatSessionDate(session.timestamp)}  ·  " + stringResource(R.string.ai_messages_count, session.messages.size),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 2.dp)
+        ) {
+            IconButton(
+                onClick = { menuOpen = true },
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("history_menu_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.cd_chat_options),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                modifier = Modifier.testTag("history_menu")
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (session.isPinned) "Unpin" else "Pin") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.PushPin, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onTogglePin()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.ai_rename)) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onRename()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (session.isArchived) stringResource(R.string.ai_move_chats) else stringResource(R.string.ai_archive)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (session.isArchived) Icons.Filled.Unarchive else Icons.Filled.Archive,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onToggleArchive()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    }
+                )
+            }
+        }
+    }
+}
+
+internal fun formatSessionDate(timestamp: Long): String {
+    val format = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+    return format.format(Date(timestamp))
+}
+
+/** "3.2 s" for short replies, "1 min 05 s" for longer ones. */
+private fun formatReplyDuration(ms: Long): String {
+    if (ms <= 0) return ""
+    val secs = ms / 1000
+    return if (secs < 60) {
+        "${secs}.${(ms % 1000) / 100} s"
+    } else {
+        "${secs / 60} min ${secs % 60} s"
     }
 }
 
@@ -262,7 +981,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "How can I help you today?",
+            text = stringResource(R.string.ai_help_prompt),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.3).sp
@@ -274,7 +993,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Ask anything about your leads, follow-ups & CRM",
+            text = stringResource(R.string.ai_sub_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
@@ -283,6 +1002,7 @@ private fun AIEmptyState(
         Spacer(modifier = Modifier.height(20.dp))
 
         val suggestions = listOf(
+            "Aaj ke top 3 calls kaun se hain?",
             "What can you help me with?",
             "How to organize client follow-ups?",
             "नमस्ते! आप कैसे मदद कर सकते हैं?"
@@ -378,14 +1098,40 @@ private fun UserMessageBubble(message: ChatMessage) {
 @Composable
 private fun AssistantMessageBubble(
     message: ChatMessage,
-    canRetry: Boolean,
+    showRetry: Boolean,
     onRetry: () -> Unit,
-    showConfirmation: Boolean,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    confirmationStatusText: String?,
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+
+    fun copyMessage() {
+        try {
+            val clipboard =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboard?.setPrimaryClip(
+                ClipData.newPlainText("LifeFresh AI", message.content)
+            )
+            Toast.makeText(context, context.getString(R.string.common_copied), Toast.LENGTH_SHORT).show()
+        } catch (_: Throwable) {
+            Toast.makeText(context, context.getString(R.string.common_copy_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun shareMessage() {
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message.content)
+            }
+            context.startActivity(
+                Intent.createChooser(intent, "Share")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: Throwable) {
+            Toast.makeText(context, context.getString(R.string.common_share_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -407,7 +1153,7 @@ private fun AssistantMessageBubble(
                     modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = "LifeFresh AI",
+                    text = stringResource(R.string.ai_title),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 11.5.sp
@@ -448,7 +1194,7 @@ private fun AssistantMessageBubble(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (canRetry) {
+                            if (showRetry) {
                                 OutlinedButton(
                                     onClick = onRetry,
                                     shape = RoundedCornerShape(10.dp),
@@ -464,7 +1210,7 @@ private fun AssistantMessageBubble(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Retry",
+                                        text = stringResource(R.string.ai_error_retry),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }
@@ -486,7 +1232,7 @@ private fun AssistantMessageBubble(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Open AI Settings",
+                                        text = stringResource(R.string.ai_open_settings),
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }
@@ -521,19 +1267,91 @@ private fun AssistantMessageBubble(
                             }
                         }
                     }
-                }
-                if (showConfirmation) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                        Button(onClick = onConfirm, modifier = Modifier.testTag("confirm_crm_action")) { Text("Confirm") }
-                        OutlinedButton(onClick = onCancel, modifier = Modifier.testTag("cancel_crm_action")) { Text("Cancel") }
+
+                    // Blinking cursor while the reply is still streaming in
+                    if (message.isStreaming) {
+                        StreamingCursor()
                     }
                 }
-                confirmationStatusText?.let { statusText ->
-                    Text(text = statusText, color = if (statusText == "Executing...") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+
+                // Meta row: reply time + copy + share (visible, like ChatGPT)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    if (!message.isStreaming && message.responseDurationMs > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.testTag("ai_reply_duration")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Schedule,
+                                contentDescription = stringResource(R.string.cd_reply_time),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = formatReplyDuration(message.responseDurationMs),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                    if (!message.isStreaming) {
+                        IconButton(
+                            onClick = { copyMessage() },
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("ai_msg_copy_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = stringResource(R.string.cd_copy_reply),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { shareMessage() },
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("ai_msg_share_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = stringResource(R.string.cd_share_reply),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** ChatGPT-style blinking block cursor shown at the end of a streaming reply. */
+@Composable
+private fun StreamingCursor() {
+    val infiniteTransition = rememberInfiniteTransition(label = "stream_cursor")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 550, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cursor_alpha"
+    )
+    Text(
+        text = "▍",
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 23.sp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+        modifier = Modifier.padding(start = 2.dp)
+    )
 }
 
 @Composable
@@ -571,6 +1389,337 @@ private fun AssistantCodeBlock(block: FormattedBlock.CodeBlock) {
     }
 }
 
+/** Formats "yyyy-MM-dd" (+ optional "HH:mm") for the confirmation card display. */
+private fun formatReminderDisplay(action: LeadAction): String {
+    val pretty = try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(action.reminderDate)
+        if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed)
+        else action.reminderDate
+    } catch (e: Exception) {
+        action.reminderDate
+    }
+    return if (action.reminderTime.isNotBlank()) "$pretty, ${action.reminderTime}" else pretty
+}
+
+/** Same as above, but for the UPDATE card (setReminderDate/setReminderTime). */
+private fun formatUpdateReminderDisplay(action: LeadAction): String {
+    val pretty = try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(action.setReminderDate)
+        if (parsed != null) SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(parsed)
+        else action.setReminderDate
+    } catch (e: Exception) {
+        action.setReminderDate
+    }
+    return if (action.setReminderTime.isNotBlank()) "$pretty, ${action.setReminderTime}" else pretty
+}
+
+@Composable
+private fun PendingLeadActionCard(
+    action: LeadAction,
+    onSave: () -> Unit,
+    onSaveAsDraft: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDraft = action.kind == LeadAction.Kind.DRAFT
+    val isStatus = action.kind == LeadAction.Kind.STATUS
+    val isUpdate = action.kind == LeadAction.Kind.UPDATE
+    val isDelete = action.kind == LeadAction.Kind.DELETE
+    val isBulk = action.kind == LeadAction.Kind.BULK
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ai_lead_action_card"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = when {
+                    isStatus -> "Status update karein?"
+                    isUpdate -> "Changes apply karein?"
+                    isBulk -> stringResource(R.string.ai_bulk_title)
+                    isDelete -> "Delete karein?"
+                    isDraft -> "Draft save karein?"
+                    else -> "Lead save karein?"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            if (isUpdate) {
+                // UPDATE card: client + every change, one row each.
+                Text(
+                    text = stringResource(R.string.ai_client_prefix, action.name.ifBlank { stringResource(R.string.ai_unknown) }),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (action.setMobile.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_new_number, action.setMobile),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.setName.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_new_name, action.setName),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.setRelation.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_relation,
+                            action.setRelation +
+                                if (action.setOtherRelation.isNotBlank()) " (${action.setOtherRelation})" else ""
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.addDiseases.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ai_new_wellness, action.addDiseases.joinToString(", ")),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.note.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_note_add, action.note),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                when {
+                    action.removeReminder ->
+                        Text(
+                            text = stringResource(R.string.ai_reminder_remove),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    action.setReminderDate.isNotBlank() ->
+                        Text(
+                            text = stringResource(R.string.ai_new_reminder, formatUpdateReminderDisplay(action)),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                }
+                if (action.logCallOutcome.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_call_logged,
+                            stringResource(
+                                when (action.logCallOutcome) {
+                                    "answered" -> R.string.call_outcome_answered
+                                    "callback" -> R.string.call_outcome_callback
+                                    else -> R.string.call_outcome_no_answer
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (!action.removeReminder && action.setReminderRepeat.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_repeat,
+                            stringResource(
+                                when (action.setReminderRepeat) {
+                                    "daily" -> R.string.repeat_daily
+                                    "weekly" -> R.string.repeat_weekly
+                                    "monthly" -> R.string.repeat_monthly
+                                    else -> R.string.repeat_none
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else if (isBulk) {
+                // BULK card: what change + which filter picks the leads.
+                Text(
+                    text = when (action.bulkOp) {
+                        "archive" -> stringResource(R.string.ai_bulk_op_archive)
+                        "complete" -> stringResource(R.string.ai_bulk_op_complete)
+                        else -> stringResource(
+                            R.string.ai_bulk_op_reminder,
+                            formatUpdateReminderDisplay(action)
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (action.bulkOp == "setReminder" && action.setReminderRepeat.isNotBlank()) {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_new_repeat,
+                            stringResource(
+                                when (action.setReminderRepeat) {
+                                    "daily" -> R.string.repeat_daily
+                                    "weekly" -> R.string.repeat_weekly
+                                    else -> R.string.repeat_monthly
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.bulkNames.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_names, action.bulkNames.joinToString(", ")),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkNames.isEmpty() && action.bulkPendingOnly) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_pending),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkOverdueOnly) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_overdue),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (action.bulkIdleDays > 0) {
+                    Text(
+                        text = stringResource(R.string.ai_bulk_idle, action.bulkIdleDays),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.ai_bulk_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (isDelete) {
+                // DELETE card: light confirmation only, not a scary dialog.
+                Text(
+                    text = stringResource(R.string.ai_client_prefix, action.name.ifBlank { stringResource(R.string.ai_unknown) }),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = stringResource(R.string.ai_delete_forever),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = if (isStatus) {
+                        "Client: ${action.name.ifBlank { "Unknown" }}"
+                    } else {
+                        "Naam: ${action.name.ifBlank { "Unknown" }}"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (action.mobile.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_mobile_prefix, action.mobile),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.diseases.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ai_wellness_prefix, action.diseases.joinToString(", ")),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.note.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_note_prefix, action.note),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (action.reminderDate.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.ai_reminder_prefix, formatReminderDisplay(action)),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (action.reminderRepeat.isNotBlank()) {
+                        Text(
+                            text = stringResource(
+                                R.string.ai_new_repeat,
+                                stringResource(
+                                    when (action.reminderRepeat) {
+                                        "daily" -> R.string.repeat_daily
+                                        "weekly" -> R.string.repeat_weekly
+                                        else -> R.string.repeat_monthly
+                                    }
+                                )
+                            ),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                if (isStatus) {
+                    Text(
+                        text = stringResource(R.string.ai_new_status, action.status),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                when {
+                    isStatus -> Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_status_confirm")
+                    ) {
+                        Text(stringResource(R.string.ai_update))
+                    }
+                    isUpdate -> Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_update_confirm")
+                    ) {
+                        Text(stringResource(R.string.ai_update))
+                    }
+                    isBulk -> Button(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_bulk_confirm")
+                    ) {
+                        Text(stringResource(R.string.ai_bulk_apply))
+                    }
+                    isDelete -> OutlinedButton(
+                        onClick = onSave,
+                        modifier = Modifier.testTag("ai_lead_delete_confirm")
+                    ) {
+                        Text(stringResource(R.string.ai_confirm_delete))
+                    }
+                    else -> {
+                        if (!isDraft) {
+                            Button(
+                                onClick = onSave,
+                                modifier = Modifier.testTag("ai_lead_save_confirm")
+                            ) {
+                                Text(stringResource(R.string.ai_save_lead))
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onSaveAsDraft,
+                            modifier = Modifier.testTag("ai_lead_save_draft")
+                        ) {
+                            Text(stringResource(R.string.ai_save_draft))
+                        }
+                    }
+                }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("ai_lead_save_cancel")
+                ) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AIThinkingBubble() {
     val infiniteTransition = rememberInfiniteTransition(label = "thinking_pulse")
@@ -603,7 +1752,7 @@ private fun AIThinkingBubble() {
                 modifier = Modifier.size(13.dp)
             )
             Text(
-                text = "Thinking...",
+                text = stringResource(R.string.ai_thinking),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
@@ -619,9 +1768,120 @@ private fun AIChatComposer(
     inputText: String,
     isThinking: Boolean,
     onInputChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onVoiceTranscript: (String) -> Unit = {},
+    onVoiceDirectSend: (String) -> Unit = {},
+    boloListening: Boolean = false
 ) {
-    val isSendEnabled = inputText.isNotBlank() && !isThinking
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Voice input (STT) - the phone's built-in speech service, no API key.
+    // Two ways to finish (like ChatGPT):
+    //  A) tap the mic again  -> transcript goes into the textbox
+    //  B) tap Send while the mic is on -> transcript goes straight to the AI
+    val voiceHelper = remember(context) { VoiceInputHelper(context) }
+    DisposableEffect(Unit) { onDispose { voiceHelper.shutdown() } }
+    var isListening by remember { mutableStateOf(false) }
+    var isConverting by remember { mutableStateOf(false) }
+    var sendDirectlyNext by remember { mutableStateOf(false) }
+    var micPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    fun startVoiceListening() {
+        if (isListening || isConverting || isThinking) return
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        voiceHelper.start(
+            onResult = { text ->
+                isListening = false
+                isConverting = false
+                val direct = sendDirectlyNext
+                sendDirectlyNext = false
+                if (direct) onVoiceDirectSend(text) else onVoiceTranscript(text)
+            },
+            onError = { message ->
+                isListening = false
+                isConverting = false
+                sendDirectlyNext = false
+                // Empty message = silent reset (user pressed back, etc.)
+                if (message.isNotBlank()) {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+        isListening = voiceHelper.isListening
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        micPermissionGranted = granted
+        if (granted) {
+            startVoiceListening()
+        } else {
+            Toast.makeText(
+                context,
+                "Mic permission chahiye - Settings me 'Record audio' allow karo.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // Safety net: if the recognition callback ever gets lost (rare device
+    // quirk), never leave the composer stuck in the "converting" state.
+    LaunchedEffect(isConverting) {
+        if (isConverting) {
+            kotlinx.coroutines.delay(10_000)
+            if (isConverting) {
+                isListening = false
+                isConverting = false
+                sendDirectlyNext = false
+            }
+        }
+    }
+
+    val onMicClick: () -> Unit = {
+        AiVoicePlayer.stop()
+        when {
+            isThinking || isConverting -> {}
+            isListening -> {
+                // Option A: stop listening -> transcript goes to the textbox.
+                sendDirectlyNext = false
+                isConverting = true
+                voiceHelper.stop()
+            }
+            else -> {
+                if (micPermissionGranted) startVoiceListening()
+                else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    val isSendEnabled = !isThinking && !isConverting &&
+        (inputText.isNotBlank() || isListening)
+
+    val onSendClick: () -> Unit = {
+        AiVoicePlayer.stop()
+        when {
+            isThinking || isConverting -> {}
+            isListening -> {
+                // Option B: direct send while the mic is still on.
+                sendDirectlyNext = true
+                isConverting = true
+                voiceHelper.stop()
+            }
+            else -> {
+                if (inputText.isNotBlank()) onSend()
+            }
+        }
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -649,10 +1909,15 @@ private fun AIChatComposer(
                 ) {
                     TextField(
                         value = inputText,
-                        onValueChange = onInputChange,
+                        onValueChange = { if (!isListening) onInputChange(it) },
                         placeholder = {
                             Text(
-                                text = "Message LifeFresh AI",
+                                text = when {
+                                    isListening -> stringResource(R.string.ai_bolo)
+                                    boloListening -> stringResource(R.string.ai_bolo_listening)
+                                    isConverting -> stringResource(R.string.ai_converting)
+                                    else -> stringResource(R.string.ai_placeholder)
+                                },
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontSize = 14.5.sp
                                 ),
@@ -661,6 +1926,9 @@ private fun AIChatComposer(
                         },
                         modifier = Modifier
                             .weight(1f)
+                            // Let the field shrink below its intrinsic width so
+                            // the mic + send buttons never overlap on narrow screens.
+                            .widthIn(min = 0.dp)
                             .testTag("message_input"),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
@@ -681,31 +1949,69 @@ private fun AIChatComposer(
                         keyboardActions = KeyboardActions(
                             onSend = {
                                 if (isSendEnabled) {
-                                    onSend()
+                                    onSendClick()
                                 }
                             }
                         ),
-                        maxLines = 4
+                        maxLines = 1
                     )
 
+                    if (isListening) {
+                        Text(
+                            text = stringResource(R.string.ai_bolo),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
+
+                    if (isConverting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(horizontal = 8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    // Mic + send: flat icons, no circles (ChatGPT-style).
+                    // Each button is a fixed 30dp slot in the Row, so they
+                    // can never touch or overlap the textbox.
                     IconButton(
-                        onClick = onSend,
+                        onClick = onMicClick,
+                        enabled = !isThinking && !isConverting,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(30.dp)
+                            .testTag("mic_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                            contentDescription = if (isListening) stringResource(R.string.cd_stop_voice) else stringResource(R.string.cd_voice_input),
+                            tint = if (isListening) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (isThinking) 0.35f else 0.8f
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onSendClick,
                         enabled = isSendEnabled,
                         modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSendEnabled) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                            )
+                            .padding(start = 6.dp)
+                            .size(30.dp)
                             .testTag("send_button")
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = if (isSendEnabled) MaterialTheme.colorScheme.onPrimary
+                            contentDescription = stringResource(R.string.cd_send),
+                            tint = if (isSendEnabled) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -714,7 +2020,7 @@ private fun AIChatComposer(
     }
 }
 
-// Legacy data classes preserved for CRMViewModel & VoiceConversationManager backward compatibility
+// Shared chat data classes used by CRMViewModel and the AI chat screen
 enum class Sender { USER, AI }
 
 data class MockMessage(
@@ -725,7 +2031,8 @@ data class MockMessage(
     val isError: Boolean = false,
     val isOfflineWarning: Boolean = false,
     val isConfirmation: Boolean = false,
-    val actionCardType: String? = null
+    val actionCardType: String? = null,
+    val responseDurationMs: Long = 0
 )
 
 data class ChatSession(
@@ -733,7 +2040,6 @@ data class ChatSession(
     val title: String = "",
     val messages: List<MockMessage> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false
 )
-
-

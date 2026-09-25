@@ -19,6 +19,18 @@ open class LifeFreshApplication : Application() {
         AIConfig.customGeminiApiKeyProvider = {
             AIQuotaManager.getCustomGeminiKey(this) ?: ""
         }
+        AIConfig.customGroqApiKeyProvider = {
+            AIQuotaManager.getCustomGroqKey(this) ?: ""
+        }
+        AIConfig.customOpenRouterApiKeyProvider = {
+            AIQuotaManager.getCustomOpenRouterKey(this) ?: ""
+        }
+        AIConfig.customTavilyApiKeyProvider = {
+            AIQuotaManager.getCustomTavilyKey(this) ?: ""
+        }
+        AIConfig.agentModeProvider = {
+            AIQuotaManager.isAgentModeEnabled(this)
+        }
     }
 
     override fun attachBaseContext(base: Context) {

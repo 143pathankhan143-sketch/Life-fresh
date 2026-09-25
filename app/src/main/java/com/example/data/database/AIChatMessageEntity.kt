@@ -30,5 +30,7 @@ data class AIChatMessageEntity(
     val isError: Boolean = false,
     val isOfflineWarning: Boolean = false,
     val isConfirmation: Boolean = false,
-    val actionCardType: String? = null
+    val actionCardType: String? = null,
+    // How long the AI took to produce this reply (0 = not an AI reply / unknown).
+    val responseDurationMs: Long = 0
 )

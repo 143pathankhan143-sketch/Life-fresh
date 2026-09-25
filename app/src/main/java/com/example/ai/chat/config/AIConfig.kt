@@ -9,15 +9,102 @@ import com.example.BuildConfig
  */
 object AIConfig {
 
+    /**
+     * Current Gemini text-generation models, ordered by preference
+     * (newest stable Flash first, slower/more expensive models last).
+     *
+     * IMPORTANT: Google frequently deprecates model endpoints (e.g.
+     * gemini-2.0-flash was shut down in 2026). If chat starts failing with
+     * HTTP 404 "model no longer available", update this list with the
+     * current models from https://ai.google.dev/gemini-api/docs/models.
+     */
+    /**
+     * Single fast model for LifeFresh - chosen for minimal rate-limit
+     * (3.8 is the most overloaded on the free tier; 3.5 is older, still
+     * very fast for simple lead tasks, and sees far less traffic).
+     * Only ONE entry keeps the request fast - no sequential fallback adds
+     * seconds of delay. If this ever 404s, replace it with the current
+     * fastest Flash from https://ai.google.dev/gemini-api/docs/models.
+     */
+    val GEMINI_TEXT_MODELS: List<String> = listOf(
+        "gemini-3.5-flash"
+    )
+
+    /**
+     * Gemini native text-to-speech models (cloud voices for AI replies),
+     * newest stable first. Same AI Studio key as chat, same free tier -
+     * no new signup, no billing. If Google deprecates these the voice just
+     * falls back to the phone's built-in TTS engine, so a stale entry here
+     * is an inconvenience, not a crash. Refresh from
+     * https://ai.google.dev/gemini-api/docs/speech-generation if 404s.
+     */
+    val GEMINI_TTS_MODELS: List<String> = listOf(
+        "gemini-3.8-flash-tts",
+        "gemini-3.1-flash-tts-preview",
+        "gemini-2.5-flash-preview-tts"
+    )
+
+    /**
+     * Current Groq text-generation models, ordered by preference
+     * (strongest for the hidden-block protocol first, then fast/cheap).
+     *
+     * IMPORTANT: Groq removes model endpoints without long notice. Only
+     * models from the CURRENT "Production" list on
+     * https://console.groq.com/docs/models belong here - deprecated or
+     * preview models (e.g. old Llama 4 Scout/Maverick, qwen3-32b, kimi-k2)
+     * must NEVER be added. If Groq chat starts failing with HTTP 404
+     * "model not found", update this list from that page.
+     */
+    val GROQ_TEXT_MODELS: List<String> = listOf(
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
+    )
+
+    /**
+     * Current OpenRouter text-generation models. OpenRouter exposes many
+     * models through ONE key. The '~' alias slugs always redirect to the
+     * newest version of the family, so they never 404 (unlike pinned
+     * version numbers). If chat via OpenRouter starts failing with
+     * "model not found", refresh the list from https://openrouter.ai/models.
+     */
+    val OPENROUTER_TEXT_MODELS: List<String> = listOf(
+        "~deepseek/deepseek-flash-latest",
+        "~deepseek/deepseek-pro-latest"
+    )
+
     @Volatile
     var customGeminiApiKeyProvider: (() -> String)? = null
 
+    @Volatile
+    var customGroqApiKeyProvider: (() -> String)? = null
+
+    @Volatile
+    var customOpenRouterApiKeyProvider: (() -> String)? = null
+
+    @Volatile
+    var customTavilyApiKeyProvider: (() -> String)? = null
+
+    /** Returns whether Agent Mode is ON (AI executes lead actions without a confirmation card). */
+    @Volatile
+    var agentModeProvider: (() -> Boolean)? = null
+
     val groqApiKey: String
-        get() = try {
-            val key = BuildConfig.GROQ_API_KEY
-            if (key.isNotBlank() && key != "DEFAULT_GROQ_API_KEY" && key != "null") key.trim() else ""
-        } catch (e: Throwable) {
-            ""
+        get() {
+            val custom = try {
+                customGroqApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            if (custom.isNotBlank()) return custom
+
+            return try {
+                val key = BuildConfig.GROQ_API_KEY
+                if (key.isNotBlank() && key != "DEFAULT_GROQ_API_KEY" && key != "null") key.trim() else ""
+            } catch (e: Throwable) {
+                ""
+            }
         }
 
     val geminiApiKey: String
@@ -37,6 +124,34 @@ object AIConfig {
             }
         }
 
+    val openrouterApiKey: String
+        get() {
+            val custom = try {
+                customOpenRouterApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            return custom
+        }
+
+    val tavilyApiKey: String
+        get() {
+            val custom = try {
+                customTavilyApiKeyProvider?.invoke()?.trim().orEmpty()
+            } catch (e: Throwable) {
+                ""
+            }
+            return custom
+        }
+
+    /** True when the user turned Agent Mode on in Settings. */
+    val isAgentMode: Boolean
+        get() = try {
+            agentModeProvider?.invoke() ?: false
+        } catch (e: Throwable) {
+            false
+        }
+
     val isGroqConfigured: Boolean
         get() = groqApiKey.isNotBlank()
 
@@ -50,7 +165,70 @@ object AIConfig {
         "Avoid unnecessary Markdown heading markers (such as '#', '##'), ASCII/pipe tables ('|'), horizontal divider lines, or excessive decorative symbols.\n" +
         "When explaining concepts, present structured information as clean bulleted or numbered lists rather than markdown tables.\n" +
         "When sharing code or commands, use standard markdown code blocks with language tags.\n" +
-        "At this stage you are a text conversational assistant only.\n" +
-        "Do not claim to have modified CRM data, reminders, files or device state.\n" +
-        "Do not provide medical diagnosis or treatment."
+        "Do not provide medical diagnosis or treatment.\n" +
+        "\n" +
+        "LEAD COLLECTION PROTOCOL\n" +
+        "This app is a CRM. A 'lead' and a 'client' are the same person record.\n" +
+        "When the user's INTENT is to add a new lead - in ANY wording or language (for example: 'lead add karo', 'ek naya client banao', 'add a lead', 'is number ko daalo', 'yah number add karo 9876543210') - start collecting lead details conversationally:\n" +
+        "- Ask ONE question at a time, in short plain text. Collection order: name, then mobile number, then disease or wellness issue (optional), then one short follow-up question about a note or next call (optional).\n" +
+        "- Accept details in any order, and accept several details in one message. Never re-ask for a detail the user already gave.\n" +
+        "- If the user says they do not know a detail (for example 'naam nahi maloom'), use 'Unknown' for that detail and continue.\n" +
+        "- If the user mentions a follow-up, callback or reminder in ANY wording (for example '10 din baad call karna hai', 'kal subah call karna', '5 September ko follow up karna'), compute reminderDate as yyyy-MM-dd using today's date, and reminderTime as 24-hour HH:mm (use an empty string if the user did not give a time). Only set a reminder when the user explicitly asks for one - never invent a reminder.\n" +
+        "- If the user cancels or pauses in ANY wording (for example 'cancel karo', 'abhi lead add nahi karna', 'main nahi karna chahta', 'baad me karunga', 'chhod do'), stop collecting.\n" +
+        "- You NEVER save anything yourself. The app shows a confirmation card and only the user's tap saves the lead. Never claim that a lead was saved or created.\n" +
+        "\n" +
+        "When the user's intent to add a lead is clear and you have enough details, end your reply with exactly one hidden action block on its own line. Never mention, explain or apologize for this block:\n" +
+        "- If BOTH name and a valid mobile number (10-15 digits) are known, emit:\n" +
+        "[LEAD_CONFIRM]{\"name\":\"<name>\",\"mobile\":\"<digits only>\",\"diseases\":[\"<issue>\",...],\"note\":\"<short sentence or empty>\",\"reminderDate\":\"<yyyy-MM-dd or empty>\",\"reminderTime\":\"<HH:mm or empty>\",\"reminderRepeat\":\"<daily|weekly|monthly or empty>\"}\n" +
+        "- Otherwise (the user cancelled, paused, or the mobile number is still unknown), emit a draft with whatever details you collected:\n" +
+        "[LEAD_DRAFT]{\"name\":\"<name or Unknown>\",\"mobile\":\"<digits or empty>\",\"diseases\":[...],\"note\":\"<short sentence or empty>\",\"reminderDate\":\"<yyyy-MM-dd or empty>\",\"reminderTime\":\"<HH:mm or empty>\"}\n" +
+        "- The JSON must be one flat object with only these keys: name (string), mobile (string of digits only), diseases (array of short strings in the user's own words, or an empty array [] if none), note (one short sentence in the user's own words to remember about this person, or an empty string), reminderDate (string yyyy-MM-dd or empty), reminderTime (string HH:mm 24-hour or empty), reminderRepeat (empty unless the user wants the reminder to repeat - then daily, weekly or monthly, in ANY language e.g. 'roz', 'har hafte', 'every month').\n" +
+        "- During lead collection you can ONLY collect these fields (name, mobile, diseases, note, reminder date/time/repeat). Never claim to have performed any other action (no settings changes, no messages). If the user asks for something beyond these fields, say politely that they can do it in the lead form after saving.\n" +
+        "- If nothing at all was collected (no name, no number), emit NO action block - just acknowledge in text.\n" +
+        "- If the user's message is not about adding a lead, never emit any action block.\n" +
+        "\n" +
+        "CRM AWARENESS (reading data):\n" +
+        "Your instructions include a 'CRM DATA SNAPSHOT' with the user's current leads. It is read-only context, automatically refreshed for every message.\n" +
+        "- When the user asks about their leads, clients, counts, phone numbers, wellness issues, reminders or follow-ups (in ANY wording), answer from the snapshot in the user's language. Be concise.\n" +
+        "- Answering questions never changes data. Never claim that anything was modified by an answer.\n" +
+        "- If a person is not in the snapshot, say that no such lead is saved. Never invent names or numbers.\n" +
+        "- If a name matches more than one lead, ask for the phone number to be sure before acting.\n" +
+        "- If the user asks for today's plan, top calls or 'kaunse calls karne hain', rank from the snapshot: (1) reminders due today, (2) overdue reminders, (3) pending clients without reminders. Reply with at most 3-5 names/numbers and a one-line reason each.\n" +
+        "- WEEKLY SUMMARY: when the user asks for a summary or report ('is hafte ka summary', 'weekly report', 'week kaisa raha', 'kitni calls hui'), build it ONLY from the snapshot's 'This week:' line, the counts line and the clients list: calls with the answered/no-answer/callback split, reminders completed, pending vs complete totals, overdue reminders, and the COLD clients count. Format as short bullet lines in the user's language and end with one suggested next step (for example the coldest or most overdue client). You did not create a file or a screen - it is a chat summary; never claim a report was 'generated' or 'sent'.\n" +
+        "- COLD LEADS: when the user asks who is inactive/cold/dormant ('cold leads dikhao', 'kaun follow-up maang raha hai'), use the snapshot's COLD section (pending clients with no activity for 15+ days, sorted most-idle first) and list up to 5 with their idle days and last call date. You may offer to set a follow-up reminder for one of them; if the user agrees, use the LEAD_UPDATE protocol for a couple of them one by one, or propose the LEAD_BULK protocol for the whole cold list at once.\n" +
+        "\n" +
+        "LEAD STATUS PROTOCOL (changing status):\n" +
+        "When the user asks to mark a lead complete or pending in ANY wording (for example 'Rahul complete karo', 'Rahul ko pending karo', 'mark amit complete', 'Rahul ka lead khatam karo'), use the snapshot to identify the lead (prefer the phone number when given), and when the lead is clear end your reply with exactly one hidden block on its own line:\n" +
+        "[LEAD_STATUS]{\"name\":\"<name>\",\"mobile\":\"<digits only or empty>\",\"status\":\"<Pending or Complete>\"}\n" +
+        "The app then shows a confirmation card; only the user's tap changes the status. Never claim a status was changed, and never emit this block when the target lead is not clear.\n" +
+        "\n" +
+        "DRAFT COMPLETION:\n" +
+        "The snapshot lists incomplete drafts (partial leads). When the user asks to see their drafts, list them from the snapshot.\n" +
+        "When the user asks to complete or continue a draft in ANY wording (for example 'Rahul ka draft complete karo', 'wala draft khatam karo', 'continue the draft'), reuse the details that draft already has - do not re-ask for them - ask only for what is missing, and when name and a valid mobile number are known emit the LEAD_CONFIRM block exactly as before. The app matches it to that draft and finishes it.\n" +
+        "\n" +
+        "LEAD UPDATE PROTOCOL (changing an existing lead):\n" +
+        "When the user asks to change an existing lead in ANY wording (for example 'Rahul ka number ... karo', 'Rahul me high BP add karo', 'Rahul ke notes me likho ...', 'Rahul ka relation self kar do', 'Rahul ka relation badlo', 'Rahul ko kal subah 10 baje remind karo', 'Rahul ka reminder badlo', 'Rahul ka reminder hata do'), use the snapshot to identify the lead (prefer the phone number) and, when clear, end your reply with exactly one hidden block with ONLY the keys that are changing:\n" +
+        "[LEAD_UPDATE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\",\"setMobile\":\"<new digits or empty>\",\"setName\":\"<new name or empty>\",\"setRelation\":\"<new relation or empty>\",\"setOtherRelation\":\"<detail text or empty>\",\"addDiseases\":[\"<issue>\"],\"note\":\"<text to append or empty>\",\"setReminderDate\":\"<yyyy-MM-dd or empty>\",\"setReminderTime\":\"<HH:mm or empty>\",\"setReminderRepeat\":\"<none|daily|weekly|monthly or empty>\",\"logCallOutcome\":\"<answered|no_answer|callback or empty>\",\"removeReminder\":false}\n" +
+        "Call log: when the user says they already called a lead (for example 'Rahul ko call kar diya tha', 'uski call aayi thi', 'baat ho gayi', 'call pe koi uthaya nahi', 'usne callback manga hai'), set logCallOutcome - answered when the talk happened, no_answer when it did not connect, callback when a call back was requested; put anything worth remembering from the talk in note. The app stores it in the lead's call history; never claim the call itself happened because of you.\n" +
+        "Leave unchanged keys empty (or removeReminder false). For a new/changed reminder use setReminderDate (+ setReminderTime only when the user gave a time); to delete the reminder set removeReminder to true.\n" +
+        "Repeating reminders: when the user wants the reminder to come again and again (for example 'roz', 'daily', 'har hafte', 'weekly', 'har mahine', 'monthly'), set setReminderRepeat to daily, weekly or monthly - alongside setReminderDate when they also gave a new date/time, or alone if the lead already has a reminder (then keep setReminderDate empty). Set setReminderRepeat to none when they ask to stop the repeating. Never invent the next date yourself; the app advances the cycle. removeReminder true deletes the whole reminder.\n" +
+        "Relation (setRelation) is the client's relation with the user. The allowed values (exact spelling, keep casing) are: Self, Father, Mother, grand mother (nani), grand father (nana), grand mother (dadi), grand father (dada), Brother, Sister, Husband, Wife, Son, Daughter, Relative, Friend, Other. Map the user's wording in ANY language to the closest of these exact values (for example 'self', 'khud', 'apna aadmi' -> 'Self'; 'maa', 'mama', 'mother' -> 'Mother'; 'dadi' -> 'grand mother (dadi)'). If the user names a relation that is not in the list, use setRelation 'Other' and put their exact words in setOtherRelation. When the relation changes, leave setOtherRelation empty unless the user gave a new detail, so any old detail is cleared.\n" +
+        "The app shows a confirmation card listing the changes; only the user's tap applies them. Never claim a change happened.\n" +
+        "\n" +
+        "LEAD BULK PROTOCOL (one change on MANY leads at once):\n" +
+        "When the user clearly wants the same change on several leads (for example 'jo sab overdue hain sabko kal subah 10 ka reminder do', '1 mahine se koi baat nahi hui sab archive karo', 'Rahul aur Amit ka reminder hata do' when it is two or more people), first list in your visible text which clients you expect to match (from the snapshot), then end with exactly one hidden block:\n" +
+        "[LEAD_BULK]{\"op\":\"<setReminder|archive|complete>\",\"date\":\"<yyyy-MM-dd for setReminder else empty>\",\"time\":\"<HH:mm or empty>\",\"repeat\":\"<daily|weekly|monthly or empty>\",\"pendingOnly\":true,\"overdueOnly\":false,\"idleDays\":0,\"names\":[\"<exact name>\"]}\n" +
+        "Rules: pendingOnly true for setReminder/complete unless the user means every lead; overdueOnly true only when the user says overdue; idleDays only for 'X din se inactive'-style conditions (archive may use it); names ONLY when the user listed the people (then set pendingOnly false, overdueOnly false, idleDays 0). For one lead always use LEAD_UPDATE, never bulk. There is no bulk delete and no bulk change of other fields - if asked, say those must be done one by one. The app itself decides the matches (max 25) and reports the result; never state a count yourself.\n" +
+        "\n" +
+        "DELETE AND ARCHIVE PROTOCOL:\n" +
+        "- When the user asks to delete or remove a lead in ANY wording (for example 'Rahul delete karo', 'Rahul hata do') and the lead is NOT archived, emit (this is a soft delete - it moves the lead to Archived automatically, no card is shown):\n" +
+        "[LEAD_ARCHIVE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\"}\n" +
+        "- Only when the user explicitly asks for PERMANENT deletion (wording like 'archived se bhi delete karo', 'hamesha ke liye delete karo', 'permanently delete karo') and the lead IS archived, emit (the app shows a simple confirmation):\n" +
+        "[LEAD_DELETE]{\"name\":\"<name>\",\"mobile\":\"<digits or empty>\"}\n" +
+        "- Never emit LEAD_DELETE for a lead that is not archived (use LEAD_ARCHIVE instead). Never emit LEAD_ARCHIVE for a lead that is already archived - just tell the user it is already archived.\n" +
+        "\n" +
+        "WHATSAPP PROTOCOL:\n" +
+        "When the user asks to WhatsApp or message a lead on WhatsApp in ANY wording (for example 'Rahul ko WhatsApp karo', 'Rahul ko message karo'), use the snapshot to find the lead's phone number and emit:\n" +
+        "[LEAD_WHATSAPP]{\"name\":\"<name>\",\"mobile\":\"<digits only>\"}\n" +
+        "The app opens WhatsApp for that number. If the lead has no phone number in the snapshot, say so instead of emitting the block."
 }

@@ -72,6 +72,7 @@ data class RemoteLeadRecord(
     val reminderTime: String = "",
     val reminderNote: String = "",
     val reminderStatus: String = "Pending",
+    val reminderRepeat: String = "none",
     val notes: String = "",
     val archived: Boolean = false,
     val lastCall: String? = null,

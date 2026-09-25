@@ -95,7 +95,7 @@ fun LanguageSelectionDialog(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Preparing download...",
+                                        text = stringResource(R.string.lang_preparing),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -108,7 +108,7 @@ fun LanguageSelectionDialog(
                                 }
                                 if (state.sessionId > 0) {
                                     TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                        Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                                        Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                             }
@@ -133,7 +133,7 @@ fun LanguageSelectionDialog(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Downloading ${state.language.nativeName}",
+                                            text = stringResource(R.string.lang_downloading, state.language.nativeName),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -153,7 +153,7 @@ fun LanguageSelectionDialog(
                                     }
                                     if (state.sessionId > 0) {
                                         TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                            Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                                            Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelSmall)
                                         }
                                     }
                                 }
@@ -200,13 +200,13 @@ fun LanguageSelectionDialog(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Installing ${state.language.nativeName}...",
+                                        text = stringResource(R.string.lang_installing, state.language.nativeName),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Please wait a moment",
+                                        text = stringResource(R.string.lang_wait),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -227,13 +227,13 @@ fun LanguageSelectionDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Confirmation Required",
+                                    text = stringResource(R.string.lang_confirm_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                                 Text(
-                                    text = "Google Play requires confirmation to download ${state.language.nativeName} over your network connection.",
+                                    text = stringResource(R.string.lang_confirm_msg, state.language.nativeName),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
@@ -243,7 +243,7 @@ fun LanguageSelectionDialog(
                                 ) {
                                     if (state.sessionId > 0) {
                                         TextButton(onClick = { onCancelPlayInstall(state.sessionId) }) {
-                                            Text("Cancel")
+                                            Text(stringResource(R.string.common_cancel))
                                         }
                                     }
                                 }
@@ -263,7 +263,7 @@ fun LanguageSelectionDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Download Failed",
+                                    text = stringResource(R.string.lang_failed),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.error
@@ -279,7 +279,7 @@ fun LanguageSelectionDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     TextButton(onClick = { onResetPlayInstall() }) {
-                                        Text("Dismiss", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(stringResource(R.string.common_dismiss), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     if (state.language != null) {
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -291,7 +291,7 @@ fun LanguageSelectionDialog(
                                         ) {
                                             Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Retry")
+                                            Text(stringResource(R.string.common_retry))
                                         }
                                     }
                                 }
@@ -366,7 +366,7 @@ fun LanguageSelectionDialog(
                                     }
                                     Text(
                                         text = when (lang) {
-                                            AppLanguage.ENGLISH -> "English (Default)"
+                                            AppLanguage.ENGLISH -> stringResource(R.string.lang_english)
                                             AppLanguage.HINDI -> "Hindi (Devanagari)"
                                             AppLanguage.URDU -> "Urdu (RTL)"
                                             AppLanguage.TAMIL -> "Tamil"
@@ -461,7 +461,7 @@ fun LanguageSelectionDialog(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.DeleteOutline,
-                                                            contentDescription = "Remove ${pack.displayName}",
+                                                            contentDescription = stringResource(R.string.remove_pack, pack.displayName),
                                                             tint = MaterialTheme.colorScheme.error,
                                                             modifier = Modifier.size(20.dp)
                                                         )
@@ -505,7 +505,7 @@ fun LanguageSelectionDialog(
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
-                                                        contentDescription = "Retry download",
+                                                        contentDescription = stringResource(R.string.cd_retry_download),
                                                         tint = MaterialTheme.colorScheme.error
                                                     )
                                                 }

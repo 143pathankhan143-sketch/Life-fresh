@@ -20,10 +20,8 @@ source of truth, Firestore is an optional sync target.
 | --- | --- | --- |
 | **Dashboard** | Lead analytics, performance overview, pending/completed counts | `ui/screens/DashboardTab.kt` |
 | **Leads** | Lead CRUD, native search, multi-select filters, bulk ops, WhatsApp follow-up | `ui/screens/LeadsTab.kt`, `leads/` |
-| **AI chat** | Conversational assistant with provider routing + quota guard | `ai/chat/`, `ui/screens/AIScreen.kt` |
-| **AI actions** | Local intent parsing, entity extraction, confirmation-gated execution | `ai/intent/`, `ai/extraction/`, `leads/ai/` |
+| **AI chat** | Pure chatbot: Gemini/Groq provider routing, quota guard, durable per-user conversations | `ai/chat/`, `ui/screens/AIScreen.kt` |
 | **Reminders** | Exact alarms, 10 ringtones, snooze/dismiss/complete actions, boot reschedule | `audio/`, `reminder/` |
-| **Voice** | Speech recognition + TTS conversation loop with voice confirmations | `voice/` |
 | **Sync** | Outbox / conflict / checkpoint tables, WorkManager auto-sync | `sync/` |
 | **Reports** | PDF export via FileProvider | `pdf/PdfGenerator.kt`, `ui/screens/ReportsTab.kt` |
 | **i18n** | English + Hindi, Tamil, Urdu; runtime string packs | `data/AppStrings.kt`, `res/values-*/` |
@@ -75,34 +73,38 @@ Or just let Android Studio manage the build.
 ./gradlew connectedCheck  # instrumented (needs a device/emulator)
 ```
 
-> ⚠️ Known gap: `app/build.gradle.kts` currently `exclude`s 12 AI test classes from
-> `KotlinCompile` (`VoiceIntelligenceTest`, `BulkIntelligenceTest`, `OcrIntelligenceTest`,
-> `HybridRuntimeTest`, `LLMIntegrationFrameworkTest`, `AIWorkflowEngineTest`,
-> `AIAuditEngineTest`, …). Those tests exist but never run. Tracked as a follow-up.
-
 ## Project layout
 
 ```
-app/                     Android module (111 Kotlin sources, ~35k LOC)
+app/                     Android module (Kotlin/Compose)
   src/main/java/com/example/
-    ai/                  chat providers, intent, extraction, language, actions
-    leads/               AI workflow, validation, operation service
+    ai/chat/             chatbot: provider router, models, formatter, repository
+    leads/               manual lead-form validation + shared save operation
     audio/  reminder/    alarms, ringtones, scheduling, boot receiver
-    voice/               STT / TTS conversation manager
     sync/                outbox, conflicts, checkpoints, Firestore data source
     data/                Room DB, repositories, language packs, AI quota
     ui/                  screens (Compose), theme, viewmodels
-  src/test/java/         45 test classes
-docs2/                   68 AI/engineering specification docs + sprints/
+  src/test/java/         unit + Robolectric test classes
+docs2/                   AI/engineering specification docs + sprints/
 gradle/libs.versions.toml  version catalog
 ```
 
 ## Documentation notes
 
-`docs2/` holds the specification set for the AI subsystem. Read
-`docs2/AI_Documentation_to_Code_Mapping.md` first — it is an honest audit of which
-engines are actually implemented. Its own verdict for the current snapshot:
-**2 implemented · 28 partially implemented · 34 not implemented · 3 documentation-only**.
+`docs2/` holds the specification set for the AI subsystem.
+
+- **Start here for current truth:** `docs2/AI_Status_Baseline_v3.md` — the
+  feature-by-feature status sheet (Ready / Partial / Disconnected / Planned /
+  Deferred), updated at the end of every implementation phase. The deterministic
+  agent layer (intent parsing, action dispatch, lead-AI workflow, voice engine,
+  AI proxy) was removed on 16 September 2026; the app is a pure chatbot now and
+  the agent will be rebuilt from scratch later.
+- `docs2/DB_Migration_Policy.md` — Room migration rules (no destructive
+  fallbacks, batched version bumps, migration tests mandatory).
+- `docs2/AI_Documentation_to_Code_Mapping.md` — the original (July 2026)
+  spec-to-code audit; kept as **history** (it predates the current
+  parser/voice/chat stack). Its verdict at the time: **2 implemented ·
+  28 partially implemented · 34 not implemented · 3 documentation-only**.
 
 Two known documentation/code mismatches to keep in mind:
 

@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/life_fresh_quicknote"
+        android:drawable="@drawable/life_fresh_quicknote_v3"
         android:gravity="center" />
 </layer-list>
