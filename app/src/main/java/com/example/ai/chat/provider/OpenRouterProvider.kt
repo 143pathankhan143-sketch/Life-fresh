@@ -31,9 +31,9 @@ import java.util.concurrent.TimeUnit
 class OpenRouterProvider(
     private val apiKeyProvider: () -> String = { AIConfig.openrouterApiKey },
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(8, TimeUnit.SECONDS)
         .build()
 ) : AIProvider {
     override val name: String = "OpenRouter"

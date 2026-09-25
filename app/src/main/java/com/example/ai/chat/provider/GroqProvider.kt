@@ -23,9 +23,9 @@ import java.util.concurrent.TimeUnit
 class GroqProvider(
     private val apiKeyProvider: () -> String = { AIConfig.groqApiKey },
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(8, TimeUnit.SECONDS)
         .build(),
     private val modelName: String = AIConfig.GROQ_TEXT_MODELS.first()
 ) : AIProvider {

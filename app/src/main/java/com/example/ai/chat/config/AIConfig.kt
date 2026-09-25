@@ -18,13 +18,16 @@ object AIConfig {
      * HTTP 404 "model no longer available", update this list with the
      * current models from https://ai.google.dev/gemini-api/docs/models.
      */
+    /**
+     * Single fast model for LifeFresh - chosen for minimal rate-limit
+     * (3.8 is the most overloaded on the free tier; 3.5 is older, still
+     * very fast for simple lead tasks, and sees far less traffic).
+     * Only ONE entry keeps the request fast - no sequential fallback adds
+     * seconds of delay. If this ever 404s, replace it with the current
+     * fastest Flash from https://ai.google.dev/gemini-api/docs/models.
+     */
     val GEMINI_TEXT_MODELS: List<String> = listOf(
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-3.5-flash",
-        "gemini-flash-latest",
-        "gemini-3.1-pro-preview"
+        "gemini-3.5-flash"
     )
 
     /**

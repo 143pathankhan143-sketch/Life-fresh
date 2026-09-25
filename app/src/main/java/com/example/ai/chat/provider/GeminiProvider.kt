@@ -24,11 +24,9 @@ import java.util.concurrent.TimeUnit
 class GeminiProvider(
     private val apiKeyProvider: () -> String = { AIConfig.geminiApiKey },
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        // Gemini 3.x Flash models can legitimately need 10-20s on a mobile
-        // network; 25s caused intermittent timeouts on 5G.
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(8, TimeUnit.SECONDS)
         .build(),
     private val modelName: String = AIConfig.GEMINI_TEXT_MODELS.first()
 ) : AIProvider {
