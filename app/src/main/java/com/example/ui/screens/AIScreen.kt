@@ -106,6 +106,18 @@ fun AIScreen(
         chatViewModel.attachCrmViewModel(viewModel)
     }
 
+    // Voice full-app control (M2): a spoken sentence that is not an app
+    // command is handed over here ("AI se pucho ..." / a plain question).
+    // MainActivity posts it and switches to this tab; we send it once.
+    LaunchedEffect(Unit) {
+        com.example.voice.android.VoiceHandoff.prompts.collect { pending ->
+            if (pending != null) {
+                chatViewModel.sendMessage(pending)
+                com.example.voice.android.VoiceHandoff.consume()
+            }
+        }
+    }
+
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
     val inputText by chatViewModel.inputText.collectAsStateWithLifecycle()
 

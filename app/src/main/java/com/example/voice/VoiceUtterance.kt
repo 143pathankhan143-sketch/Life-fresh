@@ -43,6 +43,29 @@ object VoiceUtterance {
     /** Too many words = not a yes/no answer (it is a sentence) → fewer false "yes". */
     private const val MAX_AFFIRM_WORDS = 4
 
+    /**
+     * "Stop talking right now" words. Deliberately short and few — a barge-in
+     * must not fire on a normal sentence that happens to contain "bas".
+     * "rok/band/stop" also appear in [NEG_WORDS], so when a confirmation is
+     * open the negation rule already cancels the action.
+     */
+    private val BARGE_IN_WORDS: Set<String> = setOf(
+        "ruko", "ruk", "rukjao", "ruko", "rukja", "chup", "choop", "chupo", "stop", "bas",
+        "khamosh", "silence", "quiet",
+        "रुको", "रुक", "चुप", "चुप्प", "बस", "खामोश",
+        "رکو", "چپ", "بس", "خاموش",
+        "நிறுத்து", "சத்தம்"
+    )
+
+    private const val MAX_BARGE_IN_WORDS = 3
+
+    /** "ruko" / "chup" / "stop" — the user wants the phone to shut up. */
+    fun isBargeIn(text: String): Boolean {
+        val tokens = tokens(text)
+        if (tokens.isEmpty() || tokens.size > MAX_BARGE_IN_WORDS) return false
+        return tokens.any { it in BARGE_IN_WORDS }
+    }
+
     fun classifyYesNo(text: String): YesNoAnswer {
         val tokens = tokens(text)
         if (tokens.isEmpty()) return YesNoAnswer.UNKNOWN

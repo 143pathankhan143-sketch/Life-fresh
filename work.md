@@ -218,7 +218,7 @@ Pure Kotlin (no Android) — compile + run with the `kotlin-jupyter-kernel` Kotl
 | M | Kya | Done when |
 |---|---|---|
 | **M1** | VoiceCommand + Parser + ConfirmGate (+ tests) — pure Kotlin | ✅ DONE — `com.example.voice` (4 files) + 2 test classes; 32/32 deterministic tests green |
-| **M2** | VoiceAppController + VoiceNavigator + feedback + screen announce; global mic entry on main tabs | "leads dikhao" tab badle, TTS announce kare |
+| **M2** | VoiceAppController + VoiceNavigator + feedback + screen announce; global mic entry on main tabs | ✅ DONE (code) — pure core `VoiceLoop`/`VoiceEffect`/`VoiceTexts`/`VoiceNavigator`/`VoiceCapabilities` + Android glue `VoiceAppController`/`AndroidVoiceTexts`/`VoiceMicButton` + mic FAB on main tabs + 21 `vc_*` strings × 4 locales; 67/67 tests green. Device check pending: "leads dikhao" → tab badle + TTS announce |
 | **M3** | Leads CRUD voice (reuse AI LEAD_* flow) | add/search/update/status/delete/bulk sab voice se, confirm cards voice se |
 | **M4** | Backup/restore/local-delete voice + **triple cloud delete gate** | backup/restore 1×; local 2×; cloud 3× exact phrase; `nahi` cancel |
 | **M5** | Settings voice: language / AI voice / Bolo | "bhasha hindi karo" → TTS hi-IN me hi jawab de |

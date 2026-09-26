@@ -80,6 +80,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import android.widget.Toast
+import com.example.voice.VocalDestination
+import com.example.voice.VoiceNavigator
+import com.example.voice.VoiceTextKeys
+import com.example.voice.android.AndroidVoiceTexts
+import com.example.voice.android.VoiceAppController
+import com.example.voice.android.VoiceConfirmBanner
+import com.example.voice.android.VoiceEffectHandler
+import com.example.voice.android.VoiceHandoff
+import com.example.voice.android.VoiceMicButton
 
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: android.content.Context) {
@@ -435,6 +445,109 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         }
     }
 
+    // ---------------------------------------------------------------------
+    //  Voice full-app control (M2): one mic button on every main tab.
+    //  The rules live in com.example.voice (pure Kotlin, tested); this block
+    //  only plays the script the loop returns and reports back what was heard.
+    // ---------------------------------------------------------------------
+    var voiceListening by remember { mutableStateOf(false) }
+    var voiceSessionOn by remember { mutableStateOf(false) }
+    var voiceConfirmPrompt by remember { mutableStateOf<String?>(null) }
+
+    val voiceTexts = remember { AndroidVoiceTexts(applicationContext) { appLanguage.code } }
+    val voiceHandler = remember {
+        object : VoiceEffectHandler {
+            override fun navigate(destination: VocalDestination) {
+                navController.navigate(VoiceNavigator.routeFor(destination)) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+
+            override fun back() {
+                navController.popBackStack()
+            }
+
+            override fun askAI(prompt: String) {
+                VoiceHandoff.post(prompt)
+                navController.navigate(VoiceNavigator.ROUTE_AI) { launchSingleTop = true }
+            }
+
+            override fun showConfirmCard(prompt: String?) {
+                voiceConfirmPrompt = prompt
+            }
+
+            override fun navAnnouncement(destination: VocalDestination): String? {
+                if (!VoiceNavigator.announcesCounts(destination)) return null
+                val activeLeads = viewModel.allLeadsList.value.filter { !it.archived && !it.isDraft }
+                val pending = activeLeads.count { it.status.equals("Pending", ignoreCase = true) }
+                return voiceTexts.get(
+                    VoiceTextKeys.NAV_DONE,
+                    voiceTexts.destinationName(destination)
+                ) + " " + voiceTexts.get(VoiceTextKeys.NAV_COUNTS, pending, activeLeads.size)
+            }
+
+            override fun onSessionChanged(active: Boolean) {
+                voiceSessionOn = active
+                if (!active) voiceConfirmPrompt = null
+            }
+
+            override fun onListeningChanged(listening: Boolean) {
+                voiceListening = listening
+            }
+
+            override fun onSpeakingChanged(speaking: Boolean) {
+                // The mic button shows listening state only; speaking state is
+                // reported by AiVoicePlayer itself.
+            }
+        }
+    }
+
+    val voiceController = remember {
+        VoiceAppController(
+            context = applicationContext,
+            texts = voiceTexts,
+            handler = voiceHandler,
+            scope = lifecycleScope
+        )
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { voiceController.shutdown() }
+    }
+
+    // The chat screen has its own mic and Bolo mode, and sub-screens/dialogs
+    // should never sit under an open voice session.
+    LaunchedEffect(isMainTab, activeTab) {
+        if (!isMainTab || activeTab == "ai") voiceController.cancelSession()
+    }
+
+    val voiceMicPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            voiceController.toggleMic()
+        } else {
+            Toast.makeText(
+                this@MainActivity,
+                "Mic permission chahiye - Settings me 'Record audio' allow karo.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    val onVoiceMicTap: () -> Unit = {
+        val granted = ContextCompat.checkSelfPermission(
+            this@MainActivity,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) voiceController.toggleMic()
+        else voiceMicPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
     val allLeads by viewModel.allLeadsList.collectAsStateWithLifecycle()
 
     // Alarm triggers observed from background poll routines
@@ -572,16 +685,35 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         } else {
             {}
         },
+        snackbarHost = {
+            // Spoken confirmations are echoed here: above the nav bar, in front
+            // of the screen content, and gone the moment the gate closes.
+            VoiceConfirmBanner(prompt = voiceConfirmPrompt)
+        },
         floatingActionButton = {
-            // Show FAB only on Leads panel, matches standard mobile workflows
-            if (isMainTab && activeTab == "leads") {
-                FloatingActionButton(
-                    onClick = { navController.navigate("add_lead") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    modifier = Modifier.testTag("btn_fab_add_lead")
-                ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_customer))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Add-lead FAB stays a Leads-panel affordance.
+                if (isMainTab && activeTab == "leads") {
+                    FloatingActionButton(
+                        onClick = { navController.navigate("add_lead") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                        modifier = Modifier.testTag("btn_fab_add_lead")
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_customer))
+                    }
+                }
+                // Global voice entry (M2): every main tab except the AI chat,
+                // which already has its own mic + Bolo mode.
+                if (isMainTab && activeTab != "ai") {
+                    VoiceMicButton(
+                        listening = voiceListening,
+                        sessionActive = voiceSessionOn,
+                        onTap = onVoiceMicTap
+                    )
                 }
             }
         }

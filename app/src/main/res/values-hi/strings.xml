@@ -913,4 +913,27 @@
     <string name="ai_voice_auto">अपने आप (AI खुद चुनेगी)</string>
     <string name="ai_tts_test_sample">नमस्ते! मैं LifeFresh AI हूँ। मैं तुम्हारे जवाब तुम्हारी अपनी भाषा में बोलकर सुना सकता हूँ।</string>
     <string name="ai_tts_pack_missing">इस भाषा की आवाज़ फोन में इंस्टॉल नहीं है। Settings &gt; Speech Services जाकर वॉइस डेटा इंस्टॉल करो, या Settings में मुफ़्त AI आवाज़ चालू करो।</string>
+
+    <!-- Voice full-app control (M2+): spoken prompts, confirmations, feedback. -->
+    <string name="vc_nav_prompt">%1$s स्क्रीन खोल दूँ? हाँ बोलें या नहीं।</string>
+    <string name="vc_nav_done">%1$s स्क्रीन खुल गई।</string>
+    <string name="vc_nav_counts">%1$d पेंडिंग, कुल %2$d लीड्स।</string>
+    <string name="vc_back_done">वापस पिछली स्क्रीन पर आ गया।</string>
+    <string name="vc_back_prompt">पिछली स्क्रीन पर वापस जाना है? हाँ बोलें या नहीं।</string>
+    <string name="vc_confirm_ok">ठीक है? हाँ बोलें या नहीं।</string>
+    <string name="vc_cancelled">ठीक है, रद्द कर दिया।</string>
+    <string name="vc_say_yes_or_no">हाँ बोलें या नहीं।</string>
+    <string name="vc_heard_nothing">कुछ सुनाई नहीं दिया, दोबारा बोलें।</string>
+    <string name="vc_mic_unavailable">इस फ़ोन में वॉइस काम नहीं कर रहा। टाइप करके लिख सकते हैं।</string>
+    <string name="vc_stopped">रुक गया।</string>
+    <string name="vc_not_yet">यह काम अभी वॉइस से नहीं होता। स्क्रीन पर कर सकते हैं।</string>
+    <string name="vc_pakka">पक्का? फिर से हाँ बोलें।</string>
+    <string name="vc_backup_prompt">क्लाउड बैकअप कर दूँ? हाँ बोलें या नहीं।</string>
+    <string name="vc_restore_prompt">बैकअप वापस ला दूँ? हाँ बोलें या नहीं।</string>
+    <string name="vc_local_delete_prompt">लोकल डेटा डिलीट कर दूँ? हाँ बोलें या नहीं।</string>
+    <string name="vc_cloud_delete_1">क्लाउड बैकअप हमेशा के लिए डिलीट कर दूँ?</string>
+    <string name="vc_cloud_delete_2">यह वापस नहीं आएगा, पक्का हाँ?</string>
+    <string name="vc_cloud_delete_3">आख़िरी बार — \'हाँ डिलीट करो\' बोलें।</string>
+    <string name="vc_help">आप बोल सकते हैं: \'leads dikhao\', \'dashboard dikhao\', \'backup karo\', \'settings kholo\'. या सीधे सवाल पूछें।</string>
+    <string name="vc_search_prompt">\'%1$s\' ढूँढना है? हाँ बोलें या नहीं।</string>
 </resources>

@@ -27,8 +27,31 @@ sealed class ConfirmStep {
     object Waiting : ConfirmStep()
 }
 
-/** The ONLY phrases accepted as the third (final) cloud-delete confirmation. */
-val TRIPLE_ACCEPT_PHRASES: Set<String> = setOf("haan delete karo", "yes delete")
+/**
+ * The ONLY phrases accepted as the third (final) cloud-delete confirmation.
+ *
+ * The first two roman phrases are the spec-mandated ones and must never be
+ * removed. The rest are THE SAME SENTENCE in the other supported scripts:
+ * speech recognition returns the script of the phone's language even when the
+ * user copied a roman prompt, so without these a Hindi/Tamil/Urdu user could
+ * never finish the cloud-delete flow. Each entry is exactly the phrase the
+ * matching locale teaches in `vc_cloud_delete_3` (checked by tests) — nothing
+ * looser, and deliberately no cross-language mixes.
+ */
+val TRIPLE_ACCEPT_PHRASES: Set<String> = setOf(
+    // Spec-exact (roman) — the plan's guarantee.
+    "haan delete karo",
+    "yes delete",
+    // Hindi (Devanagari).
+    "हाँ डिलीट करो",
+    "हां डिलीट करो",
+    "हाँ डिलिट करो",
+    "हां डिलिट करो",
+    // Urdu (Nastaliq).
+    "ہاں ڈیلیٹ کرو",
+    // Tamil.
+    "ஆம் நீக்கு"
+)
 
 /**
  * Pure-Kotlin confirmation state machine (no Android imports).
@@ -111,12 +134,23 @@ class VoiceConfirmGate(
         prompts = emptyList()
     }
 
-    private fun normalize(s: String): String =
-        s.trim()
-            .lowercase(Locale.ROOT)
-            .replace(Regex("[\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E]+"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
+    private fun normalize(s: String): String = normalizePhrase(s)
+
+    companion object {
+        /**
+         * Canonical form used for exact-phrase matching: NFC (so Devanagari
+         * nukta/combining forms compare equal however the recognizer typed
+         * them), lowercase, punctuation → space, single spaces.
+         */
+        fun normalizePhrase(s: String): String {
+            val nfc = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFC)
+            return nfc.trim()
+                .lowercase(Locale.ROOT)
+                .replace(Regex("[\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E\\u2010-\\u201F]+"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        }
+    }
 }
 
 /**

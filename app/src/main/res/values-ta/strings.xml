@@ -913,4 +913,27 @@
     <string name="ai_voice_auto">தானாக (AI தேர்வுசெய்யும்)</string>
     <string name="ai_tts_test_sample">வணக்கம்! நான் LifeFresh AI. உங்கள் பதில்களை உங்கள் மொழியில் குரலில் சொல்ல முடியும்.</string>
     <string name="ai_tts_pack_missing">இந்த மொழிக்கான குரல் ஃபோனில் நிறுவப்படவில்லை. Settings &gt; Speech Services-இல் voice data நிறுவுங்கள், அல்லது Settings-இல் இலவச AI குரலை இயக்குங்கள்.</string>
+
+    <!-- Voice full-app control (M2+): spoken prompts, confirmations, feedback. -->
+    <string name="vc_nav_prompt">%1$s திரையைத் திறக்கவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_nav_done">%1$s திரை திறந்துவிட்டது.</string>
+    <string name="vc_nav_counts">%1$d நிலுவையில், மொத்தம் %2$d லீட்கள்.</string>
+    <string name="vc_back_done">முந்தைய திரைக்குத் திரும்பிவிட்டது.</string>
+    <string name="vc_back_prompt">முந்தைய திரைக்குத் திரும்பவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_confirm_ok">சரியா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_cancelled">சரி, ரத்து செய்யப்பட்டது.</string>
+    <string name="vc_say_yes_or_no">ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_heard_nothing">எதுவும் கேட்கவில்லை, மீண்டும் சொல்லுங்கள்.</string>
+    <string name="vc_mic_unavailable">இந்த ஃபோனில் குரல் வேலை செய்யவில்லை. தட்டச்சு செய்யலாம்.</string>
+    <string name="vc_stopped">நிறுத்திவிட்டேன்.</string>
+    <string name="vc_not_yet">இது இப்போது குரல் மூலம் செய்ய முடியாது. திரையில் செய்யலாம்.</string>
+    <string name="vc_pakka">உறுதியா? மீண்டும் ஆம் என்று சொல்லுங்கள்.</string>
+    <string name="vc_backup_prompt">கிளவுட் பேக்கப் செய்யவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_restore_prompt">பேக்கப்பை மீட்டெடுக்கவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_local_delete_prompt">லோக்கல் தரவை நீக்கவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="vc_cloud_delete_1">கிளவுட் பேக்கப்பை நிரந்தரமாக நீக்கவா?</string>
+    <string name="vc_cloud_delete_2">இது திரும்பி வராது, உறுதியாக ஆம்?</string>
+    <string name="vc_cloud_delete_3">கடைசி முறை — \'ஆம் நீக்கு\' என்று சொல்லுங்கள்.</string>
+    <string name="vc_help">நீங்கள் சொல்லலாம்: \'leads dikhao\', \'dashboard dikhao\', \'backup karo\', \'settings kholo\'. அல்லது நேரடியாகக் கேளுங்கள்.</string>
+    <string name="vc_search_prompt">\'%1$s\' தேடவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
 </resources>

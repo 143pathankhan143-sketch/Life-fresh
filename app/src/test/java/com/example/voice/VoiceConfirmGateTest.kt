@@ -94,6 +94,31 @@ class VoiceConfirmGateTest {
     }
 
     @Test
+    fun tripleAcceptsThePhraseInIndicScripts() {
+        // Speech recognition returns Devanagari/Tamil/Nastaliq text on those
+        // phones even when the user copied a roman prompt.
+        val phrases = listOf("हाँ डिलीट करो", "हां डिलीट करो", "ہاں ڈیلیٹ کرو", "ஆம் நீக்கு")
+        for (phrase in phrases) {
+            val gate = VoiceConfirmGate()
+            gate.begin(ConfirmLevel.TRIPLE, VoiceConfirmPrompts.cloudDelete())
+            gate.feed("haan")
+            gate.feed("haan")
+            assertEquals("phrase '$phrase' must confirm", ConfirmStep.Confirmed, gate.feed(phrase))
+        }
+    }
+
+    @Test
+    fun tripleStillRejectsIncompleteIndicPhrases() {
+        val gate = VoiceConfirmGate()
+        gate.begin(ConfirmLevel.TRIPLE, VoiceConfirmPrompts.cloudDelete())
+        gate.feed("haan")
+        gate.feed("haan")
+        assertTrue(gate.feed("हाँ डिलीट") is ConfirmStep.RetryExactPhrase)
+        assertTrue(gate.feed("डिलीट करो") is ConfirmStep.RetryExactPhrase)
+        assertTrue(gate.isActive)
+    }
+
+    @Test
     fun negationWinsAffirmation() {
         val gate = VoiceConfirmGate()
         gate.begin(ConfirmLevel.SINGLE, VoiceConfirmPrompts.single("complete kar du?"))
