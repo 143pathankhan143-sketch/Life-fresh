@@ -144,6 +144,18 @@ object AiTts {
     }
 
     fun stop() {
+        // Barge-in must also drop anything queued but not yet speaking: a
+        // slow engine init otherwise speaks a stale (older reply) chunk long
+        // after the user moved on to the next question (the "A1 during Q3"
+        // bug). Clearing pendingText + onDone here means a late engine-ready
+        // or safety-timer callback has nothing stale to fire.
+        synchronized(this) {
+            pendingText = null
+            val cb = onDone
+            onDone = null
+            mainHandler.post { cb?.invoke() }
+        }
+        clearFallback()
         try {
             engine?.stop()
         } catch (_: Exception) {

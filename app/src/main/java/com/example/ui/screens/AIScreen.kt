@@ -151,6 +151,10 @@ fun AIScreen(
     suspend fun awaitSpoken(reply: String) {
         // Natural Gemini voice when available (Settings > AI API keys has a
         // key), otherwise the phone's engine. Returns when audio is done.
+        // Stale-speech guard: if a newer request already started thinking
+        // while this (older) reply was queued to speak, skip it entirely -
+        // the old answer must never leak into the new question.
+        if (uiState.isThinking) return
         AiVoicePlayer.speakSuspend(aiContext, reply)
     }
 
