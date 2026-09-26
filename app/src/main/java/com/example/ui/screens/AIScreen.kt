@@ -112,8 +112,10 @@ fun AIScreen(
     LaunchedEffect(Unit) {
         com.example.voice.android.VoiceHandoff.prompts.collect { pending ->
             if (pending != null) {
-                chatViewModel.sendMessage(pending)
-                com.example.voice.android.VoiceHandoff.consume()
+                // consumeIfFresh() drops a question that was asked too long ago
+                // (tab switch interrupted) instead of sending a stale prompt.
+                val fresh = com.example.voice.android.VoiceHandoff.consumeIfFresh()
+                if (fresh != null) chatViewModel.sendMessage(fresh)
             }
         }
     }

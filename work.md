@@ -218,7 +218,7 @@ Pure Kotlin (no Android) — compile + run with the `kotlin-jupyter-kernel` Kotl
 | M | Kya | Done when |
 |---|---|---|
 | **M1** | VoiceCommand + Parser + ConfirmGate (+ tests) — pure Kotlin | ✅ DONE — `com.example.voice` (4 files) + 2 test classes; 32/32 deterministic tests green |
-| **M2** | VoiceAppController + VoiceNavigator + feedback + screen announce; global mic entry on main tabs | ✅ DONE (code) — pure core `VoiceLoop`/`VoiceEffect`/`VoiceTexts`/`VoiceNavigator`/`VoiceCapabilities` + Android glue `VoiceAppController`/`AndroidVoiceTexts`/`VoiceMicButton` + mic FAB on main tabs + 21 `vc_*` strings × 4 locales; 67/67 tests green. Device check pending: "leads dikhao" → tab badle + TTS announce |
+| **M2** | VoiceAppController + VoiceNavigator + feedback + screen announce; global mic entry on main tabs | ✅ DONE (code) — hardening pass done (mic silence-gap, stale-callback token, background mic, stale AI handoff) — pure core `VoiceLoop`/`VoiceEffect`/`VoiceTexts`/`VoiceNavigator`/`VoiceCapabilities` + Android glue `VoiceAppController`/`AndroidVoiceTexts`/`VoiceMicButton` + mic FAB on main tabs + 21 `vc_*` strings × 4 locales; 68/68 tests green. Device check pending: "leads dikhao" → tab badle + TTS announce |
 | **M3** | Leads CRUD voice (reuse AI LEAD_* flow) | add/search/update/status/delete/bulk sab voice se, confirm cards voice se |
 | **M4** | Backup/restore/local-delete voice + **triple cloud delete gate** | backup/restore 1×; local 2×; cloud 3× exact phrase; `nahi` cancel |
 | **M5** | Settings voice: language / AI voice / Bolo | "bhasha hindi karo" → TTS hi-IN me hi jawab de |
@@ -234,6 +234,9 @@ Rollout rationale: M1–M2 = safe foundation; M3 = max reuse (already ready); M4
 2. **Cloud delete exact phrase** — third step ke liye "haan delete karo" + "yes delete" dono accept; baaki sab fail.
 3. **Global mic entry** — kaunsa form (floating FAB har tab pe vs Bolo mode se)? Default: **floating mic FAB on all main tabs** (anpadh ke liye sabse aasaan).
 4. **Settings destructive** — SettingsTab ke dialogs ko voice gate se sync karna (state single-source: ConfirmGate).
+5. **M3/M4 me `Execute` watchdog zaroori** — `VoiceEffect.Execute` async hai: host `onExecutionFinished()` call karta hai.
+   Agar koi executor kabhi call-back na kare, session khula reh jayega (mic button "on" dikhega). Isliye M3 me ek
+   timeout guard lagayenge (fail-closed: timeout pe session band + "nahi ho paya" bolein), aur har executor pe test.
 
 ---
 

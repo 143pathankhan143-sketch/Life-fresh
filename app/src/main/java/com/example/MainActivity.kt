@@ -524,6 +524,19 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
         onDispose { voiceController.shutdown() }
     }
 
+    // Privacy + battery: a microphone must never stay open behind another app
+    // or with the screen off. ON_STOP = home / recents / screen locked.
+    val voiceLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(voiceLifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                voiceController.abandonSilently()
+            }
+        }
+        voiceLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { voiceLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // The chat screen has its own mic and Bolo mode, and sub-screens/dialogs
     // should never sit under an open voice session.
     LaunchedEffect(isMainTab, activeTab) {

@@ -16,8 +16,10 @@ import com.example.voice.VoiceSpeech
 import com.example.voice.VoiceTextKeys
 import com.example.voice.VoiceTexts
 import com.example.voice.VoiceConfirmPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -81,6 +83,14 @@ class VoiceAppController(
     private val voiceInput = VoiceInputHelper(context)
     private var job: Job? = null
 
+    /**
+     * Bumped for every listening attempt. Callbacks from an earlier attempt
+     * (a cancelled recognition that reports ERROR_CLIENT a moment later) carry
+     * an old token and are ignored, so a late cancel can never tear down the
+     * turn that is starting now.
+     */
+    private var listenAttempt: Long = 0L
+
     val isSessionActive: Boolean get() = loop.isSessionActive
     val isListening: Boolean get() = voiceInput.isListening
 
@@ -115,6 +125,17 @@ class VoiceAppController(
         AiVoicePlayer.stop()
     }
 
+    /**
+     * Hard stop with no speech: app went to the background, the screen left the
+     * main tabs, or the activity is going away. A microphone must never stay
+     * open behind another app (privacy + battery), and nothing is executed.
+     */
+    fun abandonSilently() {
+        job?.cancel()
+        loop.abandon()
+        endSessionNow()
+    }
+
     /** M3/M4/M5: the host finished an [VoiceEffect.Execute] — settle the turn. */
     fun onExecutionFinished() {
         runScript(loop.onExecutionFinished())
@@ -136,6 +157,20 @@ class VoiceAppController(
     }
 
     private suspend fun play(effects: List<VoiceEffect>) {
+        try {
+            playOrThrow(effects)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Throwable) {
+            // An effect blew up (bad route, missing voice data, ...). Leaving the
+            // session "active" here would strand the mic button and the confirm
+            // card, so fail closed instead of failing stuck.
+            Log.w(TAG, "voice turn failed, closing the session", e)
+            endSessionNow()
+        }
+    }
+
+    private suspend fun playOrThrow(effects: List<VoiceEffect>) {
         for (effect in effects) {
             when (effect) {
                 is VoiceEffect.Speak -> speakNow(speechText(effect.speech))
@@ -145,6 +180,7 @@ class VoiceAppController(
                 is VoiceEffect.StartListening -> startListening(effect.reason)
 
                 VoiceEffect.StopListening -> {
+                    listenAttempt++
                     voiceInput.cancel()
                     handler.onListeningChanged(false)
                 }
@@ -160,6 +196,7 @@ class VoiceAppController(
                 is VoiceEffect.Execute -> handler.execute(effect.command)
 
                 VoiceEffect.SessionEnded -> {
+                    listenAttempt++
                     voiceInput.cancel()
                     handler.showConfirmCard(null)
                     handler.onListeningChanged(false)
@@ -169,29 +206,47 @@ class VoiceAppController(
         }
     }
 
-    private fun startListening(reason: ListenReason) {
+    private suspend fun startListening(reason: ListenReason) {
         if (!voiceInput.isAvailable()) {
             // No recognizer (rare) — say so instead of failing silently.
-            scope.launch {
-                speakNow(texts.get(VoiceTextKeys.MIC_UNAVAILABLE))
-                loop.abandon()
-                handler.onSessionChanged(false)
-            }
+            speakNow(texts.get(VoiceTextKeys.MIC_UNAVAILABLE))
+            loop.abandon()
+            handler.showConfirmCard(null)
+            handler.onSessionChanged(false)
             return
         }
-        // Never let the phone listen to itself: silence audio first.
+
+        // Everything from a previous attempt is now dead (the old recognition
+        // is being cancelled just below, and its late ERROR_CLIENT must not
+        // tear down the turn that starts here).
+        listenAttempt++
+        val attempt = listenAttempt
+
+        // Never let the phone listen to itself: silence audio first, and drop
+        // any recognition that is somehow still running — VoiceInputHelper.start
+        // silently does nothing while one is listening.
         AiVoicePlayer.stop()
+        voiceInput.cancel()
+
+        // The TTS/MediaPlayer "done" callback fires slightly before the speaker
+        // is really quiet; a mic opened too early transcribes the tail of our
+        // own sentence ("...say yes or no" heard as a command).
+        delay(MIC_SETTLE_MS)
+
         Log.d(TAG, "listening ($reason)")
         voiceInput.start(
             onResult = { text ->
+                if (attempt != listenAttempt) return@start
                 handler.onListeningChanged(false)
                 runScript(loop.onHeard(text))
             },
             onError = { message ->
+                if (attempt != listenAttempt) return@start
                 handler.onListeningChanged(false)
                 if (message.isBlank()) {
                     // Silent reset (user cancelled / system took the mic).
                     loop.abandon()
+                    handler.showConfirmCard(null)
                     handler.onSessionChanged(false)
                 } else {
                     runScript(loop.onListenFailed())
@@ -229,7 +284,25 @@ class VoiceAppController(
         handler.onListeningChanged(false)
     }
 
+    /** Quiet shutdown of the turn state (used by [abandonSilently] and errors). */
+    private fun endSessionNow() {
+        listenAttempt++
+        AiVoicePlayer.stop()
+        voiceInput.cancel()
+        loop.abandon()
+        handler.showConfirmCard(null)
+        handler.onListeningChanged(false)
+        handler.onSessionChanged(false)
+    }
+
     private companion object {
         const val TAG = "VoiceAppController"
+
+        /**
+         * Pause before opening the mic after speaking. Long enough that the
+         * speaker is actually silent, short enough that a turn still feels
+         * instant.
+         */
+        const val MIC_SETTLE_MS = 250L
     }
 }
