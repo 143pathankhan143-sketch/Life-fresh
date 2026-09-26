@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
 import com.example.data.AppLanguage
+import com.example.data.AppStrings
 import com.example.voice.VocalDestination
 import com.example.voice.VoiceTextDefaults
 import com.example.voice.VoiceTexts
@@ -12,11 +13,16 @@ import java.util.Locale
 /**
  * Android implementation of [VoiceTexts].
  *
- * Looks every key up by name in the app's own string resources with the app
- * language forced (values / values-hi / values-ta / values-ur), so the voice
- * layer speaks the same language the UI shows. Any miss falls back to the
- * Hinglish defaults and finally to the key itself — a voice turn must never
- * crash or go silent because of a missing translation.
+ * Resolution order for every key:
+ *  1. [AppStrings] with the app language forced — the same resolver the UI
+ *     uses. The vc_* keys are listed in `AppStrings.STRING_RESOURCE_MAP`,
+ *     which also keeps them alive through R8 resource shrinking (release
+ *     builds have `isShrinkResources = true`), and picked up from downloaded
+ *     language packs when one is installed.
+ *  2. A direct resource lookup in the app language.
+ *  3. The Hinglish defaults, and finally the key itself.
+ *
+ * A voice turn must never crash or go silent because of a missing line.
  *
  * [languageCode] is a provider (not a value) so a language switch mid-session
  * is picked up immediately.
@@ -34,18 +40,34 @@ class AndroidVoiceTexts(
         context.resources
     }
 
-    private fun resource(key: String): String? = try {
-        val res = localizedResources()
-        val id = res.getIdentifier(key, "string", context.packageName)
-        if (id == 0) null else res.getString(id)
-    } catch (e: Throwable) {
-        null
+    /** Resolves a key to the app-language template, without placeholders applied. */
+    private fun template(key: String): String {
+        // 1. Shared app resolver (keeps resources through shrinking).
+        val fromAppStrings = try {
+            AppStrings.getString(context, key, languageCode().ifBlank { "en" })
+        } catch (e: Throwable) {
+            key
+        }
+        if (fromAppStrings.isNotBlank() && fromAppStrings != key) return fromAppStrings
+
+        // 2. Direct resource lookup.
+        try {
+            val res = localizedResources()
+            val id = res.getIdentifier(key, "string", context.packageName)
+            if (id != 0) {
+                val value = res.getString(id)
+                if (value.isNotBlank()) return value
+            }
+        } catch (e: Throwable) {
+            // fall through
+        }
+
+        // 3. Baked-in Hinglish line, else the key itself.
+        return VoiceTextDefaults.hinglishMap()[key] ?: key
     }
 
     override fun get(key: String, vararg args: Any): String {
-        val template = resource(key)
-            ?: VoiceTextDefaults.hinglishMap()[key]
-            ?: key
+        val template = template(key)
         if (args.isEmpty()) return template
         return try {
             String.format(Locale.ROOT, template, *args)
@@ -62,6 +84,12 @@ class AndroidVoiceTexts(
             VocalDestination.REPORTS -> "nav_reports"
             VocalDestination.SETTINGS -> "nav_settings"
         }
-        return resource(key) ?: VoiceTextDefaults.hinglish().destinationName(destination)
+        val fromAppStrings = try {
+            AppStrings.getString(context, key, languageCode().ifBlank { "en" })
+        } catch (e: Throwable) {
+            key
+        }
+        if (fromAppStrings.isNotBlank() && fromAppStrings != key) return fromAppStrings
+        return VoiceTextDefaults.hinglish().destinationName(destination)
     }
 }

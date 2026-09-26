@@ -205,6 +205,29 @@ object AppStrings {
         "common_success" to com.example.R.string.common_success,
         "common_error" to com.example.R.string.common_error,
         "common_loading" to com.example.R.string.common_loading,
+        // Voice full-app control (com.example.voice) — listed here so R8's
+        // resource shrinker keeps them: the voice layer resolves these by name.
+        "vc_nav_prompt" to com.example.R.string.vc_nav_prompt,
+        "vc_nav_done" to com.example.R.string.vc_nav_done,
+        "vc_nav_counts" to com.example.R.string.vc_nav_counts,
+        "vc_back_done" to com.example.R.string.vc_back_done,
+        "vc_back_prompt" to com.example.R.string.vc_back_prompt,
+        "vc_confirm_ok" to com.example.R.string.vc_confirm_ok,
+        "vc_cancelled" to com.example.R.string.vc_cancelled,
+        "vc_say_yes_or_no" to com.example.R.string.vc_say_yes_or_no,
+        "vc_heard_nothing" to com.example.R.string.vc_heard_nothing,
+        "vc_mic_unavailable" to com.example.R.string.vc_mic_unavailable,
+        "vc_stopped" to com.example.R.string.vc_stopped,
+        "vc_not_yet" to com.example.R.string.vc_not_yet,
+        "vc_pakka" to com.example.R.string.vc_pakka,
+        "vc_backup_prompt" to com.example.R.string.vc_backup_prompt,
+        "vc_restore_prompt" to com.example.R.string.vc_restore_prompt,
+        "vc_local_delete_prompt" to com.example.R.string.vc_local_delete_prompt,
+        "vc_cloud_delete_1" to com.example.R.string.vc_cloud_delete_1,
+        "vc_cloud_delete_2" to com.example.R.string.vc_cloud_delete_2,
+        "vc_cloud_delete_3" to com.example.R.string.vc_cloud_delete_3,
+        "vc_help" to com.example.R.string.vc_help,
+        "vc_search_prompt" to com.example.R.string.vc_search_prompt,
     )
 
     fun getResourceId(key: String): Int? {

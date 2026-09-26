@@ -26,6 +26,21 @@ class VoiceLocaleStringsTest {
         return File("src/main/res")
     }
 
+    /** Locates a repo file by walking up from the working directory. */
+    private fun sourceFile(relative: String): File {
+        System.getProperty("lifefresh.repo.dir")?.let { repo ->
+            val direct = File(repo, relative)
+            if (direct.isFile) return direct
+        }
+        var dir: File? = File(System.getProperty("user.dir") ?: ".")
+        while (dir != null) {
+            val candidate = File(dir, relative)
+            if (candidate.isFile) return candidate
+            dir = dir.parentFile
+        }
+        return File(relative)
+    }
+
     private fun entries(locale: String): Map<String, String> {
         val file = File(resDir(), "$locale/strings.xml")
         assertTrue("missing ${file.path}", file.isFile)
@@ -88,6 +103,20 @@ class VoiceLocaleStringsTest {
                 phrase in TRIPLE_ACCEPT_PHRASES
             )
         }
+    }
+
+    @Test
+    fun everyVoiceKeyIsListedInTheAppStringsMap() {
+        // Release builds run with isShrinkResources = true. Keys resolved only
+        // by name (getIdentifier) would be stripped; listing them in
+        // AppStrings.STRING_RESOURCE_MAP keeps them alive (and localised).
+        val appStrings = sourceFile("app/src/main/java/com/example/data/AppStrings.kt").readText()
+        // Exact "key to R.string.key" mapping — a typo on either side would
+        // compile only if the R field existed, so pin both halves here.
+        val missing = VoiceTextKeys.ALL.filter {
+            !appStrings.contains("\"$it\" to com.example.R.string.$it,")
+        }
+        assertTrue("missing/wrong in STRING_RESOURCE_MAP (R8 would shrink them): $missing", missing.isEmpty())
     }
 
     @Test

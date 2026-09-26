@@ -454,7 +454,12 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
     var voiceSessionOn by remember { mutableStateOf(false) }
     var voiceConfirmPrompt by remember { mutableStateOf<String?>(null) }
 
-    val voiceTexts = remember { AndroidVoiceTexts(applicationContext) { appLanguage.code } }
+    // Composables cannot see Activity members (applicationContext/lifecycleScope);
+    // use the Compose-friendly equivalents already used elsewhere in this screen.
+    val voiceScope = rememberCoroutineScope()
+    val voiceLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+
+    val voiceTexts = remember { AndroidVoiceTexts(context.applicationContext) { voiceLanguage.code } }
     val voiceHandler = remember {
         object : VoiceEffectHandler {
             override fun navigate(destination: VocalDestination) {
@@ -508,10 +513,10 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
 
     val voiceController = remember {
         VoiceAppController(
-            context = applicationContext,
+            context = context.applicationContext,
             texts = voiceTexts,
             handler = voiceHandler,
-            scope = lifecycleScope
+            scope = voiceScope
         )
     }
 
@@ -532,7 +537,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
             voiceController.toggleMic()
         } else {
             Toast.makeText(
-                this@MainActivity,
+                context,
                 "Mic permission chahiye - Settings me 'Record audio' allow karo.",
                 Toast.LENGTH_LONG
             ).show()
@@ -541,7 +546,7 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
 
     val onVoiceMicTap: () -> Unit = {
         val granted = ContextCompat.checkSelfPermission(
-            this@MainActivity,
+            context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
         if (granted) voiceController.toggleMic()
