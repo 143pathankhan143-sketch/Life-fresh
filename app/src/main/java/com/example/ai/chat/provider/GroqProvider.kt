@@ -6,6 +6,7 @@ import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -70,98 +71,122 @@ class GroqProvider(
             var lastFailure: AIProviderResult.Failure? = null
 
             for (model in models) {
-                val requestJson = JSONObject().apply {
-                    put("model", model)
-                    put("messages", jsonMessages)
-                    put("temperature", 0.7)
-                    // Reasoning models (gpt-oss) spend part of max_tokens on
-                    // internal thinking - 3072 caused silently truncated
-                    // replies. 8192 leaves headroom for the visible answer.
-                    put("max_tokens", 8192)
-                    // Stream tokens so the chat UI can show the reply as it is
-                    // generated (ChatGPT-style). readStream() degrades to the
-                    // classic one-shot JSON response automatically.
-                    put("stream", true)
-                }
-                val request = Request.Builder()
-                    .url("https://api.groq.com/openai/v1/chat/completions")
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .post(requestJson.toString().toRequestBody(mediaType))
-                    .build()
+                // One model can be retried once (when the server says it clears
+                // in a moment); after that we rotate to the next model instead
+                // of waiting again.
+                var sameModelRetryUsed = false
+                while (true) {
+                    val requestJson = JSONObject().apply {
+                        put("model", model)
+                        put("messages", jsonMessages)
+                        put("temperature", 0.7)
+                        // Reasoning models (gpt-oss) spend part of max_tokens on
+                        // internal thinking - 3072 caused silently truncated
+                        // replies. 8192 leaves headroom for the visible answer.
+                        put("max_tokens", 8192)
+                        // Stream tokens so the chat UI can show the reply as it is
+                        // generated (ChatGPT-style). readStream() degrades to the
+                        // classic one-shot JSON response automatically.
+                        put("stream", true)
+                    }
+                    val request = Request.Builder()
+                        .url("https://api.groq.com/openai/v1/chat/completions")
+                        .addHeader("Authorization", "Bearer $apiKey")
+                        .addHeader("Content-Type", "application/json")
+                        .post(requestJson.toString().toRequestBody(mediaType))
+                        .build()
 
-                val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
-                    val code = response.code
+                    val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
+                        val code = response.code
 
-                    if (response.isSuccessful) {
-                        val body = response.body
-                        if (body == null) {
-                            lastFailure = AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "Groq model $model returned an empty response.",
-                                isRetryable = true
-                            )
-                            ModelAttempt.TryNext
-                        } else {
-                            val text = readStream(body, onToken).trim()
-                            if (text.isNotBlank()) {
-                                ModelAttempt.Ok(text)
-                            } else {
+                        if (response.isSuccessful) {
+                            val body = response.body
+                            if (body == null) {
                                 lastFailure = AIProviderResult.Failure(
                                     providerName = name,
-                                    errorMessage = "Groq model $model returned no text (HTTP $code).",
+                                    errorMessage = "Groq model $model returned an empty response.",
                                     isRetryable = true
                                 )
                                 ModelAttempt.TryNext
+                            } else {
+                                val text = readStream(body, onToken).trim()
+                                if (text.isNotBlank()) {
+                                    ModelAttempt.Ok(text)
+                                } else {
+                                    lastFailure = AIProviderResult.Failure(
+                                        providerName = name,
+                                        errorMessage = "Groq model $model returned no text (HTTP $code).",
+                                        isRetryable = true
+                                    )
+                                    ModelAttempt.TryNext
+                                }
+                            }
+                        } else {
+                            val responseBodyString = bodyOrNull(response)
+                            val parsedError = try {
+                                JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
+                            } catch (_: Throwable) {
+                                null
+                            }
+                            val kind = AIFailurePolicy.kindFor(code)
+                            val retryAfter = response.header("Retry-After")
+                            Log.w(
+                                TAG,
+                                "Groq model $model returned HTTP $code (${AIFailurePolicy.busyLabel(kind)}; " +
+                                    "retry-after=${retryAfter ?: "-"}) ${parsedError ?: ""}"
+                            )
+
+                            // Invalid key / account problem: retrying other models
+                            // or the next request is pointless - fail fast.
+                            if (kind == AIErrorKind.AUTH) {
+                                return@withContext AIProviderResult.Failure(
+                                    providerName = name,
+                                    errorMessage = "Groq API Key Invalid: ${parsedError ?: "HTTP $code"}",
+                                    isRetryable = false,
+                                    isRateLimitOrTimeout = false
+                                )
+                            }
+
+                            val busy = AIFailurePolicy.isBusy(kind)
+                            lastFailure = AIProviderResult.Failure(
+                                providerName = name,
+                                errorMessage = when (kind) {
+                                    AIErrorKind.RATE_LIMIT ->
+                                        "Groq rate limit reached on $model: ${parsedError ?: "please try again later"}"
+                                    AIErrorKind.SERVICE_BUSY ->
+                                        "Groq is busy (HTTP $code) on $model."
+                                    else ->
+                                        "Groq model $model is unavailable (HTTP $code)."
+                                },
+                                isRetryable = true,
+                                isRateLimitOrTimeout = busy
+                            )
+
+                            // Groq/similar limits are PER MODEL: a 429 on this model
+                            // says nothing about the next one, so rotate (and use the
+                            // server's Retry-After for at most one quick retry).
+                            when (val recovery = AIFailurePolicy.decide(code, retryAfter, sameModelRetryUsed)) {
+                                is AIRecovery.RetrySameModel -> {
+                                    Log.w(TAG, "Groq $model busy - retrying the same model in ${recovery.waitMs}ms")
+                                    ModelAttempt.RetrySameModel(recovery.waitMs)
+                                }
+                                AIRecovery.FailFast -> ModelAttempt.TryNext
+                                AIRecovery.TryNextModel -> ModelAttempt.TryNext
                             }
                         }
-                    } else {
-                        val responseBodyString = bodyOrNull(response)
-                        val parsedError = try {
-                            JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
-                        } catch (_: Throwable) {
-                            null
-                        }
-                        val isRateLimit = code == 429
-                        val isAuthError = code == 400 || code == 401 || code == 403
-                        Log.w(TAG, "Groq model $model returned HTTP $code (${parsedError ?: ""})")
-
-                        // Invalid key / account problem: retrying other models
-                        // or the next request is pointless - fail fast.
-                        if (isAuthError) {
-                            return@withContext AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "Groq API Key Invalid: ${parsedError ?: "HTTP $code"}",
-                                isRetryable = false,
-                                isRateLimitOrTimeout = false
-                            )
-                        }
-
-                        // Rate limits are per-account, and timeouts affect all
-                        // models equally - stop trying the rest.
-                        if (isRateLimit) {
-                            return@withContext AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "Groq rate limit reached: ${parsedError ?: "Please try again later."}",
-                                isRetryable = true,
-                                isRateLimitOrTimeout = true
-                            )
-                        }
-
-                        lastFailure = AIProviderResult.Failure(
-                            providerName = name,
-                            errorMessage = "Groq model $model is unavailable (HTTP $code).",
-                            isRetryable = true,
-                            isRateLimitOrTimeout = false
-                        )
-                        ModelAttempt.TryNext
                     }
-                }
 
-                if (attempt is ModelAttempt.Ok) {
-                    return@withContext AIProviderResult.Success(attempt.text, name)
+                    if (attempt is ModelAttempt.Ok) {
+                        return@withContext AIProviderResult.Success(attempt.text, name)
+                    }
+                    if (attempt is ModelAttempt.RetrySameModel) {
+                        delay(attempt.waitMs)
+                        sameModelRetryUsed = true
+                        continue
+                    }
+                    Log.w(TAG, "Groq model $model failed. Trying next fallback model...")
+                    break
                 }
-                Log.w(TAG, "Groq model $model failed. Trying next fallback model...")
             }
 
             return@withContext lastFailure ?: AIProviderResult.Failure(
@@ -306,6 +331,10 @@ class GroqProvider(
 
     private sealed class ModelAttempt {
         data class Ok(val text: String) : ModelAttempt()
+
+        /** The server said this model clears in [waitMs] - retry it once. */
+        data class RetrySameModel(val waitMs: Long) : ModelAttempt()
+
         object TryNext : ModelAttempt()
     }
 

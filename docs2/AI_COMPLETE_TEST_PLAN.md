@@ -398,6 +398,37 @@ Lambi chat me bhi jawab aate rahein (memory/leak na ho).
 
 ---
 
+## SECTION I-2 — Provider recovery: "AI service is busy" 🆕 (fix ke baad ka behaviour)
+
+> Ye section us bug ke liye hai jo user ne report kiya: "kuchh sawaal chalte hain,
+> kuchh pe busy message aata hai". Fix: Groq/OpenRouter pe **ek model ka limit
+> khatam ho to doosra model try hota hai** (pehle poora request fail ho jaata tha),
+> aur sab busy ho to router **ek baar khud retry** karta hai.
+
+**I-1. Ek model ka limit khatam → doosra model jawab de** [P0]
+Groq me pehla model (`gpt-oss-120b`) ka limit khatam ho jaye — asli test: bahut lambe/tedhe
+sawaal poochte raho. App ko jawab **milta rahe** (busy message na aaye), kyunki `llama-3.1-8b-instant`
+jaise doosre models ke limits alag hote hain. Logcat me dikhega: pehla model "rate limited",
+phir doosra model se jawab.
+
+**I-2. Sab providers busy → ek automatic retry** [P0]
+Teeno keys ke liye galat... nahi, yahan: sab providers rate-limited ho jayein →
+app **1.2 second ruk kar ek baar khud dobara try** kare. Phir bhi busy ho to hi message aaye:
+*"The AI service is busy right now... I retried automatically. Please wait a minute and try again. [reason]"*.
+
+**I-3. Retry button kaam kare** [P0]
+Busy message pe **Retry** dabao → turant dobara koshish ho (yahi expected behaviour hai — message
+sirf tab aaye jab asli me sab busy ho).
+
+**I-4. Galat key pe busy message NA aaye** [P0]
+Galat Gemini/Groq key daalo → message "API Key Invalid..." ho, "busy" nahi (busy sirf 429/5xx ke liye).
+
+**I-5. Chhota Retry-After seedha follow ho** [P1]
+Provider `Retry-After: 1` bheje → app ~1 second ruk kar **usi model** ko dobara try kare;
+`Retry-After: 60` jaisa lamba ho → bina rukey **agle model** pe switch kare (chat atke na).
+
+---
+
 ## SECTION J — Languages (EN/HI/TA/UR)
 
 **117. App language switch → AI answer bhi** [P0]
@@ -517,7 +548,9 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | `VoiceLocaleStringsTest` | 6 | 4 locale me voice strings + taught phrase gate se match |
 | `VoiceNavigatorTest` | 3 | Screen → route map |
 | **Voice total (naya)** | **67** | |
-| **Grand total** | **134** | |
+| `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
+| `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
+| **Grand total** | **154** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

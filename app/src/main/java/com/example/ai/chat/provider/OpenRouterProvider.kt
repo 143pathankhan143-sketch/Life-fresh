@@ -6,6 +6,7 @@ import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -74,92 +75,118 @@ class OpenRouterProvider(
             var lastFailure: AIProviderResult.Failure? = null
 
             for (model in models) {
-                val requestJson = JSONObject().apply {
-                    put("model", model)
-                    put("messages", jsonMessages)
-                    put("temperature", 0.7)
-                    // Headroom for reasoning models that spend part of the
-                    // budget on internal thinking (mirrors Groq provider).
-                    put("max_tokens", 8192)
-                    put("stream", true)
-                }
-                val request = Request.Builder()
-                    .url("https://openrouter.ai/api/v1/chat/completions")
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("X-Title", "LifeFresh QuickNote Pro")
-                    .post(requestJson.toString().toRequestBody(mediaType))
-                    .build()
+                // At most one quick retry of the same model; then rotate.
+                var sameModelRetryUsed = false
+                while (true) {
+                    val requestJson = JSONObject().apply {
+                        put("model", model)
+                        put("messages", jsonMessages)
+                        put("temperature", 0.7)
+                        // Headroom for reasoning models that spend part of the
+                        // budget on internal thinking (mirrors Groq provider).
+                        put("max_tokens", 8192)
+                        put("stream", true)
+                    }
+                    val request = Request.Builder()
+                        .url("https://openrouter.ai/api/v1/chat/completions")
+                        .addHeader("Authorization", "Bearer $apiKey")
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("X-Title", "LifeFresh QuickNote Pro")
+                        .post(requestJson.toString().toRequestBody(mediaType))
+                        .build()
 
-                val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
-                    val code = response.code
+                    val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
+                        val code = response.code
 
-                    if (response.isSuccessful) {
-                        val body = response.body
-                        if (body == null) {
-                            lastFailure = AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "OpenRouter model $model returned an empty response.",
-                                isRetryable = true
-                            )
-                            ModelAttempt.TryNext
-                        } else {
-                            val text = readStream(body, onToken).trim()
-                            if (text.isNotBlank()) {
-                                ModelAttempt.Ok(text)
-                            } else {
+                        if (response.isSuccessful) {
+                            val body = response.body
+                            if (body == null) {
                                 lastFailure = AIProviderResult.Failure(
                                     providerName = name,
-                                    errorMessage = "OpenRouter model $model returned no text (HTTP $code).",
+                                    errorMessage = "OpenRouter model $model returned an empty response.",
                                     isRetryable = true
                                 )
                                 ModelAttempt.TryNext
+                            } else {
+                                val text = readStream(body, onToken).trim()
+                                if (text.isNotBlank()) {
+                                    ModelAttempt.Ok(text)
+                                } else {
+                                    lastFailure = AIProviderResult.Failure(
+                                        providerName = name,
+                                        errorMessage = "OpenRouter model $model returned no text (HTTP $code).",
+                                        isRetryable = true
+                                    )
+                                    ModelAttempt.TryNext
+                                }
+                            }
+                        } else {
+                            val responseBodyString = bodyOrNull(response)
+                            val parsedError = try {
+                                JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
+                            } catch (_: Throwable) {
+                                null
+                            }
+                            val isRateLimit = code == 429
+                            val isAuthError = code == 400 || code == 401 || code == 402 || code == 403
+                            val kind = AIFailurePolicy.kindFor(code)
+                            val retryAfter = response.header("Retry-After")
+                            Log.w(
+                                TAG,
+                                "OpenRouter model $model returned HTTP $code " +
+                                    "(${AIFailurePolicy.busyLabel(kind)}; retry-after=${retryAfter ?: "-"}) " +
+                                    "${parsedError ?: ""}"
+                            )
+
+                            // Invalid key / out-of-credit: retrying is pointless.
+                            if (kind == AIErrorKind.AUTH) {
+                                return@withContext AIProviderResult.Failure(
+                                    providerName = name,
+                                    errorMessage = "OpenRouter API Key Invalid: ${parsedError ?: "HTTP $code"}",
+                                    isRetryable = false,
+                                    isRateLimitOrTimeout = false
+                                )
+                            }
+
+                            val busy = AIFailurePolicy.isBusy(kind)
+                            lastFailure = AIProviderResult.Failure(
+                                providerName = name,
+                                errorMessage = when (kind) {
+                                    AIErrorKind.RATE_LIMIT ->
+                                        "OpenRouter rate limit reached on $model: ${parsedError ?: "please try again later"}"
+                                    AIErrorKind.SERVICE_BUSY ->
+                                        "OpenRouter is busy (HTTP $code) on $model."
+                                    else ->
+                                        "OpenRouter model $model is unavailable (HTTP $code)."
+                                },
+                                isRetryable = true,
+                                isRateLimitOrTimeout = busy
+                            )
+
+                            // The other alias is a DIFFERENT model with its own
+                            // limits, so a 429 here must rotate, not abort.
+                            when (val recovery = AIFailurePolicy.decide(code, retryAfter, sameModelRetryUsed)) {
+                                is AIRecovery.RetrySameModel -> {
+                                    Log.w(TAG, "OpenRouter $model busy - retrying the same model in ${recovery.waitMs}ms")
+                                    ModelAttempt.RetrySameModel(recovery.waitMs)
+                                }
+                                AIRecovery.FailFast -> ModelAttempt.TryNext
+                                AIRecovery.TryNextModel -> ModelAttempt.TryNext
                             }
                         }
-                    } else {
-                        val responseBodyString = bodyOrNull(response)
-                        val parsedError = try {
-                            JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
-                        } catch (_: Throwable) {
-                            null
-                        }
-                        val isRateLimit = code == 429
-                        val isAuthError = code == 400 || code == 401 || code == 402 || code == 403
-                        Log.w(TAG, "OpenRouter model $model returned HTTP $code (${parsedError ?: ""})")
-
-                        // Invalid key / out-of-credit: retrying is pointless.
-                        if (isAuthError) {
-                            return@withContext AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "OpenRouter API Key Invalid: ${parsedError ?: "HTTP $code"}",
-                                isRetryable = false,
-                                isRateLimitOrTimeout = false
-                            )
-                        }
-
-                        if (isRateLimit) {
-                            return@withContext AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "OpenRouter rate limit reached: ${parsedError ?: "Please try again later."}",
-                                isRetryable = true,
-                                isRateLimitOrTimeout = true
-                            )
-                        }
-
-                        lastFailure = AIProviderResult.Failure(
-                            providerName = name,
-                            errorMessage = "OpenRouter model $model is unavailable (HTTP $code).",
-                            isRetryable = true,
-                            isRateLimitOrTimeout = false
-                        )
-                        ModelAttempt.TryNext
                     }
-                }
 
-                if (attempt is ModelAttempt.Ok) {
-                    return@withContext AIProviderResult.Success(attempt.text, name)
+                    if (attempt is ModelAttempt.Ok) {
+                        return@withContext AIProviderResult.Success(attempt.text, name)
+                    }
+                    if (attempt is ModelAttempt.RetrySameModel) {
+                        delay(attempt.waitMs)
+                        sameModelRetryUsed = true
+                        continue
+                    }
+                    Log.w(TAG, "OpenRouter model $model failed. Trying next fallback model...")
+                    break
                 }
-                Log.w(TAG, "OpenRouter model $model failed. Trying next fallback model...")
             }
 
             return@withContext lastFailure ?: AIProviderResult.Failure(
@@ -297,6 +324,10 @@ class OpenRouterProvider(
 
     private sealed class ModelAttempt {
         data class Ok(val text: String) : ModelAttempt()
+
+        /** The server said this model clears in [waitMs] - retry it once. */
+        data class RetrySameModel(val waitMs: Long) : ModelAttempt()
+
         object TryNext : ModelAttempt()
     }
 

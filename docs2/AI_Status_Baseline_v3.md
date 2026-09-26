@@ -95,6 +95,20 @@ Settings ── AIServiceRepository.testGeminiKey (key validation only)
   (gemini-3.8-flash → 3.7 → 3.6 → 3.5 → gemini-flash-latest → 3.1-pro-preview).
   If chat 404s again, update only that list (see the comment inside it).
 
+## Changelog (continued)
+
+- **26 September 2026 (provider recovery / "AI service is busy"):** users saw the busy
+  message on some questions although other models were free. Cause: a HTTP 429 from the
+  FIRST model in a provider's chain aborted the whole chain (Groq and OpenRouter both did
+  `return ... Failure`), even though those providers apply limits per model. Fix:
+  `ai/chat/provider/AIFailurePolicy.kt` classifies the failure (auth / rate limit / service
+  busy / model missing), honours `Retry-After` for at most one bounded same-model retry
+  (<= 1.5s), and otherwise rotates to the next model; all three providers use it, and 5xx
+  overloads are now reported as busy. The router retries the whole provider chain once
+  (1.2s pause) when nothing was streamed and everyone was busy, and the final message says
+  so plus a short reason. 20 new tests (`AIFailurePolicyTest`,
+  `AIProviderRouterRecoveryTest`).
+
 ## Process rule
 
 At the end of every phase: update this sheet (status + evidence + issues) and

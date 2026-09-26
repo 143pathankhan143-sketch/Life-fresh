@@ -6,6 +6,7 @@ import com.example.ai.chat.model.ChatMessage
 import com.example.ai.chat.model.ChatRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -76,101 +77,122 @@ class GeminiProvider(
             var lastFailure: AIProviderResult.Failure? = null
 
             for (model in models) {
-                // streamGenerateContent + alt=sse = server-sent events.
-                // readStream() degrades to the classic one-shot JSON response
-                // automatically if the body is not SSE.
-                // Same endpoint + auth as the classic generateContent call,
-                // just with the streaming action and alt=sse.
-                val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse&key=$apiKey"
+                // At most one quick retry of the same model; then rotate.
+                var sameModelRetryUsed = false
+                while (true) {
+                    // streamGenerateContent + alt=sse = server-sent events.
+                    // readStream() degrades to the classic one-shot JSON response
+                    // automatically if the body is not SSE.
+                    // Same endpoint + auth as the classic generateContent call,
+                    // just with the streaming action and alt=sse.
+                    val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse&key=$apiKey"
 
-                val request = Request.Builder()
-                    .url(url)
-                    .addHeader("Content-Type", "application/json")
-                    .post(requestBody)
-                    .build()
+                    val request = Request.Builder()
+                        .url(url)
+                        .addHeader("Content-Type", "application/json")
+                        .post(requestBody)
+                        .build()
 
-                val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
-                    val code = response.code
+                    val attempt: ModelAttempt = client.newCall(request).execute().use { response ->
+                        val code = response.code
 
-                    if (response.isSuccessful) {
-                        val body = response.body
-                        if (body == null) {
-                            lastFailure = AIProviderResult.Failure(
-                                providerName = name,
-                                errorMessage = "Gemini model $model returned an empty response.",
-                                isRetryable = true
-                            )
-                            ModelAttempt.TryNext
-                        } else {
-                            val text = readStream(body, onToken).trim()
-                            if (text.isNotBlank()) {
-                                ModelAttempt.Ok(text)
-                            } else {
+                        if (response.isSuccessful) {
+                            val body = response.body
+                            if (body == null) {
                                 lastFailure = AIProviderResult.Failure(
                                     providerName = name,
-                                    errorMessage = "Gemini model $model returned no text (HTTP $code).",
+                                    errorMessage = "Gemini model $model returned an empty response.",
                                     isRetryable = true
                                 )
                                 ModelAttempt.TryNext
+                            } else {
+                                val text = readStream(body, onToken).trim()
+                                if (text.isNotBlank()) {
+                                    ModelAttempt.Ok(text)
+                                } else {
+                                    lastFailure = AIProviderResult.Failure(
+                                        providerName = name,
+                                        errorMessage = "Gemini model $model returned no text (HTTP $code).",
+                                        isRetryable = true
+                                    )
+                                    ModelAttempt.TryNext
+                                }
                             }
-                        }
-                    } else {
-                        val responseBodyString = try {
-                            response.body?.string().orEmpty()
-                        } catch (_: Throwable) {
-                            ""
-                        }
-
-                        val parsedError = try {
-                            JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
-                        } catch (_: Throwable) {
-                            null
-                        }
-
-                        val isRateLimit = code == 429
-                        val isAuthError = code == 400 || code == 401 || code == 403
-
-                        val errorMsg = if (isAuthError) {
-                            "API Key Invalid: ${parsedError ?: "HTTP $code"}"
-                        } else if (isRateLimit) {
-                            "Gemini rate limit reached: ${parsedError ?: "Please try again later."}"
                         } else {
-                            parsedError ?: "Gemini returned status $code"
-                        }
+                            val responseBodyString = try {
+                                response.body?.string().orEmpty()
+                            } catch (_: Throwable) {
+                                ""
+                            }
 
-                        // If auth error, return immediately without trying other models
-                        if (isAuthError) {
-                            return@withContext AIProviderResult.Failure(
+                            val parsedError = try {
+                                JSONObject(responseBodyString).optJSONObject("error")?.optString("message")
+                            } catch (_: Throwable) {
+                                null
+                            }
+
+                            val kind = AIFailurePolicy.kindFor(code)
+                            val retryAfter = response.header("Retry-After")
+
+                            val errorMsg = if (kind == AIErrorKind.AUTH) {
+                                "API Key Invalid: ${parsedError ?: "HTTP $code"}"
+                            } else if (kind == AIErrorKind.RATE_LIMIT) {
+                                "Gemini rate limit reached: ${parsedError ?: "Please try again later."}"
+                            } else {
+                                parsedError ?: "Gemini returned status $code"
+                            }
+
+                            // If auth error, return immediately without trying other models
+                            if (kind == AIErrorKind.AUTH) {
+                                return@withContext AIProviderResult.Failure(
+                                    providerName = name,
+                                    errorMessage = errorMsg,
+                                    isRetryable = false,
+                                    isRateLimitOrTimeout = false
+                                )
+                            }
+
+                            lastFailure = AIProviderResult.Failure(
                                 providerName = name,
                                 errorMessage = errorMsg,
-                                isRetryable = false,
-                                isRateLimitOrTimeout = false
+                                isRetryable = true,
+                                isRateLimitOrTimeout = AIFailurePolicy.isBusy(kind)
                             )
+
+                            // Gemini free-tier limits are per project, but a 5xx
+                            // overload (and often a 429) clears in seconds, so one
+                            // bounded retry is worth it before giving up.
+                            when (val recovery = AIFailurePolicy.decide(code, retryAfter, sameModelRetryUsed)) {
+                                is AIRecovery.RetrySameModel -> {
+                                    Log.w(TAG, "Gemini $model busy - retrying the same model in ${recovery.waitMs}ms")
+                                    ModelAttempt.RetrySameModel(recovery.waitMs)
+                                }
+                                AIRecovery.FailFast -> ModelAttempt.TryNext
+                                AIRecovery.TryNextModel -> ModelAttempt.TryNext
+                            }
                         }
-
-                        lastFailure = AIProviderResult.Failure(
-                            providerName = name,
-                            errorMessage = errorMsg,
-                            isRetryable = true,
-                            isRateLimitOrTimeout = isRateLimit
-                        )
-                        ModelAttempt.TryNext
                     }
-                }
 
-                if (attempt is ModelAttempt.Ok) {
-                    return@withContext AIProviderResult.Success(attempt.text, name)
-                }
+                    if (attempt is ModelAttempt.Ok) {
+                        return@withContext AIProviderResult.Success(attempt.text, name)
+                    }
+                    if (attempt is ModelAttempt.RetrySameModel) {
+                        delay(attempt.waitMs)
+                        sameModelRetryUsed = true
+                        continue
+                    }
 
-                // Rate limits are per-project (not per-model) and network
-                // timeouts affect every model endpoint equally - trying the
-                // remaining fallback models would only add seconds of delay.
-                if (lastFailure?.isRateLimitOrTimeout == true) {
-                    Log.w(TAG, "Gemini $model: ${lastFailure.errorMessage} - skipping remaining fallback models")
-                    return@withContext lastFailure
-                }
+                    // Config lists one fast model today, so a busy model means the
+                    // provider is done for this request - skip the extra delay of
+                    // walking a chain that does not exist.
+                    if (models.size == 1 && lastFailure?.isRateLimitOrTimeout == true) {
+                        Log.w(TAG, "Gemini $model: ${lastFailure.errorMessage} - no other model configured")
+                        return@withContext lastFailure
+                    }
 
-                Log.w(TAG, "Gemini model $model failed. Trying next fallback model...")
+                    Log.w(TAG, "Gemini model $model failed. Trying next fallback model...")
+                    break
+                }
             }
 
             return@withContext lastFailure ?: AIProviderResult.Failure(
@@ -356,6 +378,10 @@ class GeminiProvider(
 
     private sealed class ModelAttempt {
         data class Ok(val text: String) : ModelAttempt()
+
+        /** The server said it clears in [waitMs] - retry the same model once. */
+        data class RetrySameModel(val waitMs: Long) : ModelAttempt()
+
         object TryNext : ModelAttempt()
     }
 
