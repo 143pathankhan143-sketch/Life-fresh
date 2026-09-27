@@ -19,14 +19,19 @@ object AIConfig {
      * current models from https://ai.google.dev/gemini-api/docs/models.
      */
     /**
-     * Single fast model for LifeFresh - chosen for minimal rate-limit
-     * (3.8 is the most overloaded on the free tier; 3.5 is older, still
-     * very fast for simple lead tasks, and sees far less traffic).
-     * Only ONE entry keeps the request fast - no sequential fallback adds
-     * seconds of delay. If this ever 404s, replace it with the current
-     * fastest Flash from https://ai.google.dev/gemini-api/docs/models.
+     * Free-tier text models, lowest contention first (verified 2026-09-27
+     * against https://ai.google.dev/gemini-api/docs/deprecations):
+     *  - 2.0 family: shut down 2026-06-01.
+     *  - 2.5 family: restricted to projects that already used it (2026-09-18).
+     *  - 3.5 Flash-Lite: stable, the high-volume/cheap tier - first choice
+     *    because LifeFresh needs an answer more than it needs a genius, and a
+     *    lite model is far less likely to be rate limited.
+     *  - 3.5 Flash: stable; kept as the second entry so the two models have
+     *    SEPARATE free-tier quotas and one 429 does not end the whole turn.
+     * Never add a 2.x id back.
      */
     val GEMINI_TEXT_MODELS: List<String> = listOf(
+        "gemini-3.5-flash-lite",
         "gemini-3.5-flash"
     )
 

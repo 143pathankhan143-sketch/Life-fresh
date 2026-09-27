@@ -408,6 +408,8 @@ Lambi chat me bhi jawab aate rahein (memory/leak na ho).
   llama/compound/empty ke liye `null` (warna HTTP 400 se poora turn fail).
 - **I-2a-4. 400 = dead model, not bad key** [P0] `model_decommissioned` body par
   router next model par rotate kare, "API Key Invalid" na dikhaye.
+- **I-2a-4b. Gemini dead families** [P0] `geminiListHasALowContentionFirstEntryAndNoDeadFamilies`
+  - 2.x / 1.5 / pro kabhi list me na aaye; pehla entry `gemini-3.5-flash-lite`, do alag quotas ke liye 2 entries.
 - **I-2a-5. Insaan wala check (device)** [P1] Groq key daal kar sawaal poochho:
   jawab aaye, aur Logcat me wohi model try ho jo list me pehla hai.
 
@@ -563,7 +565,7 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | **Voice total (naya)** | **67** | |
 | `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
 | `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
-| **Grand total** | **159** | |
+| **Grand total** | **160** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

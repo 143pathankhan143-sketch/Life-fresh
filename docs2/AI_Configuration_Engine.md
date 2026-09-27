@@ -401,6 +401,11 @@ The AI Configuration Engine provides a secure, predictable, and local configurat
   HTTP 400 on any other model. `"low"` also stops hidden reasoning from eating
   `max_tokens` and returning an empty message with `finish_reason=length`.
   Output cap: `AIConfig.GROQ_MAX_COMPLETION_TOKENS` (8192, 8K TPM free tier).
+* **Gemini list**: `AIConfig.GEMINI_TEXT_MODELS` = `gemini-3.5-flash-lite`
+  then `gemini-3.5-flash` (lowest-contention first, both stable; 2.0 shut down
+  2026-06-01 and 2.5 is closed to new projects since 2026-09-18). Two entries
+  mean two separate free-tier quotas before a turn can fail, while
+  `GeminiProvider` still retries one model quickly before rotating.
 * **Failure handling**: a 400 is *not* an auth failure. Groq answers 400
   `model_decommissioned` for a retired id, so `AIFailurePolicy.kindFor(code,
   errorText)` inspects the body and rotates to the next model instead of

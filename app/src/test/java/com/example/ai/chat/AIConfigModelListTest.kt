@@ -66,6 +66,20 @@ class AIConfigModelListTest {
     }
 
     @Test
+    fun geminiListHasALowContentionFirstEntryAndNoDeadFamilies() {
+        // 2.0 family shut down 2026-06-01; 2.5 is closed to new projects
+        // (2026-09-18). Trying any of them would waste a request per turn.
+        assertEquals("gemini-3.5-flash-lite", AIConfig.GEMINI_TEXT_MODELS.first())
+        AIConfig.GEMINI_TEXT_MODELS.forEach { model ->
+            assertFalse("dead Gemini family in list: $model", model.startsWith("gemini-2."))
+            assertFalse("retired Gemini model in list: $model", model.contains("gemini-1.5") || model.contains("gemini-pro"))
+        }
+        // Two entries => two separate free-tier quotas before a turn fails.
+        assertEquals(2, AIConfig.GEMINI_TEXT_MODELS.size)
+        assertEquals(2, AIConfig.GEMINI_TEXT_MODELS.distinct().size)
+    }
+
+    @Test
     fun openRouterAndGeminiListsAreNotEmptyAndCarryNoRetiredIds() {
         assertTrue(AIConfig.OPENROUTER_TEXT_MODELS.isNotEmpty())
         assertTrue(AIConfig.GEMINI_TEXT_MODELS.isNotEmpty())
