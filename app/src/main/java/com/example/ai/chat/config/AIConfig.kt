@@ -44,9 +44,21 @@ object AIConfig {
      * https://ai.google.dev/gemini-api/docs/speech-generation if 404s.
      */
     val GEMINI_TTS_MODELS: List<String> = listOf(
+        // Verified alive + free of charge, 2026-09-27
+        // (ai.google.dev/gemini-api/docs/pricing):
+        //  3.8 Flash-Lite TTS - the "high-throughput, low-latency conversational"
+        //  workhorse and the official replacement for the 3.1 preview. First
+        //  choice because a voice agent lives or dies on the first word.
+        "gemini-3.8-flash-lite-tts",
+        // 3.8 Flash TTS - studio fidelity, free tier still free of charge.
+        // Second try when the lite model refuses a request.
         "gemini-3.8-flash-tts",
-        "gemini-3.1-flash-tts-preview",
-        "gemini-2.5-flash-preview-tts"
+        // Legacy safety net, LAST: the 3.1 preview that shipped before, so a
+        // spoken reply can never die if the two 3.8 ids are rejected (for
+        // example by a key that predates them). The retired 2.5 preview entry
+        // was removed - it is closed to new projects and was never reached
+        // anyway, because the client stopped after two models.
+        "gemini-3.1-flash-tts-preview"
     )
 
     /**

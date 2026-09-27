@@ -266,6 +266,12 @@ class VoiceLoop(
             return script(listOf(speakKey(VoiceTextKeys.NOT_YET)), Next.AFTER_TURN)
         }
 
+        // "awaz badlo" with no name heard: nothing to confirm or execute - teach
+        // the two words instead of asking a pointless yes/no question.
+        if (command is VoiceCommand.SetVoice && command.voiceName.isBlank()) {
+            return script(listOf(speakKey(VoiceTextKeys.VOICE_HINT)), Next.AFTER_TURN)
+        }
+
         val level = VoiceConfirmPolicy.levelFor(command, confirmNavigation)
             ?: return script(runNow(command), executionNext(command))
 

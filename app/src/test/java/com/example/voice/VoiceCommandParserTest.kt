@@ -6,7 +6,9 @@ import org.junit.Test
 
 class VoiceCommandParserTest {
 
-    private val voices = setOf("Kore", "Charon", "Puck", "Zephyr", "Fenrir", "Leda", "Aoede")
+    // The app offers exactly two voices now; the parser is tested against that
+    // same set (VoiceIds.ALL) instead of a copy that could drift.
+    private val voices = VoiceIds.ALL.toSet()
 
     @Test
     fun navigationToLeads() {
@@ -128,6 +130,29 @@ class VoiceCommandParserTest {
             VoiceCommand.SetVoice(""),
             VoiceCommandParser.parse("awaz badlo", voices)
         )
+    }
+
+    @Test
+    fun setVoiceByGenderWordInEveryLanguage() {
+        // The user says "male/female" (or the same word in their own language);
+        // speech recognition returns that language even when the app is English.
+        val male = listOf("male awaz lagao", "purush awaz lagao", "आदमी आवाज़ लगाओ", "ஆண் குரல்", "مرد کی آواز")
+        val female = listOf("female awaz lagao", "mahila awaz lagao", "औरत की आवाज़ लगाओ", "பெண் குரல்", "عورت کی آواز")
+        for (text in male) {
+            assertEquals("'$text' should pick the male voice", VoiceCommand.SetVoice(VoiceIds.MALE), VoiceCommandParser.parse(text, voices))
+        }
+        for (text in female) {
+            assertEquals("'$text' should pick the female voice", VoiceCommand.SetVoice(VoiceIds.FEMALE), VoiceCommandParser.parse(text, voices))
+        }
+    }
+
+    @Test
+    fun setVoiceByNameStillWorksAndOnlyTheOfferedNames() {
+        assertEquals(VoiceCommand.SetVoice(VoiceIds.FEMALE), VoiceCommandParser.parse("kore awaz lagao", voices))
+        assertEquals(VoiceCommand.SetVoice(VoiceIds.MALE), VoiceCommandParser.parse("Orus awaz lagao", voices))
+        // A removed voice name is no longer recognised as a voice -> the picker
+        // hint comes instead of silently sending an id the API would reject.
+        assertEquals(VoiceCommand.SetVoice(""), VoiceCommandParser.parse("charon awaz lagao", voices))
     }
 
     @Test

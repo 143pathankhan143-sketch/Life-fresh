@@ -65,3 +65,28 @@ sealed class VoiceCommand {
     /** Blank/noise only — nothing usable heard. */
     object Unknown : VoiceCommand()
 }
+
+/**
+ * The ONLY two AI voices the app offers (user decision, 2026-09-27): one female,
+ * one male. The 28 other Gemini studio voices were removed because an illiterate
+ * user cannot pick from a list of 30 - and a wrong pick is worse than no pick.
+ *
+ * Kept here (pure Kotlin, no Android) so the parser, the cloud TTS client and
+ * the tests all agree on the same two ids.
+ */
+object VoiceIds {
+    /** Female — Gemini "Kore" (clear, firm). */
+    const val FEMALE: String = "Kore"
+
+    /** Male — Gemini "Orus" (firm, factual). */
+    const val MALE: String = "Orus"
+
+    val ALL: List<String> = listOf(FEMALE, MALE)
+
+    /** Migration guard: any older stored name becomes the female voice. */
+    fun normalise(name: String): String {
+        val trimmed = name.trim()
+        if (trimmed.equals("auto", ignoreCase = true)) return FEMALE
+        return ALL.firstOrNull { it.equals(trimmed, ignoreCase = true) } ?: FEMALE
+    }
+}

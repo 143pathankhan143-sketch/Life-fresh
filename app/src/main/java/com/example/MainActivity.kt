@@ -88,6 +88,8 @@ import com.example.voice.android.AndroidVoiceTexts
 import com.example.voice.android.VoiceAppController
 import com.example.voice.android.VoiceConfirmBanner
 import com.example.voice.android.VoiceEffectHandler
+import com.example.ai.chat.voice.GeminiTtsClient
+import com.example.voice.VoiceCapabilities
 import com.example.voice.android.VoiceHandoff
 import com.example.voice.android.VoiceMicButton
 
@@ -516,7 +518,13 @@ fun MainScreen(viewModel: CRMViewModel, authViewModel: com.example.ui.viewmodel.
             context = context.applicationContext,
             texts = voiceTexts,
             handler = voiceHandler,
-            scope = voiceScope
+            scope = voiceScope,
+            // Voice selection is implemented (M5-lite), so "male awaz lagao"
+            // really switches the voice. The rest of M5 stays off.
+            enabled = VoiceCapabilities.CURRENT,
+            // Without this the parser could not recognise a voice name, so
+            // "Kore awaz lagao" only ever opened the picker (bug fix).
+            knownVoices = { GeminiTtsClient.VOICES.toSet() }
         )
     }
 

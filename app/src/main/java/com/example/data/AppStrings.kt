@@ -228,6 +228,9 @@ object AppStrings {
         "vc_cloud_delete_3" to com.example.R.string.vc_cloud_delete_3,
         "vc_help" to com.example.R.string.vc_help,
         "vc_search_prompt" to com.example.R.string.vc_search_prompt,
+        "vc_voice_hint" to com.example.R.string.vc_voice_hint,
+        "vc_voice_set_female" to com.example.R.string.vc_voice_set_female,
+        "vc_voice_set_male" to com.example.R.string.vc_voice_set_male,
     )
 
     fun getResourceId(key: String): Int? {

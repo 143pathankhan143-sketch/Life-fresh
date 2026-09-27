@@ -909,8 +909,12 @@
     <string name="settings_ai_voice">AI आवाज़</string>
     <string name="settings_ai_voice_sub">जवाब असली जैसी आवाज़ में (मुफ़्त, Gemini key से चलता है)</string>
     <string name="settings_ai_voice_pick">आवाज़ चुनें</string>
+    <string name="ai_voice_female">महिला आवाज़</string>
+    <string name="ai_voice_male">पुरुष आवाज़</string>
+    <string name="vc_voice_hint">बोलिए: महिला आवाज़ लगाओ, या पुरुष आवाज़ लगाओ।</string>
+    <string name="vc_voice_set_female">महिला आवाज़ लग गई।</string>
+    <string name="vc_voice_set_male">पुरुष आवाज़ लग गई।</string>
     <string name="settings_ai_voice_test">टेस्ट</string>
-    <string name="ai_voice_auto">अपने आप (AI खुद चुनेगी)</string>
     <string name="ai_tts_test_sample">नमस्ते! मैं LifeFresh AI हूँ। मैं तुम्हारे जवाब तुम्हारी अपनी भाषा में बोलकर सुना सकता हूँ।</string>
     <string name="ai_tts_pack_missing">इस भाषा की आवाज़ फोन में इंस्टॉल नहीं है। Settings &gt; Speech Services जाकर वॉइस डेटा इंस्टॉल करो, या Settings में मुफ़्त AI आवाज़ चालू करो।</string>
 

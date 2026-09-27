@@ -68,7 +68,25 @@ object VoiceCommandParser {
     private val BOLO_MODE_TOKENS = setOf("mode", "mud", "मोड", "موڈ")
     private val BOLO_ON_TOKENS = setOf("on", "chaloo", "chalu", "chalao", "shuru", "start", "kholo", "karo", "enable", "चालू", "शुरू", "آن", "کرو")
     private val BOLO_OFF_TOKENS = setOf("off", "band", "bandh", "rok", "roko", "stop", "बंद", "روک", "بند")
-    private val VOICE_TOKENS = setOf("awaz", "aawaz", "आवाज़", "आवाज", "voice", "آواز")
+    // "voice" in every app language - Tamil (குரல்) was missing, so a Tamil
+    // speaker could never change the voice no matter what they said.
+    private val VOICE_TOKENS = setOf(
+        "awaz", "aawaz", "voice", "आवाज़", "आवाज", "آواز", "குரல்", "குரலை"
+    )
+
+    // Male / female words in all four languages (speech recognition returns the
+    // user's own language even when the app is in English), so "mahila awaz
+    // lagao", "ladki ki awaaz", "பெண் குரல்" and "عورت کی آواز" all work.
+    private val VOICE_FEMALE_WORDS = setOf(
+        "female", "femal", "mahila", "mahilla", "aurat", "ladki", "stree",
+        "फीमेल", "फ़ीमेल", "महिला", "महीला", "औरत", "लड़की", "स्त्री",
+        "பெண்", "பெண்குரல்", "عورت", "لڑکی", "مہیلہ"
+    )
+    private val VOICE_MALE_WORDS = setOf(
+        "male", "purush", "mard", "aadmi", "admi", "ladka",
+        "मेल", "पुरुष", "आदमी", "लड़का",
+        "ஆண்", "ஆண்குரல்", "مرد", "آدمی", "لڑکا"
+    )
 
     // ---------------- search ----------------
     private val SEARCH_TOKENS = setOf("dhoondo", "dhundho", "dhoondh", "dhundh", "search", "find", "khojo", "khoj", "ढूंढो", "खोजो", "ڈھونڈو")
@@ -153,8 +171,14 @@ object VoiceCommandParser {
 
     private fun voiceCommand(toks: List<String>, knownVoices: Set<String>): VoiceCommand? {
         if (!hasAny(toks, VOICE_TOKENS)) return null
+        // 1. An exact voice name ("Kore awaz lagao") still wins.
         val hit = knownVoices.firstOrNull { v -> hasAny(toks, setOf(v.lowercase(Locale.ROOT))) }
-        return if (hit != null) VoiceCommand.SetVoice(hit) else VoiceCommand.SetVoice("")
+        if (hit != null) return VoiceCommand.SetVoice(hit)
+        // 2. Otherwise the gender word decides: "male awaz lagao" -> Orus.
+        if (hasAny(toks, VOICE_MALE_WORDS)) return VoiceCommand.SetVoice(VoiceIds.MALE)
+        if (hasAny(toks, VOICE_FEMALE_WORDS)) return VoiceCommand.SetVoice(VoiceIds.FEMALE)
+        // 3. Just "awaz badlo" with nothing to go on: teach the two words.
+        return VoiceCommand.SetVoice("")
     }
 
     private fun isRestorePhrase(toks: List<String>): Boolean =

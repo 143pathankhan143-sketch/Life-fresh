@@ -909,8 +909,12 @@
     <string name="settings_ai_voice">AI voice</string>
     <string name="settings_ai_voice_sub">Reply in a natural voice (free, uses the Gemini key)</string>
     <string name="settings_ai_voice_pick">Choose voice</string>
+    <string name="ai_voice_female">Female voice (Mahila)</string>
+    <string name="ai_voice_male">Male voice (Purush)</string>
+    <string name="vc_voice_hint">Say: Mahila awaz lagao, or Purush awaz lagao.</string>
+    <string name="vc_voice_set_female">The female voice is on now.</string>
+    <string name="vc_voice_set_male">The male voice is on now.</string>
     <string name="settings_ai_voice_test">Test</string>
-    <string name="ai_voice_auto">Auto (AI picks one)</string>
     <string name="ai_tts_test_sample">Hello! I am LifeFresh AI. I can read your replies aloud in your own language.</string>
     <string name="ai_tts_pack_missing">This language\'s voice is not installed on the phone. Open Settings &gt; Speech Services and install the voice data, or turn on the free AI voice in Settings.</string>
 

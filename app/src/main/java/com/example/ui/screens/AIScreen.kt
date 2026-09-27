@@ -135,6 +135,10 @@ fun AIScreen(
         mutableStateOf(AIQuotaManager.isBoloModeEnabled(aiContext))
     }
     var boloListening by remember { mutableStateOf(false) }
+    // True only while the hands-free loop is really running (not merely
+    // switched on). The auto-speak effect is gated on THIS, so reading replies
+    // aloud never stops just because the loop had to turn itself off.
+    var boloRunning by remember { mutableStateOf(false) }
 
     val latestChatState by rememberUpdatedState(uiState)
     val boloVoice = remember(aiContext) { VoiceInputHelper(aiContext) }
@@ -181,7 +185,7 @@ fun AIScreen(
     var lastAutoSpokenId by remember { mutableStateOf<String?>(null) }
     val lastChatMessage = uiState.messages.lastOrNull()
     LaunchedEffect(lastChatMessage?.id, lastChatMessage?.isStreaming, uiState.isThinking) {
-        if (!voiceReplyOn || boloModeOn || uiState.isThinking) return@LaunchedEffect
+        if (!voiceReplyOn || boloRunning || uiState.isThinking) return@LaunchedEffect
         val last = uiState.messages.lastOrNull() ?: return@LaunchedEffect
         if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
         if (last.id == lastAutoSpokenId) return@LaunchedEffect
@@ -192,10 +196,12 @@ fun AIScreen(
     // Bolo mode: talk -> listen -> act -> talk ...
     LaunchedEffect(boloModeOn) {
         if (!boloModeOn) {
+            boloRunning = false
             boloListening = false
             AiVoicePlayer.stop()
             return@LaunchedEffect
         }
+        boloRunning = true
         AiTts.ensure(aiContext)
         var micFailures = 0
         while (isActive) {
@@ -261,13 +267,18 @@ fun AIScreen(
                 }
             }
         }
-        // Loop ended because the mic kept failing - switch the mode off.
+        boloRunning = false
+        // Loop ended because the mic kept failing - switch the mode off, but
+        // SAY so first: an illiterate user cannot read the toast, and the
+        // previous silence looked like the app had simply stopped talking.
+        // (Spoken before flipping the flag: setting boloModeOn = false would
+        // cancel this very coroutine and cut the sentence off.)
         if (isActive && micFailures >= 3) {
+            val stoppedLine = aiContext.getString(R.string.ai_bolo_stopped)
+            awaitSpoken(stoppedLine)
             boloModeOn = false
             AIQuotaManager.setBoloModeEnabled(aiContext, false)
-            Toast.makeText(
-                aiContext, aiContext.getString(R.string.ai_bolo_stopped), Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(aiContext, stoppedLine, Toast.LENGTH_LONG).show()
         }
         boloListening = false
     }

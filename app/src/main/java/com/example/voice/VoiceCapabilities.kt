@@ -72,6 +72,14 @@ object VoiceCapabilities {
         VoiceCapability.BOLO_MODE
     )
 
+    /**
+     * What ships right now: the M2 foundation plus voice selection, whose
+     * executor is already implemented (M5-lite). Answered "male awaz lagao" /
+     * "mahila awaz lagao" changes the voice immediately. Everything else in M5
+     * stays off until its executor exists.
+     */
+    val CURRENT: Set<VoiceCapability> = M2 + VoiceCapability.SET_VOICE
+
     /** Everything. */
     val ALL: Set<VoiceCapability> = M5
 }

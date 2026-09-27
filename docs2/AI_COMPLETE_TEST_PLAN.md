@@ -398,6 +398,32 @@ Lambi chat me bhi jawab aate rahein (memory/leak na ho).
 
 ---
 
+## SECTION I-3 — Voice set (2 voices) + device-voice reliability 🆕
+
+**I-3-1. Sirf 2 cloud voice** [P0] `VoiceSetPolicyTest.exactlyOneFemaleAndOneMaleVoice`
+— `Kore` (Mahila) + `Orus` (Purush), 28 hataye gaye naam wapas na aayein.
+**I-3-2. Purani saved voice** [P0] `anOldStoredChoiceFallsBackToTheFemaleVoice` —
+"Charon"/"auto"/khaali → Kore (crash/khaali awaaz nahi).
+**I-3-3. Voice command se switch (4 bhasha)** [P0] `setVoiceByGenderWordInEveryLanguage` +
+`aSpokenVoiceNameIsActuallyWired` — "male/mahila/mard/आदमी/பெண்/مرد awaz lagao" se awaaz
+badalti hai; `knownVoices` wire hona zaroori.
+**I-3-4. Devanagari tokenizer** [P0] matra/nukta wale shabd ek token rehte hain
+("आवाज़", "महिला", "लड़की") — warna Hindi commands chup-chaap fail hote hain.
+**I-3-5. Tamil "voice" token** [P0] `குரல்` — Tamil me voice badalna ab kaam karta hai.
+**I-3-6. Dead TTS model wapas na aaye** [P0] `retiredTtsModelOnesAreNotListedAgain` —
+2.5 preview hata; pehla model `gemini-3.8-flash-lite-tts`.
+**I-3-7. Silent-engine defence** [P0] `theDeviceEngineDefendsAgainstASilentEngine` —
+`speak()` ERROR check, engine rebuild, watchdog, chunking, `onStart` tracking, aur
+"quiet engine ko stop na karna".
+**I-3-8. Orpheus 200-char rule** [P0] `OrpheusChunkerTest` (5) — lamba English reply
+tukdon me bantta hai, kuchh khoता nahi.
+**I-3-9. Insaan wala check (device)** [P0] 5 sawaal poochho: har jawab **bolkar** aana
+chahiye (pehle sirf 2 aate the) · Settings → AI voice → dono voice ka Test suno ·
+"male awaz lagao" bolo → Purush ho jaye · Groq-only (Gemini key hata kar) English jawab
+suno · bolo mode 3 baar fail karao → awaaz me "band ho gaya" sunai de.
+**I-3-10. Best Android voice** [P1] Settings → Test: default kamzor voice ke bajaye
+device ka best installed voice sunai dena chahiye.
+
 ## SECTION I-2a — Model availability + selection policy 🆕
 (P0) Kabhi bhi koi retired id add na ho:
 - **I-2a-1. Retired vs live lists** [P0] `AIConfigModelListTest.groqListHasNoRetiredModels`
@@ -565,7 +591,7 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | **Voice total (naya)** | **67** | |
 | `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
 | `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
-| **Grand total** | **160** | |
+| **Grand total** | **177** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

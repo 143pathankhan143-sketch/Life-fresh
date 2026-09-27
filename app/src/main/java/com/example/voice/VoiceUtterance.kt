@@ -80,9 +80,16 @@ object VoiceUtterance {
 
     fun isAffirmation(text: String): Boolean = classifyYesNo(text) == YesNoAnswer.YES
 
-    /** Lowercase + split on non-letters (same tokenization as VoiceWordMatcher). */
+    /**
+     * Lowercase + split on non-letters (same tokenization as VoiceWordMatcher).
+     *
+     * Combining marks (\\p{M}) stay attached to their base letter: Hindi
+     * "आवाज़" must be ONE token, not "आव" + "ज", or every command that contains
+     * a matra or nukta would silently stop matching (Tamil/Urdu have the same
+     * problem - Tamil vowel signs and Urdu aer/zer are marks too).
+     */
     fun tokens(text: String): List<String> =
         text.lowercase(Locale.ROOT)
-            .split(Regex("[^\\p{L}]+"))
+            .split(Regex("[^\\p{L}\\p{M}]+"))
             .filter { it.isNotBlank() }
 }

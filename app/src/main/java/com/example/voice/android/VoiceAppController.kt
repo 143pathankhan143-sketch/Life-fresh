@@ -3,7 +3,10 @@ package com.example.voice.android
 import android.content.Context
 import android.util.Log
 import com.example.ai.chat.voice.AiVoicePlayer
+import com.example.ai.chat.voice.GeminiTtsClient
 import com.example.ai.chat.voice.VoiceInputHelper
+import com.example.data.security.AIQuotaManager
+import com.example.voice.VoiceIds
 import com.example.voice.ListenReason
 import com.example.voice.VocalDestination
 import com.example.voice.VoiceCapabilities
@@ -193,7 +196,9 @@ class VoiceAppController(
 
                 is VoiceEffect.ConfirmCard -> handler.showConfirmCard(effect.prompt)
 
-                is VoiceEffect.Execute -> handler.execute(effect.command)
+                // M5-lite: switching the AI voice is already implemented here
+                // (the other executors stay with the host until M3/M4).
+                is VoiceEffect.Execute -> executeCommand(effect.command)
 
                 VoiceEffect.SessionEnded -> {
                     listenAttempt++
@@ -203,6 +208,35 @@ class VoiceAppController(
                     handler.onSessionChanged(false)
                 }
             }
+        }
+    }
+
+    /**
+     * Runs an [VoiceEffect.Execute] command.
+     *
+     * `SetVoice` is handled here because it is a settings-only command: it
+     * writes the preference, confirms with the NEW voice, and settles the turn
+     * through [VoiceLoop.onExecutionFinished]. Everything else is still the
+     * host's job (M3/M4), and it calls back itself.
+     */
+    private suspend fun executeCommand(command: VoiceCommand) {
+        if (command !is VoiceCommand.SetVoice) {
+            handler.execute(command)
+            return
+        }
+        val voice = GeminiTtsClient.normaliseVoice(command.voiceName)
+        try {
+            AIQuotaManager.setTtsVoiceName(context, voice)
+            speakNow(
+                if (voice == VoiceIds.MALE) texts.get(VoiceTextKeys.VOICE_SET_MALE)
+                else texts.get(VoiceTextKeys.VOICE_SET_FEMALE)
+            )
+        } catch (e: Throwable) {
+            Log.w(TAG, "voice switch failed", e)
+        } finally {
+            // Play the tail of the turn inline (StartListening / SessionEnded),
+            // so the loop stays in charge of what happens next.
+            playOrThrow(loop.onExecutionFinished())
         }
     }
 

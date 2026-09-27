@@ -379,6 +379,34 @@ The AI Configuration Engine provides a secure, predictable, and local configurat
   `daily_ai_usage_prefs` SharedPreferences (`custom_groq_api_key`) and read
   at runtime through `AIConfig.customGroqApiKeyProvider`
   (set in `LifeFreshApplication`), never from BuildConfig.
+* **Voice set (2026-09-27)**: exactly TWO cloud voices — `Kore` ("Mahila",
+  female) and `Orus` ("Purush", male) — defined once in `VoiceIds` (pure
+  Kotlin) and used by `GeminiTtsClient.VOICES`, the parser and the tests. The
+  28 removed studio voices and the old "auto" option must never return; any
+  older stored name is normalised to `Kore` (`GeminiTtsClient.normaliseVoice`),
+  so an existing install keeps speaking instead of sending a 400.
+* **Spoken voice switching**: "male awaz lagao" / "mahila awaz lagao" (and the
+  same words in Hindi, Tamil, Urdu) change the voice — `MainActivity` passes
+  `knownVoices` and enables `VoiceCapabilities.CURRENT` (M2 + SET_VOICE), and
+  `VoiceAppController.executeCommand` writes the preference, confirms in the
+  NEW voice and settles the turn. A bare "awaz badlo" speaks
+  `vc_voice_hint` instead of asking a pointless yes/no.
+* **TTS models**: `AIConfig.GEMINI_TTS_MODELS` = `gemini-3.8-flash-lite-tts`
+  then `gemini-3.8-flash-tts` (both free of charge on the free tier, verified
+  2026-09-27) with `gemini-3.1-flash-tts-preview` kept last as a legacy safety
+  net. The retired 2.5 preview id and the old `take(2)` hack are gone.
+* **Groq Orpheus fallback**: `GroqTtsClient` speaks English replies through
+  Groq's `canopylabs/orpheus-v1-english` for users who have a Groq key but no
+  Gemini key (Groq hosts English + Saudi Arabic only, so Hindi/Tamil/Urdu keep
+  using Gemini or the device engine). Groq's `input` is limited to 200
+  characters, so `OrpheusChunker` (pure, tested) splits a long reply into
+  ordered pieces.
+* **Device engine reliability**: `AiTts` checks `speak()`'s return value,
+  tracks `onStart`, watches for an utterance that never starts, rebuilds a dead
+  engine, splits long replies into engine-sized chunks, and picks the best
+  installed voice for the app language. `AiVoicePlayer` only stops the device
+  engine when it is really speaking (the stop-then-speak race that used to
+  silence the voice after one or two answers).
 * **Key testing**: `AIServiceRepository.testGroqKey` probes
   `GET https://api.groq.com/openai/v1/models` with the Bearer key
   (401/403 => invalid), then runs a tiny "Say 'Connected'" chat

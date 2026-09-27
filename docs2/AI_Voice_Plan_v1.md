@@ -1,7 +1,9 @@
 # AI Voice Set — Simplification Plan (v1)
 
-**Date:** 2026-09-27 (rev 2)
-**Status:** PLAN ONLY — koi code change nahi. Approval ke baad implement karenge.
+**Date:** 2026-09-27 (rev 3)
+**Status:** ✅ **IMPLEMENTED** — P0 device-voice bug fix + 2-voice simplification +
+Option A (best installed Android voice) + Option B (Groq Orpheus, English) sab code me hain.
+Option C (downloadable offline voice pack) abhi bhi apna milestone (M6 ke baad) hai.
 
 ## 0. User decisions (2026-09-27) — LOCKED
 
@@ -239,3 +241,73 @@ ban jaata hai. Ye "do jawab ke baad chup" ka dusra pura reason hai.
    wala bug (9.1) confirm.
 4. (Optional) Logcat: `adb logcat -s AiTts AiVoicePlayer VoiceAppController` — agli build me
    failure ka asli reason wahan likha milega.
+
+---
+
+## 10. Implementation log (2026-09-27) — kya-kya ship hua
+
+**A. P0 device-voice bug (fix ho gaya)**
+- `AiTts`: `speak()` ka return code check hota hai — `ERROR` aane par engine **rebuild**
+  (naya `TextToSpeech`) + wahi text dobara.
+- `onStart` track hota hai + **2.5s ka start-watchdog** (accepted par shuru hi na ho to
+  engine rebuild + retry).
+- `onServiceDisconnectedListener` (API 30+, minSdk 24 guard) → engine marne par re-init.
+- Lamba jawab **chunks** me boltа hai (`splitForEngine` + `TextToSpeech.getMaxSpeechInputLength()`),
+  har utterance ka unique id.
+- Utterance ke "finnish hone" ka watchdog bhi hai (callback kho jaye to reply aage badhti hai).
+- `AiVoicePlayer.beginSpeak()` ab **sirf tab** `AiTts.stop()` karta hai jab engine waqai bol
+  raha ho — yahi "1-2 jawab ke baad chup" ka core reason tha. Real barge-in pehle jaisa hi.
+- Bolo mode mic fail hone par band hone se **pehle bolkar batata hai** ("Bolo mode band ho
+  gaya..."), aur auto-speak `boloModeOn` ke bajaye **`boloRunning`** (loop waqai chal raha
+  hai) par gated hai — loop rukne par bhi reading chalti rehti hai.
+- `AiTts.isSpeaking()` naya API (upar wale fix ke liye).
+
+**B. Sirf 2 cloud voices (ho gaya)**
+- `VoiceIds` (pure) = `Kore` (Mahila) + `Orus` (Purush); `GeminiTtsClient.VOICES` ab wahi do.
+- Purani saved voice (Charon/auto/...) → **migration guard** se Kore (crash/khaali awaaz nahi).
+- Settings picker: 30 rows → **2 rows**, har row me apna **Test** button.
+- Strings: `ai_voice_female`, `ai_voice_male` (4 bhasha) + `ai_voice_auto` hata.
+
+**C. Voice command se voice badalna (ho gaya)**
+- `MainActivity` me `knownVoices` wire hua (pehle khaali tha → "Kore awaz lagao" sirf picker
+  kholta tha) + `VoiceCapabilities.CURRENT` (M2 + SET_VOICE).
+- `VoiceAppController.executeCommand` SetVoice ko khud execute karta hai: pref likhna,
+  **nayi awaaz me** confirmation bolna, phir turn settle.
+- Parser: male/female words 4 bhasha me (`male/mard/aadmi/ladka/आदमी/पुरुष/ஆண்/مرد`,
+  `female/mahila/aurat/ladki/औरत/महिला/பெண்/عورت`) + naam se bhi (`kore/orus`).
+- Sirf "awaz badlo" (naam nahi) → `vc_voice_hint` bolkar batata hai kaise bolna hai.
+
+**D. Tokenizer bug (mila aur fix hua)**
+- `VoiceUtterance.tokens` ab combining marks (`\p{M}`) ko letter ke saath rakhta hai. Pehle
+  Hindi "आवाज़" → "आव" + "ज" toot jaata tha, isliye matra/nukta wale Hindi commands match
+  hi nahi karte the (Tamil/Urdu bhi). Yahi bug "male awaz lagao" ko Hindi me todta tha.
+- **Tamil me "voice" (குரல்) token hi missing tha** — Tamil speaker kabhi voice nahi badal
+  sakta tha. Ab add hai.
+
+**E. Option A — Android best voice (ho gaya)**
+- `AiTts` ab `tts.voices` me se us bhasha ka **best quality** voice chunta hai (country match,
+  phir network voice), default kamzor voice ke bajaye. Language badalne par hi dobara chunta hai.
+
+**F. Option B — Groq Orpheus (ho gaya, English-only)**
+- Naya `GroqTtsClient` (POST `/openai/v1/audio/speech`, `canopylabs/orpheus-v1-english`).
+- **Verify kiya:** Groq par sirf English + Saudi-Arabic hai — **Hindi/Tamil/Urdu nahi**,
+  isliye ye sirf English replies ke liye chalta hai (Gemini key na ho par Groq key ho).
+- `input` max 200 chars → naya pure `OrpheusChunker` (tested) reply ko chhote hisson me
+  baantta hai, saare hisse order me bajte hain.
+- Voice mapping: Mahila→`hannah`, Purush→`troy`.
+
+**G. TTS models (ho gaya)**
+- `gemini-3.8-flash-lite-tts` → `gemini-3.8-flash-tts` → (legacy) `gemini-3.1-flash-tts-preview`.
+- Dead `gemini-2.5-flash-preview-tts` hata; `.take(2)` hack hata.
+
+**H. Verification (sandbox)**
+- **110 pure tests green** (10 suites): voice command parser + confirm gate + voice loop +
+  navigator + locale/R8 guards + voice-set policy (5) + source guards (5) + Orpheus chunker (5),
+  aur AI failure policy + AI model list — sab pass, 0 fail.
+- Android-only files (AiTts/AiVoicePlayer/GeminiTtsClient/GroqTtsClient/VoiceAppController):
+  compile probe me **0 syntax error**, mere naye symbols ke liye **0 unresolved**.
+- ⚠️ Asli Gradle build + device test aapke phone par hi hoga (yahan Android SDK nahi hai).
+
+**I. Aage kya (Option C)**
+- Downloadable offline voice pack (Piper/ONNX, ~30–60 MB/bhasha, Settings me download) —
+  apna milestone, M6 ke baad. Naya TTS engine + model management + download UI chahiye.

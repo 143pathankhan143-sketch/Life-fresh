@@ -63,9 +63,13 @@ object AiVoicePlayer {
     @Volatile
     private var deviceContinuation: CancellableContinuation<Unit>? = null
 
-    /** Natural voice is used when enabled in Settings and a Gemini key exists. */
+    /**
+     * Natural voice is used when enabled in Settings and EITHER cloud key
+     * exists: Gemini (any language) or Groq Orpheus (English only).
+     */
     fun isNaturalEnabled(context: Context): Boolean =
-        AIQuotaManager.isNaturalTtsEnabled(context) && GeminiTtsClient.isConfigured()
+        AIQuotaManager.isNaturalTtsEnabled(context) &&
+            (GeminiTtsClient.isConfigured() || GroqTtsClient.isConfigured())
 
     suspend fun speakSuspend(context: Context, text: String) {
         if (text.isBlank()) return
@@ -80,21 +84,15 @@ object AiVoicePlayer {
                 var anyPlayed = false
                 for (chunk in chunks) {
                     if (stale(token) || !currentCoroutineContext().isActive) return
-                    val file = try {
-                        withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GeminiTtsClient.synthesize(context, chunk) }
+                    val played = try {
+                        speakCloud(context, chunk, token)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         Log.w(TAG, "chunk cloud failed, will try device for this chunk", e)
-                        null
+                        false
                     }
-                    if (file != null) {
-                        if (stale(token) || !currentCoroutineContext().isActive) return
-                        try {
-                            withTimeoutOrNull(PLAYBACK_BUDGET_MS) { playFile(file) }
-                        } catch (e: CancellationException) {
-                            throw e
-                        }
+                    if (played) {
                         anyPlayed = true
                     } else {
                         // This chunk's cloud synth failed - speak just this
@@ -110,21 +108,14 @@ object AiVoicePlayer {
                 // fallback below.
             } else {
                 // Single chunk (short text) fast path with the same tight budget.
-                val file = try {
-                    withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GeminiTtsClient.synthesize(context, text) }
+                val played = try {
+                    speakCloud(context, text, token)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    null
+                    false
                 }
-                if (file != null && !stale(token)) {
-                    try {
-                        withTimeoutOrNull(PLAYBACK_BUDGET_MS) { playFile(file) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    }
-                    return
-                }
+                if (played) return
             }
         }
 
@@ -138,23 +129,66 @@ object AiVoicePlayer {
         if (sample.isBlank()) return
         val token = beginSpeak()
         if (isNaturalEnabled(context)) {
-            val file = try {
-                withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GeminiTtsClient.synthesize(context, sample) }
+            val played = try {
+                speakCloud(context, sample, token)
             } catch (e: Exception) {
-                null
+                false
             }
-            if (file != null && !stale(token)) {
-                try {
-                    withTimeoutOrNull(PLAYBACK_BUDGET_MS) { playFile(file) }
-                } catch (e: CancellationException) {
-                    throw e
-                }
-                return
-            }
+            if (played) return
         }
         if (!stale(token) && currentCoroutineContext().isActive) {
             speakOnDevice(context, sample)
         }
+    }
+
+    /**
+     * Speaks one piece of text with a cloud voice, returns true when audio was
+     * played. Order:
+     *  1. Gemini TTS - Hindi, Tamil, Urdu and English with the right accent.
+     *  2. Groq Orpheus - a natural English voice for users who have a Groq key
+     *     but no Gemini key. Groq hosts English (and Saudi Arabic) only, so it
+     *     is used only while the app language is English; its engine accepts at
+     *     most 200 characters per request, so a longer piece is spoken as
+     *     several short files in order.
+     * False means the caller must fall back to the device engine - a reply is
+     * never silently dropped.
+     */
+    private suspend fun speakCloud(context: Context, text: String, token: Long): Boolean {
+        val geminiFile = try {
+            withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GeminiTtsClient.synthesize(context, text) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        if (geminiFile != null) {
+            if (stale(token) || !currentCoroutineContext().isActive) return true
+            try {
+                withTimeoutOrNull(PLAYBACK_BUDGET_MS) { playFile(geminiFile) }
+            } catch (e: CancellationException) {
+                throw e
+            }
+            return true
+        }
+
+        if (!GroqTtsClient.isConfigured() || !GroqTtsClient.speaksAppLanguage(context)) return false
+        val pieces = try {
+            withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GroqTtsClient.synthesizeAll(context, text) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }.orEmpty()
+        if (pieces.isEmpty()) return false
+        for (piece in pieces) {
+            if (stale(token) || !currentCoroutineContext().isActive) return true
+            try {
+                withTimeoutOrNull(PLAYBACK_BUDGET_MS) { playFile(piece) }
+            } catch (e: CancellationException) {
+                throw e
+            }
+        }
+        return true
     }
 
     /**
@@ -229,7 +263,11 @@ object AiVoicePlayer {
         // instead of waiting for a late engine callback / long timeout, and
         // silence any audio that is still playing from the old speaker.
         releasePlayer()
-        AiTts.stop()
+        // Only touch the device engine while it is REALLY speaking. Calling
+        // AiTts.stop() on a quiet engine made several engines drop the very
+        // next utterance, which is how the Android voice used to go silent
+        // after one or two answers. Real barge-in still stops audio here.
+        if (AiTts.isSpeaking()) AiTts.stop()
         wakePlayback()
         wakeDevice()
     }

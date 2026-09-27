@@ -909,8 +909,12 @@
     <string name="settings_ai_voice">AI آواز</string>
     <string name="settings_ai_voice_sub">جواب اصلی جیسی آواز میں (مفت، Gemini key سے)</string>
     <string name="settings_ai_voice_pick">آواز چنیں</string>
+    <string name="ai_voice_female">عورت کی آواز</string>
+    <string name="ai_voice_male">مرد کی آواز</string>
+    <string name="vc_voice_hint">کہیں: عورت کی آواز لگاؤ، یا مرد کی آواز لگاؤ۔</string>
+    <string name="vc_voice_set_female">عورت کی آواز لگ گئی۔</string>
+    <string name="vc_voice_set_male">مرد کی آواز لگ گئی۔</string>
     <string name="settings_ai_voice_test">ٹیسٹ</string>
-    <string name="ai_voice_auto">خودکار (AI خود چنے گی)</string>
     <string name="ai_tts_test_sample">السلام علیکم! میں LifeFresh AI ہوں۔ آپ کے جواب آپ کی اپنی زبان میں بول کر سنا سکتا ہوں۔</string>
     <string name="ai_tts_pack_missing">اس زبان کی آواز فون پر انسٹال نہیں ہے۔ Settings &gt; Speech Services جا کر وائس ڈیٹا انسٹال کریں، یا Settings میں مفت AI آواز آن کریں۔</string>
 

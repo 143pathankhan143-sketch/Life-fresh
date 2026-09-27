@@ -75,6 +75,15 @@ object VoiceTextKeys {
     /** "Searching %1$s." (M3) */
     const val SEARCH_PROMPT = "vc_search_prompt"
 
+    /** "Say: Mahila awaz lagao, or Purush awaz lagao." (no voice name heard) */
+    const val VOICE_HINT = "vc_voice_hint"
+
+    /** "Female voice is on now." */
+    const val VOICE_SET_FEMALE = "vc_voice_set_female"
+
+    /** "Male voice is on now." */
+    const val VOICE_SET_MALE = "vc_voice_set_male"
+
     /** All keys — used by the locale coverage test. */
     val ALL: List<String> = listOf(
         NAV_PROMPT, NAV_DONE, NAV_COUNTS, BACK_DONE, BACK_PROMPT, CONFIRM_OK,
@@ -82,7 +91,8 @@ object VoiceTextKeys {
         HEARD_NOTHING, MIC_UNAVAILABLE, STOPPED, NOT_YET, PAKKA,
         BACKUP_PROMPT, RESTORE_PROMPT, LOCAL_DELETE_PROMPT,
         CLOUD_DELETE_PROMPT_1, CLOUD_DELETE_PROMPT_2, CLOUD_DELETE_PROMPT_3,
-        HELP, SEARCH_PROMPT
+        HELP, SEARCH_PROMPT,
+        VOICE_HINT, VOICE_SET_FEMALE, VOICE_SET_MALE
     )
 }
 
@@ -150,7 +160,10 @@ object VoiceTextDefaults {
         VoiceTextKeys.HELP to
             "You can say: leads dikhao, dashboard, backup karo, settings kholo. " +
                 "Or simply ask your question.",
-        VoiceTextKeys.SEARCH_PROMPT to "Searching %1\$s."
+        VoiceTextKeys.SEARCH_PROMPT to "Searching %1\$s.",
+        VoiceTextKeys.VOICE_HINT to "Say: Mahila awaz lagao, or Purush awaz lagao.",
+        VoiceTextKeys.VOICE_SET_FEMALE to "Female voice is on now.",
+        VoiceTextKeys.VOICE_SET_MALE to "Male voice is on now."
     )
 
     private val NAMES: Map<VocalDestination, String> = mapOf(
