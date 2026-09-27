@@ -24,7 +24,7 @@ triple confirmation** (baar-baar). Text padhne ya type karne ki zarurat nahi.
 | STT (mic) | `app/src/main/java/com/example/ai/chat/voice/VoiceInputHelper.kt` | `start(onResult,onError)`, `stop()`, `cancel()`, `shutdown()`, `isListening`, `isAvailable()` |
 | TTS router | `app/src/main/java/com/example/ai/chat/voice/AiVoicePlayer.kt` | `speakSuspend(context,text)`, `testSpeak(context,sample)`, `stop()`, `isNaturalEnabled(context)` — aur ab **`speakToken` + barge-in wake** (fix `e5fc443`) |
 | Device TTS | `app/src/main/java/com/example/ai/chat/voice/AiTts.kt` | `speak(context,raw,onFinished)`, `stop()`, `cleanForVoice()`, `onVoiceUnavailable` — `stop()` ab pendingText/onDone flush karta hai |
-| Cloud TTS | `app/src/main/java/com/example/ai/chat/voice/GeminiTtsClient.kt` | `VOICES` (30 voices), `synthesize()`, `stableVoice()`, `isConfigured()` |
+| Cloud TTS | `app/src/main/java/com/example/ai/chat/voice/GeminiTtsClient.kt` | `VOICES` (30 voices → **plan: sirf 2**, dekho §14), `synthesize()`, `stableVoice()`, `isConfigured()` |
 | Yes/No | `app/src/main/java/com/example/ai/chat/voice/VoiceWordMatcher.kt` | `isNegation(text)`, `isAffirmation(text)` — multilingual haan/nahi |
 
 ### 1.2 Lead actions (AI chat already does this — REUSE, not rebuild)
@@ -246,3 +246,26 @@ User bolega **"shuru karo"** → main is plan ke M1 se shuru karunga, har milest
 deterministic test + compile + commit (PR merge **nahi** — sirf exact "bhaiya ji pr merged karo" pe).
 
 *Version: 1.0 — for LifeFresh QuickNote Pro (`com.lifefreshcrm.pro.inkgql`), branch `arena/01a0d87f-life-fresh`.*
+
+---
+
+## 14. Voice-set simplification (PLAN ONLY — 2026-09-27)
+
+> Poora plan: **`docs2/AI_Voice_Plan_v1.md`** — user ne kaha "sirf aur sirf Android ki
+> built-in voice + Gemini ki 2 voice (male/female)". Code abhi nahi chhua.
+
+Short version:
+- `GeminiTtsClient.VOICES` 30 → **2**: `Kore` (Mahila) + `Orus` (Purush). Purani saved voice
+  → Kore par migration guard (crash/khaali awaaz nahi).
+- `AIConfig.GEMINI_TTS_MODELS` → `gemini-3.8-flash-lite-tts` → `gemini-3.8-flash-tts`
+  (dono free tier par free; 3.1-preview/2.5-preview hatega; `.take(2)` hack saaf).
+- Settings picker: 30 rows → 2 rows + per-voice Test.
+- `MainActivity` bug: `knownVoices` khaali jaata hai → `SetVoice` kabhi voice set nahi karta;
+  ab `GeminiTtsClient.VOICES.toSet()` + male/female words (hi/ta/ur/en) wiring.
+- Android side: 1 voice per app-bhasha (hi/ta/ur/en) hi rahega; bonus me usi bhasha ka
+  **best installed voice** (HIGHEST quality/network) chunne ka chhota improvement (Option A).
+- Gemini key na ho to: Option A (Android best voice) = sifarish; Option B (Groq Orpheus TTS)
+  verify-then-decide; Option C (offline neural Piper ≈200MB) = nahi; Option D (unofficial) = kabhi nahi.
+
+**Status:** user ke 3 jawabon ka intezaar (voice Orus/Kore final?, Sulafat?, Option A abhi ya M6 me?)
+— jawab ke baad hi code shuru.
