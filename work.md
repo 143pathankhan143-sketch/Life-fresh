@@ -267,5 +267,18 @@ Short version:
 - Gemini key na ho to: Option A (Android best voice) = sifarish; Option B (Groq Orpheus TTS)
   verify-then-decide; Option C (offline neural Piper ≈200MB) = nahi; Option D (unofficial) = kabhi nahi.
 
-**Status:** user ke 3 jawabon ka intezaar (voice Orus/Kore final?, Sulafat?, Option A abhi ya M6 me?)
-— jawab ke baad hi code shuru.
+**Decisions (2026-09-27):** Option A = kar rahe hain · Option B (Groq Orpheus) = add karenge ·
+Option C (offline neural) = **downloadable** banayenge, APK me bunded nahi (M6 ke baad) ·
+Option D = kabhi nahi.
+
+### 14.1 🐞 P0 bug — "Android voice sirf pehle 2 jawab bolta hai" (device test 2026-09-27)
+
+Poori jaanch + fix plan: `docs2/AI_Voice_Plan_v1.md` §9. Sabse bada defect:
+`AiTts.speakNow()` `TextToSpeech.speak()` ka return `ERROR` ignore karta hai, `onStart` track
+nahi hota, aur engine marne par re-init/recovery nahi hai — isliye engine chup hone ke baad
+poori session chup rehti hai aur app ko pata bhi nahi chalta. Dusra reason: bolo loop
+3 silent listens par khud band ho jaata hai + `voiceReplyOn` default false → text-only.
+**Ye bug voice-set simplification se pehle fix hoga.** User ne kaha: abhi implement nahi karna.
+
+**Status:** user ke jawab: voice pair (`Kore` female + `Orus` male) confirm karna hai;
+uske baad pehla kaam = P0 device-voice bug, phir 2-voice simplification.
