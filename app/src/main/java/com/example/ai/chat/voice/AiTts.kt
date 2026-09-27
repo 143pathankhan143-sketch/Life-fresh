@@ -1,7 +1,6 @@
 package com.example.ai.chat.voice
 
 import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -28,8 +27,9 @@ import java.util.Locale
  *  2. `onStart` is tracked and a watchdog re-initialises the engine + retries
  *     once when an utterance never starts ([START_WATCHDOG_MS]).
  *  3. The engine is rebuilt from scratch ([resetEngine] + a fresh [TextToSpeech])
- *     whenever it is wedged, disconnected or reports an error, instead of dying
- *     for the rest of the app session.
+ *     whenever it is wedged or reports an error, instead of dying for the rest
+ *     of the app session. (Only public SDK calls are used - the framework's
+ *     service-disconnect listener is a hidden @SystemApi and broke the build.)
  *  4. Long replies are split into engine-sized chunks spoken in order, so one
  *     oversized sentence can never silence the rest of the answer.
  *  5. [stop] records when it happened; a speak() issued in the same instant is
@@ -146,15 +146,11 @@ object AiTts {
         } catch (e: Exception) {
             Log.w(TAG, "listener wiring failed", e)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                tts.setOnServiceDisconnectedListener {
-                    Log.w(TAG, "TTS service disconnected - rebuilding engine")
-                    onEngineDied(context)
-                }
-            } catch (_: Throwable) {
-            }
-        }
+        // NOTE: the framework's on-service-disconnected listener is a hidden
+        // @SystemApi - it is NOT in the public SDK and made the release build
+        // fail with "Unresolved reference". A disconnected engine is caught by
+        // the two public mechanisms instead: the speak() ERROR return and the
+        // never-started watchdog, both of which rebuild the engine.
         // A reply asked for before the engine was ready.
         val text = pendingText
         pendingText = null
@@ -163,16 +159,6 @@ object AiTts {
             attempts = 0
             speakNextChunk()
         }
-    }
-
-    /** Engine died (service disconnected) - rebuild it so the next line works. */
-    private fun onEngineDied(context: Context) {
-        val wasSpeaking = isSpeaking()
-        val remaining = joinRemaining(currentText)
-        resetEngine()
-        ready = false
-        createEngine(context)
-        if (wasSpeaking && remaining != null) pendingText = remaining
     }
 
     private fun applyVoicePrefs(context: Context) {

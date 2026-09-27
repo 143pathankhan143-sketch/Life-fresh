@@ -421,6 +421,9 @@ tukdon me bantta hai, kuchh khoता nahi.
 chahiye (pehle sirf 2 aate the) · Settings → AI voice → dono voice ka Test suno ·
 "male awaz lagao" bolo → Purush ho jaye · Groq-only (Gemini key hata kar) English jawab
 suno · bolo mode 3 baar fail karao → awaaz me "band ho gaya" sunai de.
+**I-3-10b. Sirf public SDK API** [P0] `theDeviceEngineUsesOnlyPublicSdkApis` — AiTts me
+koi hidden @SystemApi na aaye (warna release build `unresolved reference` se fail hota hai;
+yahi ek build failure hua tha).
 **I-3-10. Best Android voice** [P1] Settings → Test: default kamzor voice ke bajaye
 device ka best installed voice sunai dena chahiye.
 
@@ -591,7 +594,7 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | **Voice total (naya)** | **67** | |
 | `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
 | `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
-| **Grand total** | **177** | |
+| **Grand total** | **179** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

@@ -101,6 +101,24 @@ class VoiceSetSourceGuardTest {
     }
 
     @Test
+    fun theDeviceEngineUsesOnlyPublicSdkApis() {
+        // TextToSpeech.setOnServiceDisconnectedListener() is a hidden @SystemApi.
+        // It compiles in unit tests (no android.jar) but failed the real release
+        // build with "Unresolved reference", so it must never come back.
+        val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
+        assertFalse(
+            "hidden @SystemApi would break the release build",
+            tts.contains("setOnServiceDisconnectedListener")
+        )
+        // onServiceConnected / onServiceDisconnected callbacks are equally hidden.
+        assertFalse(tts.contains("onServiceDisconnected"))
+        assertFalse(tts.contains("onServiceConnected"))
+        // The public mechanisms must stay in place instead.
+        assertTrue(tts.contains("START_WATCHDOG_MS"))
+        assertTrue(tts.contains("TextToSpeech.ERROR"))
+    }
+
+    @Test
     fun theDeviceEngineDefendsAgainstASilentEngine() {
         val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
         // The exact bug: TextToSpeech.speak() returning ERROR without any

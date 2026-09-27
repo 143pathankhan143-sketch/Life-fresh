@@ -300,8 +300,18 @@ ban jaata hai. Ye "do jawab ke baad chup" ka dusra pura reason hai.
 - `gemini-3.8-flash-lite-tts` → `gemini-3.8-flash-tts` → (legacy) `gemini-3.1-flash-tts-preview`.
 - Dead `gemini-2.5-flash-preview-tts` hata; `.take(2)` hack hata.
 
+**H0. Build fix (user ka Termux build failed → fix ho gaya)**
+- `AiTts` me `setOnServiceDisconnectedListener` use kiya tha — wo **hidden @SystemApi** hai
+  (public SDK me nahi), isliye `compileReleaseKotlin` par
+  `Unresolved reference 'setOnServiceDisconnectedListener'` aaya. Ab **hata diya**.
+- Engine disconnect ab do **public** raston se pakda jaata hai: `speak()` ka `ERROR` return
+  aur never-started watchdog (dono engine rebuild karte hain).
+- Naya guard test `theDeviceEngineUsesOnlyPublicSdkApis` — ye hidden API dobara aaye to test fail.
+- Verify kiya: `TextToSpeech.getMaxSpeechInputLength()` (API 18+) aur `voices`/`Voice.quality`
+  public hain, to wo safe hain.
+
 **H. Verification (sandbox)**
-- **110 pure tests green** (10 suites): voice command parser + confirm gate + voice loop +
+- **119 pure tests green** (11 suites): voice command parser + confirm gate + voice loop +
   navigator + locale/R8 guards + voice-set policy (5) + source guards (5) + Orpheus chunker (5),
   aur AI failure policy + AI model list — sab pass, 0 fail.
 - Android-only files (AiTts/AiVoicePlayer/GeminiTtsClient/GroqTtsClient/VoiceAppController):
