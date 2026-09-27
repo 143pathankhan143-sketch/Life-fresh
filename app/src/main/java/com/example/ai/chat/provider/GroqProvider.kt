@@ -80,10 +80,17 @@ class GroqProvider(
                         put("model", model)
                         put("messages", jsonMessages)
                         put("temperature", 0.7)
-                        // Reasoning models (gpt-oss) spend part of max_tokens on
-                        // internal thinking - 3072 caused silently truncated
-                        // replies. 8192 leaves headroom for the visible answer.
-                        put("max_tokens", 8192)
+                        // Reasoning models (gpt-oss / Qwen 3.8 27B) bill hidden
+                        // reasoning against max_tokens, so "low" effort keeps the
+                        // visible answer inside the budget (an empty reply with
+                        // finish_reason=length was the old symptom) and spends far
+                        // fewer tokens on the 8K TPM free tier. Sent ONLY for the
+                        // families that accept the parameter - it is a 400 on the
+                        // rest.
+                        AIConfig.groqReasoningEffort(model)?.let { effort ->
+                            put("reasoning_effort", effort)
+                        }
+                        put("max_tokens", AIConfig.GROQ_MAX_COMPLETION_TOKENS)
                         // Stream tokens so the chat UI can show the reply as it is
                         // generated (ChatGPT-style). readStream() degrades to the
                         // classic one-shot JSON response automatically.
@@ -128,7 +135,7 @@ class GroqProvider(
                             } catch (_: Throwable) {
                                 null
                             }
-                            val kind = AIFailurePolicy.kindFor(code)
+                            val kind = AIFailurePolicy.kindFor(code, parsedError)
                             val retryAfter = response.header("Retry-After")
                             Log.w(
                                 TAG,

@@ -32,6 +32,44 @@ class AIFailurePolicyTest {
     }
 
     @Test
+    fun http400IsNotAnAuthFailure() {
+        // 400 is a bad request, not a bad key: failing fast on it would both
+        // show "API Key Invalid" for an unrelated problem and skip the other
+        // models that could still answer.
+        assertEquals(AIErrorKind.BAD_REQUEST, AIFailurePolicy.kindFor(400, "invalid_request_error"))
+        assertEquals(
+            AIRecovery.TryNextModel,
+            AIFailurePolicy.decide(400, retryAfterHeader = null, sameModelRetryUsed = false)
+        )
+    }
+
+    @Test
+    fun aDecommissionedModelIsRecognisedInA400() {
+        // Groq answers 400 with code=model_decommissioned for a retired id
+        // (this is exactly what llama-3.1-8b-instant does since 2026-08-16).
+        val groqBody = "{\"error\":{\"message\":\"The model llama-3.1-8b-instant has been decommissioned and is no longer supported.\"}}"
+        assertEquals(AIErrorKind.MODEL_MISSING, AIFailurePolicy.kindFor(400, groqBody))
+        assertTrue(AIFailurePolicy.looksLikeMissingModel(groqBody))
+        assertEquals(
+            AIRecovery.TryNextModel,
+            AIFailurePolicy.decide(400, null, false)
+        )
+    }
+
+    @Test
+    fun missingModelPhrasesAreDetected() {
+        assertTrue(AIFailurePolicy.looksLikeMissingModel("model_not_found"))
+        assertTrue(AIFailurePolicy.looksLikeMissingModel("This model does not exist"))
+        assertTrue(AIFailurePolicy.looksLikeMissingModel("unknown model: foo"))
+        assertTrue(AIFailurePolicy.looksLikeMissingModel("not a valid model ID"))
+        assertTrue(AIFailurePolicy.looksLikeMissingModel("The model is no longer supported."))
+        assertFalse(AIFailurePolicy.looksLikeMissingModel("rate limit exceeded"))
+        assertFalse(AIFailurePolicy.looksLikeMissingModel("invalid API key"))
+        assertFalse(AIFailurePolicy.looksLikeMissingModel(null))
+        assertFalse(AIFailurePolicy.looksLikeMissingModel(""))
+    }
+
+    @Test
     fun busyKindsAreRateLimitAndServerBusy() {
         assertTrue(AIFailurePolicy.isBusy(AIErrorKind.RATE_LIMIT))
         assertTrue(AIFailurePolicy.isBusy(AIErrorKind.SERVICE_BUSY))

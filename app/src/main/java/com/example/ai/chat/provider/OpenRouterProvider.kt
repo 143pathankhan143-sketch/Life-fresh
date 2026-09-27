@@ -129,7 +129,7 @@ class OpenRouterProvider(
                             }
                             val isRateLimit = code == 429
                             val isAuthError = code == 400 || code == 401 || code == 402 || code == 403
-                            val kind = AIFailurePolicy.kindFor(code)
+                            val kind = AIFailurePolicy.kindFor(code, parsedError)
                             val retryAfter = response.header("Retry-After")
                             Log.w(
                                 TAG,

@@ -14,7 +14,10 @@ enum class AIErrorKind {
     /** This model name no longer exists (HTTP 404/405) — another model may work. */
     MODEL_MISSING,
 
-    /** Anything else (bad request, unknown status). */
+    /** The request itself was rejected (bad parameter) — another model or a fixed request may work. */
+    BAD_REQUEST,
+
+    /** Anything else (unknown status). */
     OTHER
 }
 
@@ -59,13 +62,45 @@ object AIFailurePolicy {
     /** Pause before the router's single automatic retry pass. */
     const val RETRY_PASS_DELAY_MS: Long = 1_200L
 
-    fun kindFor(status: Int): AIErrorKind = when {
-        // 400/401/402/403 = bad key, blocked account or no credit.
-        status == 400 || status == 401 || status == 402 || status == 403 -> AIErrorKind.AUTH
+    /**
+     * Classifies a failed attempt.
+     *
+     * HTTP 400 is deliberately NOT an auth failure. Providers use 400 for two
+     * very different things: a genuinely malformed request, and
+     * "model_decommissioned" when the model id no longer exists (Groq answers
+     * exactly that for a retired id). Treating a 400 as "invalid API key" both
+     * hid the real cause and stopped the model chain, so [errorText] is
+     * inspected and a retired-model message becomes [AIErrorKind.MODEL_MISSING].
+     *
+     * Only 401/402/403 fail fast: unauthorised, unpaid, forbidden.
+     */
+    fun kindFor(status: Int, errorText: String? = null): AIErrorKind = when {
+        status == 401 || status == 402 || status == 403 -> AIErrorKind.AUTH
+        status == 400 -> if (looksLikeMissingModel(errorText)) AIErrorKind.MODEL_MISSING
+        else AIErrorKind.BAD_REQUEST
         status == 404 || status == 405 -> AIErrorKind.MODEL_MISSING
         status == 429 -> AIErrorKind.RATE_LIMIT
         status == 408 || status == 409 || status == 425 || status >= 500 -> AIErrorKind.SERVICE_BUSY
         else -> AIErrorKind.OTHER
+    }
+
+    private val MISSING_MODEL_MARKERS: List<String> = listOf(
+        "decommission",
+        "does not exist",
+        "model_not_found",
+        "no longer supported",
+        "no longer exists",
+        "unknown model",
+        "invalid model",
+        "not a valid model",
+        "model not found"
+    )
+
+    /** True when the provider's error text says the model id itself is gone. */
+    fun looksLikeMissingModel(errorText: String?): Boolean {
+        val text = errorText?.lowercase().orEmpty()
+        if (text.isBlank()) return false
+        return MISSING_MODEL_MARKERS.any { text.contains(it) }
     }
 
     /** True when the failure means "busy right now, try again shortly". */
@@ -98,7 +133,10 @@ object AIFailurePolicy {
             }
         }
 
-        AIErrorKind.MODEL_MISSING, AIErrorKind.OTHER -> AIRecovery.TryNextModel
+        // A retired/mistyped model, a rejected parameter or an unknown status
+        // never justifies failing the whole request - rotate instead.
+        AIErrorKind.MODEL_MISSING, AIErrorKind.BAD_REQUEST, AIErrorKind.OTHER ->
+            AIRecovery.TryNextModel
     }
 
     /**
@@ -124,6 +162,9 @@ object AIFailurePolicy {
     fun busyLabel(kind: AIErrorKind): String = when (kind) {
         AIErrorKind.RATE_LIMIT -> "rate limited"
         AIErrorKind.SERVICE_BUSY -> "service busy"
-        else -> "unavailable"
+        AIErrorKind.MODEL_MISSING -> "model retired/missing"
+        AIErrorKind.BAD_REQUEST -> "bad request"
+        AIErrorKind.AUTH -> "auth"
+        AIErrorKind.OTHER -> "unavailable"
     }
 }

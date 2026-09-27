@@ -398,6 +398,19 @@ Lambi chat me bhi jawab aate rahein (memory/leak na ho).
 
 ---
 
+## SECTION I-2a — Model availability + selection policy 🆕
+(P0) Kabhi bhi koi retired id add na ho:
+- **I-2a-1. Retired vs live lists** [P0] `AIConfigModelListTest.groqListHasNoRetiredModels`
+  - ek bhi decommissioned id (jaise `llama-3.1-8b-instant`) wapas list me aaye to test fail.
+- **I-2a-2. Weak-first order** [P0] sabse sasta/crowded-free model pehle:
+  `openai/gpt-oss-20b` -> `qwen/qwen3.8-27b` -> `openai/gpt-oss-120b`.
+- **I-2a-3. reasoning_effort gating** [P0] `"low"` sirf gpt-oss / qwen3.8-27b ke liye;
+  llama/compound/empty ke liye `null` (warna HTTP 400 se poora turn fail).
+- **I-2a-4. 400 = dead model, not bad key** [P0] `model_decommissioned` body par
+  router next model par rotate kare, "API Key Invalid" na dikhaye.
+- **I-2a-5. Insaan wala check (device)** [P1] Groq key daal kar sawaal poochho:
+  jawab aaye, aur Logcat me wohi model try ho jo list me pehla hai.
+
 ## SECTION I-2 — Provider recovery: "AI service is busy" 🆕 (fix ke baad ka behaviour)
 
 > Ye section us bug ke liye hai jo user ne report kiya: "kuchh sawaal chalte hain,
@@ -550,7 +563,7 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | **Voice total (naya)** | **67** | |
 | `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
 | `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
-| **Grand total** | **154** | |
+| **Grand total** | **159** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

@@ -383,12 +383,31 @@ The AI Configuration Engine provides a secure, predictable, and local configurat
   `GET https://api.groq.com/openai/v1/models` with the Bearer key
   (401/403 => invalid), then runs a tiny "Say 'Connected'" chat
   completion on the first usable model.
-* **Model list**: `AIConfig.GROQ_TEXT_MODELS` - ONLY current *Production*
-  text models from https://console.groq.com/docs/models
-  (as of 2026-09: `openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
-  `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`). Deprecated or
-  preview models must never be added. `GroqProvider` retries the next
-  model on 404/503, fails fast on auth errors, and stops on 429.
+* **Model list**: `AIConfig.GROQ_TEXT_MODELS` - ONLY models that are alive on
+  the free/developer tier, in *weak -> strong* order, because a voice agent
+  needs the least crowded model that answers, not the smartest one
+  (verified 2026-09-27, https://console.groq.com/docs/models):
+  `openai/gpt-oss-20b` -> `qwen/qwen3.8-27b` -> `openai/gpt-oss-120b`.
+* **Retired ids are data, not comments**: `AIConfig.GROQ_RETIRED_MODEL_IDS`
+  holds every decommissioned Groq id (19 as of 2026-09-27; e.g.
+  `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`, shut down for
+  free/developer tiers on 2026-08-16, now Enterprise-only). They must NEVER be
+  re-added. `AIConfigModelListTest` proves the live list and the retired list
+  can not overlap, so a re-added dead id fails the build instead of wasting a
+  request on every chat turn.
+* **Reasoning effort**: `AIConfig.groqReasoningEffort(model)` returns `"low"`
+  only for `gpt-oss*` and `qwen3.6/3.8-27b`; `GroqProvider` sends
+  `reasoning_effort` ONLY when it is non-null, because the parameter is an
+  HTTP 400 on any other model. `"low"` also stops hidden reasoning from eating
+  `max_tokens` and returning an empty message with `finish_reason=length`.
+  Output cap: `AIConfig.GROQ_MAX_COMPLETION_TOKENS` (8192, 8K TPM free tier).
+* **Failure handling**: a 400 is *not* an auth failure. Groq answers 400
+  `model_decommissioned` for a retired id, so `AIFailurePolicy.kindFor(code,
+  errorText)` inspects the body and rotates to the next model instead of
+  ending the request with "API Key Invalid". Only 401/402/403 fail fast;
+  429 / 5xx retry the same model once (Retry-After <= 1.5s) and then rotate;
+  the router adds one automatic full-chain retry pass before showing the busy
+  message (`AIFailurePolicy`, `AIProviderRouter`).
 * **Quota**: any BYOK key (Gemini OR Groq) counts as unlimited
   (`AIQuotaManager.isUnlimited`); the router keeps Gemini primary with
   Groq as the fast fallback.

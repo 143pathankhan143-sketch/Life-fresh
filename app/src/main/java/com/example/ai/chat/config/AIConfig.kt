@@ -45,33 +45,107 @@ object AIConfig {
     )
 
     /**
-     * Current Groq text-generation models, ordered by preference
-     * (strongest for the hidden-block protocol first, then fast/cheap).
+     * Current Groq text models, ordered weak -> strong ON PURPOSE.
      *
-     * IMPORTANT: Groq removes model endpoints without long notice. Only
-     * models from the CURRENT "Production" list on
-     * https://console.groq.com/docs/models belong here - deprecated or
-     * preview models (e.g. old Llama 4 Scout/Maverick, qwen3-32b, kimi-k2)
-     * must NEVER be added. If Groq chat starts failing with HTTP 404
-     * "model not found", update this list from that page.
+     * WHY THIS ORDER: LifeFresh only needs a reliable AGENT - follow the system
+     * instructions and emit the LEAD_* blocks - not a frontier genius. The
+     * smaller / less popular models are far less contended, so they hit Groq's
+     * free-tier limits much less often (30 RPM, 1K RPD, 8K TPM, 200K TPD *per
+     * model*), which matters a lot for a hands-free voice app. A model that is
+     * rate limited is useless even if it is smarter.
+     *
+     * VERIFIED 2026-09-27 against https://console.groq.com/docs/models and
+     * https://console.groq.com/docs/deprecations. Decommissioned models must
+     * NEVER be added back (see [GROQ_RETIRED_MODEL_IDS] - a test enforces it):
+     *   - 2026-08-16  llama-3.1-8b-instant, llama-3.3-70b-versatile
+     *   - 2026-09-14  qwen/qwen3.6-27b            (successor: qwen/qwen3.8-27b)
+     *   - 2026-07-17  qwen/qwen3-32b, meta-llama/llama-4-scout-17b-16e-instruct
+     *   - 2026-04-15  moonshotai/kimi-k2-instruct-0905
+     *   - 2026-03     meta-llama/llama-4-maverick-17b-128e-instruct, llama-guard-4-12b
+     *   - 2025        gemma2-9b-it, llama3-70b-8192, llama3-8b-8192, llama-3.2-*-preview
+     *   - 2026-09-21  groq/compound, groq/compound-mini
+     * Refresh from that page if chat starts failing. A retired id answers 400
+     * "model_decommissioned" or 404, and the provider rotates to the next one.
      */
     val GROQ_TEXT_MODELS: List<String> = listOf(
-        "openai/gpt-oss-120b",
+        // Smallest alive model: 1000 t/s, cheapest, least contended.
         "openai/gpt-oss-20b",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
+        // Non-flagship 27B with no hidden-reasoning burn on our short prompts.
+        // (Preview tier - Groq can withdraw preview models quickly, which the
+        // provider survives by rotating on 400/404.)
+        "qwen/qwen3.8-27b",
+        // Flagship: most contended on the free tier, so it is the LAST resort.
+        "openai/gpt-oss-120b"
     )
 
     /**
-     * Current OpenRouter text-generation models. OpenRouter exposes many
-     * models through ONE key. The '~' alias slugs always redirect to the
-     * newest version of the family, so they never 404 (unlike pinned
-     * version numbers). If chat via OpenRouter starts failing with
-     * "model not found", refresh the list from https://openrouter.ai/models.
+     * Groq model ids that have been DECOMMISSIONED. Kept as data (not just a
+     * comment) so a unit test can fail the build if one ever comes back - a
+     * dead id costs a wasted request on every single chat turn.
+     */
+    val GROQ_RETIRED_MODEL_IDS: List<String> = listOf(
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "qwen/qwen3.6-27b",
+        "qwen/qwen3-32b",
+        "qwen-qwq-32b",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "moonshotai/kimi-k2-instruct-0905",
+        "moonshotai/kimi-k2-instruct",
+        "meta-llama/llama-guard-4-12b",
+        "llama-guard-3-8b",
+        "mistral-saba-24b",
+        "gemma2-9b-it",
+        "llama3-70b-8192",
+        "llama3-8b-8192",
+        "llama-3.2-1b-preview",
+        "llama-3.2-3b-preview",
+        "groq/compound",
+        "groq/compound-mini"
+    )
+
+    /**
+     * Groq bills a reasoning model's HIDDEN reasoning against max_tokens, so at
+     * the default ("medium") effort a short reply can come back empty with
+     * finish_reason=length. "low" keeps the answer inside the budget, answers
+     * faster, and spends far fewer tokens - which is exactly what a voice agent
+     * wants (the free tier is only 8K tokens/minute).
+     *
+     * The parameter is a HTTP 400 on models that can not reason, so it MUST be
+     * sent only for the families below (source:
+     * https://console.groq.com/docs/reasoning - gpt-oss and Qwen 3.6/3.8 27B).
+     * Returns null when the model must not receive it.
+     */
+    fun groqReasoningEffort(model: String): String? {
+        val id = model.trim().lowercase()
+        val accepts = id.startsWith("openai/gpt-oss-") ||
+            id.startsWith("gpt-oss-") ||
+            id == "qwen/qwen3.6-27b" ||
+            id == "qwen/qwen3.8-27b"
+        return if (accepts) "low" else null
+    }
+
+    /** Headroom for the visible answer (plus a little reasoning) per request. */
+    const val GROQ_MAX_COMPLETION_TOKENS: Int = 8192
+
+    /**
+     * Current OpenRouter text models, cheapest/lightest first.
+     *
+     * OpenRouter exposes hundreds of models through ONE key, and the '~' alias
+     * slugs keep pointing at the newest version of a family (so a version bump
+     * never 404s). Model families DO get retired though, so refresh from
+     * https://openrouter.ai/models if OpenRouter starts failing.
+     *
+     * VERIFIED 2026-09-27:
+     *   - "~deepseek/deepseek-flash-latest" (alias, released 2026-09-14)
+     *   - "deepseek/deepseek-v4-flash"      (concrete id, ~$0.06/1M in)
+     * The old "~deepseek/deepseek-pro-latest" entry was removed: it could not
+     * be verified as an active slug, and a dead id wastes a request per turn.
      */
     val OPENROUTER_TEXT_MODELS: List<String> = listOf(
         "~deepseek/deepseek-flash-latest",
-        "~deepseek/deepseek-pro-latest"
+        "deepseek/deepseek-v4-flash"
     )
 
     @Volatile

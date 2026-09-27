@@ -131,7 +131,7 @@ class GeminiProvider(
                                 null
                             }
 
-                            val kind = AIFailurePolicy.kindFor(code)
+                            val kind = AIFailurePolicy.kindFor(code, parsedError)
                             val retryAfter = response.header("Retry-After")
 
                             val errorMsg = if (kind == AIErrorKind.AUTH) {
