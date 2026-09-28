@@ -17,34 +17,43 @@ import java.util.Locale
  * Text-to-speech for AI replies so users who cannot read can use the app by
  * ear. Wraps the phone's built-in TTS engine (no API key, no network).
  *
- * RELIABILITY (fix for "the Android voice speaks one or two answers and then
- * stays silent while the chat keeps working", 2026-09-27):
+ * THE RULE THIS CLASS LIVES BY: **the caller's callback is always fired.**
+ * A voice that goes quiet is annoying; a voice that also never tells the loop
+ * it finished leaves the whole hands-free mode stuck - no more listening, and
+ * every later answer arrives as text only. That was the real "only the first
+ * two answers are spoken" bug (2026-09-27), so every failure path below ends in
+ * exactly one of: the utterance played, or [fireDone] was called.
  *
- *  1. [TextToSpeech.speak]'s return value is checked. An `ERROR` return means
- *     the utterance was dropped without ANY callback (no onStart, no onDone,
- *     no onError) — the old code waited for a callback that never came, faked
- *     completion and left the user in silence without a trace. An `ERROR` now
- *     rebuilds the engine and speaks the text again.
- *  2. `onStart` is tracked and a watchdog re-initialises the engine + retries
- *     once when an utterance never starts ([START_WATCHDOG_MS]).
- *  3. The engine is rebuilt from scratch ([resetEngine] + a fresh [TextToSpeech])
- *     whenever it is wedged or reports an error, instead of dying for the rest
- *     of the app session. (Only public SDK calls are used - the framework's
- *     service-disconnect listener is a hidden @SystemApi and broke the build.)
- *  4. Long replies are split into engine-sized chunks spoken in order, so one
- *     oversized sentence can never silence the rest of the answer.
- *  5. [stop] records when it happened; a speak() issued in the same instant is
- *     delayed slightly, because several engines drop an utterance that arrives
- *     while a stop() is still being processed (the barge-in race).
+ * Reliability ladder:
+ *  1. [TextToSpeech.speak]'s return value is checked. `ERROR` means the
+ *     utterance was dropped with NO callback at all - rebuild and retry once.
+ *  2. `onStart` is tracked; an utterance that never starts within
+ *     [START_WATCHDOG_MS] is treated the same way.
+ *  3. Fail open: after [MAX_START_FAILURES] failed attempts the engine is
+ *     dropped (a wedged engine is useless anyway), the callback fires, and the
+ *     NEXT reply starts from a brand-new engine after a short cooldown. There is
+ *     no infinite rebuild loop - that loop was the actual bug.
+ *  4. A pending reply can never wait forever: [READY_TIMEOUT_MS] caps how long
+ *     we wait for an engine that never becomes ready.
+ *  5. Long replies are split into engine-sized chunks spoken in order, with a
+ *     small pause between them (rapid back-to-back speak() calls wedge several
+ *     engines), and a lost-callback watchdog after a successful start.
  */
 object AiTts {
     private const val TAG = "AiTts"
 
     private const val START_WATCHDOG_MS = 2_500L
-    private const val RETRY_DELAY_MS = 180L
+    private const val READY_TIMEOUT_MS = 4_000L
+    private const val SETTLE_BETWEEN_UTTERANCES_MS = 150L
     private const val AFTER_STOP_DELAY_MS = 120L
-    private const val MAX_ATTEMPTS = 2
+    private const val RETRY_DELAY_MS = 200L
+    private const val FAILURE_COOLDOWN_MS = 400L
+    private const val MAX_START_FAILURES = 2
+    private const val TROUBLE_AFTER_FAILURES = 2
     private const val FALLBACK_CHUNK_CHARS = 3_500
+    private const val MS_PER_CHAR = 95L
+    private const val MIN_ESTIMATE_MS = 1_500L
+    private const val MAX_ESTIMATE_MS = 60_000L
 
     private var engine: TextToSpeech? = null
     private var ready = false
@@ -56,6 +65,20 @@ object AiTts {
     /** True once the current utterance reported onStart. */
     @Volatile
     private var startedCurrent = false
+
+    /** Failed starts for the CURRENT utterance (reset per chunk). */
+    private var startFailures = 0
+
+    /**
+     * Failed starts in a row across utterances. Two in a row means the engine
+     * itself is broken: from then on a fresh engine is built for every reply
+     * (after a short cooldown) instead of retrying inside the dead one.
+     */
+    @Volatile
+    private var consecutiveStartFailures = 0
+
+    /** True when the device engine has been failing - the UI can warn once. */
+    fun engineIsTroubled(): Boolean = consecutiveStartFailures >= TROUBLE_AFTER_FAILURES
 
     /** True when the phone has no voice data for the app language. */
     @Volatile
@@ -71,9 +94,9 @@ object AiTts {
     private var appliedLanguageTag: String? = null
     private var pendingText: String? = null
     private var onDone: (() -> Unit)? = null
+    private var onStartedCb: (() -> Unit)? = null
     private var chunks: ArrayDeque<String> = ArrayDeque()
     private var currentText: String? = null
-    private var attempts = 0
     private var utteranceSeq = 0
     private var currentUtteranceId: String? = null
     private var lastStopAtMs = 0L
@@ -81,6 +104,11 @@ object AiTts {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var doneFallback: Runnable? = null
     private var startWatchdog: Runnable? = null
+    private var readyTimeout: Runnable? = null
+
+    /** Rough duration of [text] in ms - used for playback budgets everywhere. */
+    fun estimateSpeechMs(text: String): Long =
+        (text.length * MS_PER_CHAR).coerceIn(MIN_ESTIMATE_MS, MAX_ESTIMATE_MS)
 
     fun ensure(context: Context) {
         appContext = context.applicationContext
@@ -95,15 +123,15 @@ object AiTts {
     fun isSpeaking(): Boolean =
         speaking || currentText != null || pendingText != null
 
-    /** Rebuilds the engine from scratch after a crash/disconnect. */
+    /** Rebuilds the engine from scratch after a crash or a wedged engine. */
     private fun createEngine(context: Context) {
-        val appContextResolved = context.applicationContext
+        val resolved = context.applicationContext
         var created: TextToSpeech? = null
         try {
-            created = TextToSpeech(appContextResolved) { status ->
+            created = TextToSpeech(resolved) { status ->
                 // Posted: the constructor must finish assigning `created` first
                 // (an engine can call back synchronously on some devices).
-                mainHandler.post { onEngineReady(created, appContextResolved, status) }
+                mainHandler.post { onEngineReady(created, resolved, status) }
             }
         } catch (e: Throwable) {
             Log.w(TAG, "TextToSpeech construction failed", e)
@@ -117,6 +145,21 @@ object AiTts {
         if (status != TextToSpeech.SUCCESS) {
             Log.w(TAG, "TextToSpeech init failed (status=$status)")
             ready = false
+            engine = null
+            try {
+                tts.shutdown()
+            } catch (_: Throwable) {
+            }
+            consecutiveStartFailures++
+            // One more rebuild while a reply is still waiting; otherwise fail
+            // open so the caller is never stuck waiting for a dead engine.
+            if (pendingText != null && consecutiveStartFailures < TROUBLE_AFTER_FAILURES) {
+                armReadyTimeout(context)
+                mainHandler.postDelayed({ createEngine(context) }, RETRY_DELAY_MS)
+            } else {
+                pendingText = null
+                fireDone()
+            }
             return
         }
         ready = true
@@ -126,9 +169,13 @@ object AiTts {
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
                     if (utteranceId != currentUtteranceId) return
+                    // A real start resets the "engine is broken" counter.
+                    consecutiveStartFailures = 0
                     startedCurrent = true
                     speaking = true
                     clearStartWatchdog()
+                    val cb = onStartedCb
+                    cb?.invoke()
                 }
 
                 override fun onDone(utteranceId: String?) {
@@ -136,28 +183,28 @@ object AiTts {
                     speaking = false
                     clearFallback()
                     clearStartWatchdog()
-                    speakNextChunk()
+                    scheduleNextChunk()
                 }
 
                 @Deprecated("Required override for older engines")
-                override fun onError(utteranceId: String?) = onChunkFailed()
+                override fun onError(utteranceId: String?) = onChunkFailed(utteranceId)
 
-                override fun onError(utteranceId: String?, errorCode: Int) = onChunkFailed()
+                override fun onError(utteranceId: String?, errorCode: Int) =
+                    onChunkFailed(utteranceId)
             })
         } catch (e: Exception) {
             Log.w(TAG, "listener wiring failed", e)
         }
         // NOTE: the framework's on-service-disconnected listener is a hidden
-        // @SystemApi - it is NOT in the public SDK and made the release build
-        // fail with "Unresolved reference". A disconnected engine is caught by
-        // the two public mechanisms instead: the speak() ERROR return and the
-        // never-started watchdog, both of which rebuild the engine.
-        // A reply asked for before the engine was ready.
+        // @SystemApi - it is NOT in the public SDK and broke the release build.
+        // A disconnected engine is caught by the ERROR return and the watchdog.
+
         val text = pendingText
         pendingText = null
+        clearReadyTimeout()
         if (text != null) {
             chunks = ArrayDeque(splitForEngine(text))
-            attempts = 0
+            startFailures = 0
             speakNextChunk()
         }
     }
@@ -200,8 +247,7 @@ object AiTts {
             languageMissing = false
             appliedLanguageTag = tag
             // Use the best voice the device installed for this language instead
-            // of whatever the engine happens to default to (often a low-quality
-            // local voice even when a natural one is installed).
+            // of whatever the engine happens to default to.
             pickBestVoice(tts, locale)?.let { best ->
                 try {
                     tts.voice = best
@@ -233,7 +279,17 @@ object AiTts {
         null
     }
 
-    fun speak(context: Context, raw: String, onFinished: (() -> Unit)? = null) {
+    /**
+     * Speaks [raw]. [onFinished] is called exactly once, whatever happens -
+     * played, engine dead, voice data missing. [onStarted] fires when the
+     * engine really began the utterance (used to tell "spoke" from "silent").
+     */
+    fun speak(
+        context: Context,
+        raw: String,
+        onFinished: (() -> Unit)? = null,
+        onStarted: (() -> Unit)? = null
+    ) {
         ensure(context)
         val text = cleanForVoice(raw)
         if (text.isBlank()) {
@@ -249,17 +305,43 @@ object AiTts {
         }
         synchronized(this) {
             onDone = onFinished
-            attempts = 0
+            onStartedCb = onStarted
+            startFailures = 0
             currentText = null
             chunks = ArrayDeque()
             if (!ready) {
-                // The engine is still starting (or being rebuilt): flush on ready.
+                // The engine is still starting (or being rebuilt): flush on ready,
+                // with a hard cap so the caller can never wait forever.
                 pendingText = text
+                armReadyTimeout(context)
                 return
             }
         }
         chunks = ArrayDeque(splitForEngine(text))
-        speakNextChunk()
+        // After two dead utterances in a row the old engine is not trusted:
+        // build a fresh one and give it a moment before speaking.
+        if (consecutiveStartFailures >= TROUBLE_AFTER_FAILURES) {
+            resetEngine()
+            createEngine(context)
+            mainHandler.postDelayed({ speakNextChunk() }, FAILURE_COOLDOWN_MS)
+        } else {
+            speakNextChunk()
+        }
+    }
+
+    /** Caps how long a reply may wait for an engine that never becomes ready. */
+    private fun armReadyTimeout(context: Context) {
+        clearReadyTimeout()
+        val r = Runnable {
+            if (!ready && pendingText != null) {
+                Log.w(TAG, "engine never became ready - failing open instead of hanging")
+                pendingText = null
+                resetEngine()
+                fireDone()
+            }
+        }
+        readyTimeout = r
+        mainHandler.postDelayed(r, READY_TIMEOUT_MS)
     }
 
     /** Speaks the next chunk, or finishes when the reply has been read out. */
@@ -269,7 +351,7 @@ object AiTts {
             return
         }
         currentText = chunks.removeFirst()
-        attempts = 0
+        startFailures = 0
         speakCurrentChunk()
     }
 
@@ -281,16 +363,17 @@ object AiTts {
         }
         val tts = engine
         val context = appContext
-        if (tts == null || !ready) {
-            // Engine gone/not ready: rebuild and keep the text so the ready
-            // callback can speak it instead of losing the reply.
-            if (context != null && !ready) {
+        if (!ready || tts == null) {
+            if (context != null) {
+                // Keep the text for the moment the engine is ready, but never
+                // without the ready timeout above.
                 pendingText = joinRemaining(text)
-                if (tts == null) {
+                if (tts == null && consecutiveStartFailures < TROUBLE_AFTER_FAILURES) {
                     synchronized(this) {
                         if (engine == null) createEngine(context)
                     }
                 }
+                armReadyTimeout(context)
             } else {
                 fireDone()
             }
@@ -309,6 +392,7 @@ object AiTts {
 
         clearFallback()
         clearStartWatchdog()
+        clearReadyTimeout()
         startedCurrent = false
         val id = "lifefresh-reply-${++utteranceSeq}"
         currentUtteranceId = id
@@ -320,19 +404,8 @@ object AiTts {
         }
 
         if (result == TextToSpeech.ERROR) {
-            // No callback follows an ERROR return - this is the exact way the
-            // voice used to die silently. Rebuild and speak it again.
-            attempts++
-            speaking = false
-            Log.w(TAG, "TTS speak() returned ERROR (attempt $attempts) - rebuilding engine")
-            if (attempts < MAX_ATTEMPTS && context != null) {
-                resetEngine()
-                ready = false
-                createEngine(context)
-                pendingText = joinRemaining(text)
-            } else {
-                speakNextChunk()
-            }
+            // No callback follows an ERROR return.
+            onStartFailure(context, text)
             return
         }
 
@@ -341,17 +414,8 @@ object AiTts {
         // Watchdog: accepted but never started (engine wedged).
         val watchdog = Runnable {
             if (currentUtteranceId == id && !startedCurrent) {
-                Log.w(TAG, "TTS never started - rebuilding engine")
-                speaking = false
-                attempts++
-                if (attempts < MAX_ATTEMPTS && context != null) {
-                    resetEngine()
-                    ready = false
-                    createEngine(context)
-                    pendingText = joinRemaining(text)
-                } else {
-                    speakNextChunk()
-                }
+                Log.w(TAG, "utterance accepted but never started")
+                onStartFailure(context, text)
             }
         }
         startWatchdog = watchdog
@@ -361,26 +425,63 @@ object AiTts {
         val fallback = Runnable {
             if (currentUtteranceId == id) {
                 speaking = false
-                speakNextChunk()
+                scheduleNextChunk()
             }
         }
         doneFallback = fallback
-        mainHandler.postDelayed(fallback, estimatedMs(text) + START_WATCHDOG_MS)
+        mainHandler.postDelayed(fallback, estimateSpeechMs(text) + START_WATCHDOG_MS)
     }
 
-    /** A chunk failed (engine error callback): retry once, then move on. */
-    private fun onChunkFailed() {
+    /**
+     * The engine refuses to speak. Retry once with a rebuilt engine; after that
+     * DROP IT AND FAIL OPEN - an infinite rebuild loop with no callback is what
+     * used to leave the whole voice mode stuck and every later answer silent.
+     */
+    private fun onStartFailure(context: Context?, text: String) {
+        speaking = false
+        startedCurrent = false
+        startFailures++
+        consecutiveStartFailures++
+        clearFallback()
+        clearStartWatchdog()
+        Log.w(
+            TAG,
+            "device voice did not start (attempt $startFailures, " +
+                "consecutive $consecutiveStartFailures)"
+        )
+        if (startFailures < MAX_START_FAILURES && context != null) {
+            resetEngine()
+            createEngine(context)
+            pendingText = joinRemaining(text)
+            armReadyTimeout(context)
+        } else {
+            // Give up on this utterance; a fresh engine is built on the next
+            // reply (see speak()), and the caller is released right now.
+            resetEngine()
+            pendingText = null
+            fireDone()
+        }
+    }
+
+    /** A chunk errored after being accepted: retry once, then move on. */
+    private fun onChunkFailed(utteranceId: String?) {
+        // A late callback from an older utterance must never touch this one.
+        if (utteranceId != null && utteranceId != currentUtteranceId) return
         speaking = false
         clearFallback()
         clearStartWatchdog()
         val context = appContext
-        if (attempts < MAX_ATTEMPTS && context != null) {
-            attempts++
+        if (startFailures < MAX_START_FAILURES && context != null && ready) {
+            startFailures++
             mainHandler.postDelayed({ speakCurrentChunk() }, RETRY_DELAY_MS)
         } else {
             // Do not let one bad sentence silence the whole reply.
-            speakNextChunk()
+            scheduleNextChunk()
         }
+    }
+
+    private fun scheduleNextChunk() {
+        mainHandler.postDelayed({ speakNextChunk() }, SETTLE_BETWEEN_UTTERANCES_MS)
     }
 
     fun stop() {
@@ -397,11 +498,13 @@ object AiTts {
             currentUtteranceId = null
             val cb = onDone
             onDone = null
+            onStartedCb = null
             mainHandler.post { cb?.invoke() }
         }
         speaking = false
         clearFallback()
         clearStartWatchdog()
+        clearReadyTimeout()
         try {
             engine?.stop()
         } catch (_: Exception) {
@@ -431,9 +534,11 @@ object AiTts {
     private fun fireDone() {
         clearFallback()
         clearStartWatchdog()
+        clearReadyTimeout()
         speaking = false
         currentText = null
         chunks = ArrayDeque()
+        onStartedCb = null
         val cb = onDone
         onDone = null
         cb?.invoke()
@@ -449,6 +554,11 @@ object AiTts {
         startWatchdog = null
     }
 
+    private fun clearReadyTimeout() {
+        readyTimeout?.let { mainHandler.removeCallbacks(it) }
+        readyTimeout = null
+    }
+
     /** Everything still waiting to be spoken (used when the engine restarts). */
     private fun joinRemaining(text: String?): String? {
         val rest = chunks.joinToString(" ").trim()
@@ -461,9 +571,6 @@ object AiTts {
             else -> "$head $rest"
         }
     }
-
-    private fun estimatedMs(text: String): Long =
-        (text.length * 95L).coerceIn(1_500L, 45_000L)
 
     /**
      * Splits a long reply into pieces the engine accepts. Sentence boundaries

@@ -904,6 +904,7 @@
     <string name="cd_ai_bolo_mode">பேசு முறை (கை தேவையில்லை)</string>
     <string name="ai_bolo_listening">கேட்கிறேன்… பேசுங்கள்</string>
     <string name="ai_bolo_confirm_q">இந்த மாற்றம் சரியா? ஆம் என்று சொல்லுங்கள் அல்லது இல்லை என்று சொல்லுங்கள்.</string>
+    <string name="ai_tts_silent_hint">ஃபோன் குரல் பதில் தரவில்லை. Settings - AI voice திறந்து Test அழுத்துங்கள்.</string>
     <string name="ai_bolo_stopped">பேசு முறை நிறுத்தப்பட்டது (மைக் தொடர்ந்து தோல்வியடைந்தது)</string>
 
     <string name="settings_ai_voice">AI குரல்</string>

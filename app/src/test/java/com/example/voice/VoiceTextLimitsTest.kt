@@ -69,6 +69,34 @@ Agar koi specific kaam chahiye, bas bata dijiye!"""
     }
 
     @Test
+    fun hinglishLatinTextIsRecognised() {
+        // Used to let the English cloud voice read a Hinglish reply when the
+        // phone's own engine is broken and there is no Gemini key.
+        assertTrue(VoiceTextLimits.looksLatin("Main aapki CRM mein yeh kar sakta hoon, bataiye!"))
+        assertTrue(VoiceTextLimits.looksLatin("Reports & summaries: weekly summary, today's plan."))
+    }
+
+    @Test
+    fun devanagariTamilAndUrduTextIsNotLatin() {
+        assertTrue(!VoiceTextLimits.looksLatin("मैं आपकी सीआरएम में यह कर सकता हूँ, बताइए"))
+        assertTrue(!VoiceTextLimits.looksLatin("நான் உங்கள் சிஆர்எம் இல் இதை செய்ய முடியும்"))
+        assertTrue(!VoiceTextLimits.looksLatin("میں آپ کی سی آر ایم میں یہ کر سکتا ہوں"))
+    }
+
+    @Test
+    fun veryShortTextIsNotJudgedByScript() {
+        // "ok" is legitimate but too short to classify - fall back to the
+        // language rule rather than guessing from two letters.
+        assertTrue(!VoiceTextLimits.looksLatin("ok"))
+        assertTrue(!VoiceTextLimits.looksLatin(""))
+    }
+
+    @Test
+    fun digitsAndPunctuationDoNotSkewTheRatio() {
+        assertTrue(VoiceTextLimits.looksLatin("Lead add karo 12345 !!! --- email@example.com"))
+    }
+
+    @Test
     fun aZeroOrNegativeLimitIsIgnoredInsteadOfSilencingEverything() {
         val spoken = VoiceTextLimits.truncateForSpeech("hello there", maxLen = 0)
         assertEquals("hello there", spoken)

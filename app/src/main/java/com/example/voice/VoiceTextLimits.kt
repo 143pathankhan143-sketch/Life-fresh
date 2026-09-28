@@ -27,6 +27,29 @@ object VoiceTextLimits {
     const val MAX_SPEAKABLE_CHARS: Int = 8_000
 
     /**
+     * True when [text] is mostly Latin script (English or Hinglish written in
+     * Latin letters). Used to let the ENGLISH cloud voice read a Hinglish reply
+     * - better for an illiterate listener than silence when the phone's own
+     * engine is broken and there is no Gemini key.
+     *
+     * Pure and tested: the rule is a simple ratio over real letters, so digits,
+     * punctuation and emoji can not skew it.
+     */
+    fun looksLatin(text: String): Boolean {
+        var latin = 0
+        var letters = 0
+        for (ch in text) {
+            if (ch.isLetter()) {
+                letters++
+                val code = ch.code
+                if (code in 0x41..0x5A || code in 0x61..0x7A) latin++
+            }
+        }
+        if (letters < 20) return false
+        return latin * 10 >= letters * 6  // at least 60% Latin letters
+    }
+
+    /**
      * Trims [text] to [maxLen] at a word boundary, appending "…" so a listener
      * can hear that something was left out. Text within the limit is returned
      * unchanged - no silent cut.

@@ -904,6 +904,7 @@
     <string name="cd_ai_bolo_mode">Hands-free Bolo mode</string>
     <string name="ai_bolo_listening">Listening… just talk</string>
     <string name="ai_bolo_confirm_q">Is this change okay? Say yes or no.</string>
+    <string name="ai_tts_silent_hint">Phone voice is not responding. Open Settings - AI voice and tap Test, or use the cloud voice.</string>
     <string name="ai_bolo_stopped">Bolo mode band ho gaya (mic baar-baar fail hua)</string>
 
     <string name="settings_ai_voice">AI voice</string>

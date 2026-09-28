@@ -166,14 +166,40 @@ fun AIScreen(
         cont.invokeOnCancellation { boloVoice.cancel() }
     }
 
-    suspend fun awaitSpoken(reply: String) {
+    /**
+     * Speaks [reply] and reports whether any audio really played. The hard
+     * budget is the rope that keeps the hands-free loop alive: a silent phone
+     * engine used to leave this call waiting forever, so no further question was
+     * ever listened to and every later answer arrived as text only.
+     */
+    suspend fun awaitSpoken(reply: String): Boolean {
         // Natural Gemini voice when available (Settings > AI API keys has a
         // key), otherwise the phone's engine. Returns when audio is done.
         // Stale-speech guard: if a newer request already started thinking
         // while this (older) reply was queued to speak, skip it entirely -
         // the old answer must never leak into the new question.
-        if (uiState.isThinking) return
-        AiVoicePlayer.speakSuspend(aiContext, reply)
+        if (uiState.isThinking) return false
+        val spoke = withTimeoutOrNull(90_000L) {
+            AiVoicePlayer.speakSuspend(aiContext, reply)
+        }
+        if (spoke == null) {
+            // Budget expired - stop the audio and move on instead of hanging.
+            AiVoicePlayer.stop()
+        }
+        return spoke == true
+    }
+
+    // A silent engine is worth telling the user about ONCE (an illiterate user
+    // otherwise just hears nothing and blames the app), then we keep trying.
+    var voiceSilentWarned by remember { mutableStateOf(false) }
+    fun warnIfVoiceSilent() {
+        if (voiceSilentWarned) return
+        voiceSilentWarned = true
+        Toast.makeText(
+            aiContext,
+            aiContext.getString(R.string.ai_tts_silent_hint),
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     // Voice-reply only (Bolo OFF): read out each final assistant answer once.
@@ -190,7 +216,7 @@ fun AIScreen(
         if (last.role != ChatRole.ASSISTANT || last.isStreaming) return@LaunchedEffect
         if (last.id == lastAutoSpokenId) return@LaunchedEffect
         lastAutoSpokenId = last.id
-        awaitSpoken(last.content)
+        if (!awaitSpoken(last.content)) warnIfVoiceSilent()
     }
 
     // Bolo mode: talk -> listen -> act -> talk ...
@@ -261,7 +287,7 @@ fun AIScreen(
                 it.role == ChatRole.ASSISTANT && !it.isStreaming && it.id != beforeId
             }
             if (reply != null) {
-                awaitSpoken(reply.content)
+                if (!awaitSpoken(reply.content)) warnIfVoiceSilent()
                 if (latestChatState.pendingLeadAction != null) {
                     awaitSpoken(aiContext.getString(R.string.ai_bolo_confirm_q))
                 }

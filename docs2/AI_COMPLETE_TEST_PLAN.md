@@ -421,6 +421,15 @@ tukdon me bantta hai, kuchh khoता nahi.
 chahiye (pehle sirf 2 aate the) · Settings → AI voice → dono voice ka Test suno ·
 "male awaz lagao" bolo → Purush ho jaye · Groq-only (Gemini key hata kar) English jawab
 suno · bolo mode 3 baar fail karao → awaaz me "band ho gaya" sunai de.
+**I-3-12. Silent engine = hang NA ho (asli "2 jawab ke baad chup")** [P0]
+`aSilentEngineCanNeverHangTheVoiceLoop` — retry bounded (`MAX_START_FAILURES`), engine drop
+(`TROUBLE_AFTER_FAILURES`), ready-timeout, chunks ke beech settle, player me hard budget,
+`speakSuspend` Boolean. Device check: 6-7 sawaal poochho — **saatvein jawab tak** awaaz aani
+chahiye (chahe beech me engine ek baar mare, agli reply naye engine par phir bolegi).
+**I-3-12b. Chup engine par user ko batao** [P0] `everyLocaleCarriesTheSilentVoiceHint` —
+awaaz na aaye to ek baar hint (4 bhasha me `ai_tts_silent_hint`).
+**I-3-12c. Hinglish reply English cloud voice se** [P1] `theEnglishCloudVoiceMayReadHinglishText`
+— device engine kharab + Gemini key na ho, to Groq (Latin text) padh de.
 **I-3-11. Poora jawab bolna (700-char cut fix)** [P0] `VoiceTextLimitsTest` +
 `theVoiceLayerNeverTrimsAReplyToAShortLimit` — normal 800+ char reply ka **aakhri shabd
 tak** bolna chahiye; koi chhota char cap wapas na aaye. Device check: 800+ char ka jawab
@@ -600,7 +609,7 @@ Section E ka #69 dobara confirm (stale speech) — ye already ek baar fix hua th
 | **Voice total (naya)** | **67** | |
 | `AIFailurePolicyTest` (naya) | 14 | Busy/rate-limit decisions: 429 = agla model, Retry-After, auth = fail-fast |
 | `AIProviderRouterRecoveryTest` (naya) | 6 | Failover, ek automatic retry pass, partial text pe kuch nahi |
-| **Grand total** | **188** | |
+| **Grand total** | **191** | |
 
 > **Note:** yahan (sandbox) me Android/Gradle nahi chalta, isliye maine voice wale 67 tests
 > asli Kotlin compiler se chala kar **green** kiye hain. AI ke 67 purane tests **aapke phone/PC pe**

@@ -293,9 +293,14 @@ poori session chup rehti hai aur app ko pata bhi nahi chalta. Dusra reason: bolo
 - Option A: best installed Android voice. Option B: `GroqTtsClient` (Orpheus, English-only)
   + `OrpheusChunker` (200-char rule).
 - TTS models: 3.8 lite → 3.8 → 3.1 preview (legacy); dead 2.5 preview + `take(2)` hata.
-- Sandbox: **127 pure tests green**; Android-only files: 0 syntax error, 0 my-symbol unresolved.
+- Sandbox: **134 pure tests green**; Android-only files: 0 syntax error, 0 my-symbol unresolved.
 - Build fix: hidden `setOnServiceDisconnectedListener` hata (release build fail hua tha) +
   naya guard test `theDeviceEngineUsesOnlyPublicSdkApis`.
+- 🐞 **"2 jawab ke baad hamesha chup" (asli wajah)**: `AiTts` me infinite rebuild loop —
+  engine marne par har 2.5s me naya engine, par `fireDone()` kabhi nahi → caller hamesha wait →
+  bolo loop atka → auto-speak band → sab kuchh text. Fix: fail-open ladder
+  (`MAX_START_FAILURES`/`TROUBLE_AFTER_FAILURES`/`READY_TIMEOUT_MS`), device speech par hard
+  budget, `speakSuspend` Boolean + user hint (4 bhasha), Groq Latin/Hinglish fallback.
 - 🐞 **Reply 700-char par kat jaati thi (device par mila)**: `cleanForVoice` ka purana cap
   normal 805-char answer ka tail ("Weekly summary ... bas bata dijiye!") bol hi nahi raha tha.
   Fix: `VoiceTextLimits` (8000, pure+tested) + Groq partial-play ban + 8 naye tests.

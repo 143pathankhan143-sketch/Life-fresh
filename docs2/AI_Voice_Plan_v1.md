@@ -223,6 +223,41 @@ kabhi bolne bheje hi nahi jaate the. Chat chalti rehti thi, isliye lagta tha "vo
 - Naye tests: `VoiceTextLimitsTest` (6 — asli 805-char reply fixture ke saath) +
   2 source guards (`theVoiceLayerNeverTrimsAReplyToAShortLimit`, `orpheusNeverPlaysHalfAnAnswer`).
 
+### 9.1c 🐞 ASLI 4th reason — "2 jawab ke baad hamesha chup" (device par 3 baar confirm)
+
+Is baar wajah **infinite rebuild loop** thi, jo mere hi pichhle fix me chhupi thi:
+
+- Engine chauthi baar bolne se mana kar deta hai → `speak()` SUCCESS lauta par `onStart`
+  kabhi nahi aata.
+- Watchdog 2.5s baad engine rebuild karta hai, `pendingText` me text rakhta hai…
+  aur naya engine bhi shuru nahi hota → **phir rebuild** → `attempts` har baar 0 se reset
+  (`speakNextChunk()` me) → **loop kabhi khatam nahi hota**.
+- `fireDone()` kabhi call nahi hota → `speakOnDevice` ka continuation **hamesha wait** karta hai
+  → bolo loop atak jaata hai (`boloRunning = true` rehta hai) → auto-speak bhi `boloRunning`
+  par gated hone ki wajah se **band** → **har aage ka jawab sirf text**. Bilkul wahi symptom:
+  2 jawab bolkar, phir hamesha chup, chat chalti rehti hai.
+
+**Fix (is commit me) — "fail open" niyam: callback HAR HAAL me fire hoga**
+- `MAX_START_FAILURES = 2` per utterance; uske baad engine **drop** + `fireDone()` (caller release).
+- `TROUBLE_AFTER_FAILURES = 2`: do consecutive fail hone par agli reply ke liye **naya engine**
+  banega + `FAILURE_COOLDOWN_MS` ka gap — purane engine me retry bhoolakar.
+- `READY_TIMEOUT_MS = 4s`: engine ready hi na ho to pending reply drop + `fireDone()`
+  (koi reply hamesha ke liye wait nahi karegi).
+- Engine init fail hone par engine ko null kar diya jaata hai (pehle `engine != null` ki wajah se
+  naya engine ban hi nahi sakta tha — permanent silence ka ek aur darwaza).
+- Chunks ke beech `SETTLE_BETWEEN_UTTERANCES_MS = 150ms` (back-to-back speak se engines wedged hote hain).
+- `AiVoicePlayer.speakOnDevice` ab **hard budget** ke saath (`estimate + 12s`) — engine chup rahe to
+  caller release + log.
+- `speakSuspend` ab **Boolean** deta hai (bola ya nahi). `AIScreen` `awaitSpoken` par 90s ka cap +
+  agar awaaz nahi aayi to **ek baar user ko batata hai** (Toast, 4 bhasha me
+  `ai_tts_silent_hint`) — chup-chaap fail hone ke bajaye.
+- Bonus: Groq key wale user ke liye `canSpeak()` — agar reply **Latin/Hinglish** me hai to English
+  Orpheus voice use ho sakti hai (device engine kharab + Gemini key na ho to bhi awaaz aaye).
+
+**Iska matlab:** chahe engine kitna bhi kharab ho, app kabhi atkegi nahi, aur agli reply naye engine
+par phir se try karegi. Agar phone ka engine bilkul hi mara hua hai to user ko saaf message milega
+(Settings → AI voice → Test), silent khamoshi ke bajaye.
+
 ### 9.2 Dusra (alag) reason jo same dikhta hai — Bolo mode band + speaker off
 
 `AIScreen` me auto-speak sirf tab chalta hai jab `voiceReplyOn == true` aur `boloModeOn == false`.
@@ -332,7 +367,7 @@ ban jaata hai. Ye "do jawab ke baad chup" ka dusra pura reason hai.
   public hain, to wo safe hain.
 
 **H. Verification (sandbox)**
-- **127 pure tests green** (12 suites): voice command parser + confirm gate + voice loop +
+- **134 pure tests green** (12 suites): voice command parser + confirm gate + voice loop +
   navigator + locale/R8 guards + voice-set policy (5) + source guards (5) + Orpheus chunker (5),
   aur AI failure policy + AI model list — sab pass, 0 fail.
 - Android-only files (AiTts/AiVoicePlayer/GeminiTtsClient/GroqTtsClient/VoiceAppController):

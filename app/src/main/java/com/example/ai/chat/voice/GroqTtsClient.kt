@@ -8,6 +8,7 @@ import com.example.data.AppLanguageManager
 import com.example.data.security.AIQuotaManager
 import com.example.voice.OrpheusChunker
 import com.example.voice.VoiceIds
+import com.example.voice.VoiceTextLimits
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -63,6 +64,17 @@ object GroqTtsClient {
     } catch (e: Exception) {
         true
     }
+
+    /**
+     * True when Orpheus can read [text] aloud. Two cases:
+     *  - the app language is English, or
+     *  - the text is Latin script (Hinglish replies are written in Latin and an
+     *    English voice reads them far better than silence). The Hindi/Tamil/Urdu
+     *    VOICE still belongs to Gemini/the device engine; this only decides
+     *    whether Orpheus is an acceptable stand-in for this particular text.
+     */
+    fun canSpeak(context: Context, text: String): Boolean =
+        speaksAppLanguage(context) || VoiceTextLimits.looksLatin(text)
 
     /** The Orpheus voice matching the app's own female/male choice. */
     fun voice(context: Context): String {

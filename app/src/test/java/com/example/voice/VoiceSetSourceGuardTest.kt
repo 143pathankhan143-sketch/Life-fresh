@@ -164,6 +164,51 @@ class VoiceSetSourceGuardTest {
     }
 
     @Test
+    fun aSilentEngineCanNeverHangTheVoiceLoop() {
+        // The real "only the first two answers are spoken" bug: a wedged engine
+        // was rebuilt forever without ever firing the callback, so the caller
+        // waited for good - no more listening, and every later answer text-only.
+        val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
+        assertTrue("must bound the retries", tts.contains("MAX_START_FAILURES"))
+        assertTrue("must drop an engine that failed twice", tts.contains("TROUBLE_AFTER_FAILURES"))
+        assertTrue("must fail open (fire the callback)", tts.contains("failing open"))
+        assertTrue("must bound the wait for a ready engine", tts.contains("READY_TIMEOUT_MS"))
+        assertTrue("empty replies must settle between chunks", tts.contains("SETTLE_BETWEEN_UTTERANCES_MS"))
+        val player = read("app/src/main/java/com/example/ai/chat/voice/AiVoicePlayer.kt")
+        assertTrue("device speech needs a hard budget", player.contains("DEVICE_EXTRA_BUDGET_MS"))
+        assertTrue(
+            "speakSuspend must report whether audio played",
+            player.contains("suspend fun speakSuspend(context: Context, text: String): Boolean")
+        )
+        assertTrue(
+            "a failed piece must tell the caller",
+            player.contains("AiTts.estimateSpeechMs(text) + DEVICE_EXTRA_BUDGET_MS")
+        )
+        val screen = read("app/src/main/java/com/example/ui/screens/AIScreen.kt")
+        assertTrue("the screen must gate speech with a budget", screen.contains("withTimeoutOrNull(90_000L)"))
+        assertTrue("the user must be told once when the voice is silent", screen.contains("warnIfVoiceSilent"))
+    }
+
+    @Test
+    fun everyLocaleCarriesTheSilentVoiceHint() {
+        for (locale in listOf("values", "values-hi", "values-ta", "values-ur")) {
+            val strings = read("app/src/main/res/$locale/strings.xml")
+            assertTrue("$locale is missing ai_tts_silent_hint", strings.contains("ai_tts_silent_hint"))
+        }
+    }
+
+    @Test
+    fun theEnglishCloudVoiceMayReadHinglishText() {
+        // Groq Orpheus is English-only, but a Hinglish reply is Latin script and
+        // is far better read aloud in English than not read at all.
+        val groq = read("app/src/main/java/com/example/ai/chat/voice/GroqTtsClient.kt")
+        assertTrue("canSpeak must exist", groq.contains("fun canSpeak(context: Context, text: String)"))
+        assertTrue("it must accept Latin text", groq.contains("VoiceTextLimits.looksLatin(text)"))
+        val player = read("app/src/main/java/com/example/ai/chat/voice/AiVoicePlayer.kt")
+        assertTrue("the player must use canSpeak", player.contains("GroqTtsClient.canSpeak(context, text)"))
+    }
+
+    @Test
     fun theDeviceEngineDefendsAgainstASilentEngine() {
         val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
         // The exact bug: TextToSpeech.speak() returning ERROR without any

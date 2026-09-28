@@ -48,6 +48,14 @@ object AiVoicePlayer {
     private const val CLOUD_CHUNK_BUDGET_MS = 10_000L
     private const val PLAYBACK_BUDGET_MS = 75_000L
 
+    /**
+     * Extra time on top of the estimated speech length before a device utterance
+     * is declared dead. The engine's own callback is the normal exit; this is
+     * the rope that stops a silent engine from hanging the hands-free loop
+     * forever (which is exactly what made every later answer text-only).
+     */
+    private const val DEVICE_EXTRA_BUDGET_MS = 12_000L
+
     @Volatile
     private var player: MediaPlayer? = null
 
@@ -71,19 +79,24 @@ object AiVoicePlayer {
         AIQuotaManager.isNaturalTtsEnabled(context) &&
             (GeminiTtsClient.isConfigured() || GroqTtsClient.isConfigured())
 
-    suspend fun speakSuspend(context: Context, text: String) {
-        if (text.isBlank()) return
+    /**
+     * Speaks [text] and returns true when at least one piece of audio really
+     * started. False means "nothing was heard" - the caller can tell the user
+     * instead of leaving them in unexplained silence.
+     */
+    suspend fun speakSuspend(context: Context, text: String): Boolean {
+        if (text.isBlank()) return false
         // Claim the speak channel: bumps the token, which invalidates and
         // wakes every older in-flight speaker so stale audio stops right now.
         val token = beginSpeak()
+        var anyPlayed = false
 
         // Fast path: try cloud in chunks for real-time first audio.
         if (isNaturalEnabled(context)) {
             val chunks = splitForTts(AiTts.cleanForVoice(text))
             if (chunks.isNotEmpty()) {
-                var anyPlayed = false
                 for (chunk in chunks) {
-                    if (stale(token) || !currentCoroutineContext().isActive) return
+                    if (stale(token) || !currentCoroutineContext().isActive) return anyPlayed
                     val played = try {
                         speakCloud(context, chunk, token)
                     } catch (e: CancellationException) {
@@ -98,12 +111,11 @@ object AiVoicePlayer {
                         // This chunk's cloud synth failed - speak just this
                         // chunk with the device engine, then try the next
                         // chunk on cloud as before.
-                        if (stale(token) || !currentCoroutineContext().isActive) return
-                        speakOnDevice(context, chunk)
-                        anyPlayed = true
+                        if (stale(token) || !currentCoroutineContext().isActive) return anyPlayed
+                        if (speakOnDevice(context, chunk)) anyPlayed = true
                     }
                 }
-                if (anyPlayed) return
+                if (anyPlayed) return true
                 // Every chunk failed - fall through to the whole-text device
                 // fallback below.
             } else {
@@ -115,13 +127,14 @@ object AiVoicePlayer {
                 } catch (e: Exception) {
                     false
                 }
-                if (played) return
+                if (played) return true
             }
         }
 
         // Device engine fallback (instant, offline).
-        if (stale(token) || !currentCoroutineContext().isActive) return
-        speakOnDevice(context, text)
+        if (stale(token) || !currentCoroutineContext().isActive) return anyPlayed
+        if (speakOnDevice(context, text)) anyPlayed = true
+        return anyPlayed
     }
 
     /** Speaks a sample line with the currently chosen cloud voice (Settings test). */
@@ -171,7 +184,7 @@ object AiVoicePlayer {
             return true
         }
 
-        if (!GroqTtsClient.isConfigured() || !GroqTtsClient.speaksAppLanguage(context)) return false
+        if (!GroqTtsClient.isConfigured() || !GroqTtsClient.canSpeak(context, text)) return false
         val pieces = try {
             withTimeoutOrNull(CLOUD_CHUNK_BUDGET_MS) { GroqTtsClient.synthesizeAll(context, text) }
         } catch (e: CancellationException) {
@@ -290,18 +303,39 @@ object AiVoicePlayer {
         }
     }
 
-    /** Device-engine speech that resumes only for THIS call (never a stale call). */
-    private suspend fun speakOnDevice(context: Context, text: String): Unit =
+    /**
+     * Device-engine speech that resumes only for THIS call (never a stale call)
+     * and can never hang: a hard budget releases the caller even if the engine
+     * goes silent. Returns true when the engine really started the utterance.
+     */
+    private suspend fun speakOnDevice(context: Context, text: String): Boolean {
+        val budget = AiTts.estimateSpeechMs(text) + DEVICE_EXTRA_BUDGET_MS
+        val started = withTimeoutOrNull(budget) { speakOnDeviceOnce(context, text) }
+        if (started == null) {
+            Log.w(TAG, "device speech did not finish within ${budget}ms - releasing the caller")
+            AiTts.stop()
+            return false
+        }
+        return started
+    }
+
+    private suspend fun speakOnDeviceOnce(context: Context, text: String): Boolean =
         suspendCancellableCoroutine { cont ->
             deviceContinuation = cont
-            AiTts.speak(context, text) {
-                if (deviceContinuation === cont) {
-                    deviceContinuation = null
-                    if (cont.isActive) {
-                        try { cont.resume(Unit) } catch (_: Exception) {}
+            var started = false
+            AiTts.speak(
+                context,
+                text,
+                onFinished = {
+                    if (deviceContinuation === cont) {
+                        deviceContinuation = null
+                        if (cont.isActive) {
+                            try { cont.resume(started) } catch (_: Exception) {}
+                        }
                     }
-                }
-            }
+                },
+                onStarted = { started = true }
+            )
             cont.invokeOnCancellation {
                 if (deviceContinuation === cont) deviceContinuation = null
                 AiTts.stop()
