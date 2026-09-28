@@ -9,6 +9,7 @@ import android.speech.tts.Voice
 import android.util.Log
 import com.example.data.AppLanguage
 import com.example.data.AppLanguageManager
+import com.example.voice.VoiceTextLimits
 import java.util.ArrayDeque
 import java.util.Locale
 
@@ -38,7 +39,7 @@ import java.util.Locale
  */
 object AiTts {
     private const val TAG = "AiTts"
-    private const val MAX_VOICE_LEN = 700
+
     private const val START_WATCHDOG_MS = 2_500L
     private const val RETRY_DELAY_MS = 180L
     private const val AFTER_STOP_DELAY_MS = 120L
@@ -508,21 +509,24 @@ object AiTts {
         return out.ifEmpty { listOf(text.take(limit)) }
     }
 
-    /** Markdown/emoji scrub before speaking; long replies are trimmed by words. */
+    /**
+     * Markdown/emoji scrub before speaking.
+     *
+     * The reply is NOT trimmed to a small size any more: the old 700-character
+     * cut is exactly why a normal CRM answer stopped in the middle and the rest
+     * was never spoken. Long replies are spoken in chunks instead
+     * ([splitForEngine] here, `AiVoicePlayer.splitForTts` for cloud audio), and
+     * only a pathologically long text hits [VoiceTextLimits].
+     */
     fun cleanForVoice(src: String): String {
-        var t = src
+        val t = src
             .replace(Regex("```[\\s\\S]*?```"), " ")
             .replace(Regex("[*_`#>|]"), " ")
             .replace(Regex("[\\uD800-\\uDFFF]"), "")
             .replace(Regex("[\\u2190-\\u2BFF\\uFE0F\\u200D]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
-        if (t.length > MAX_VOICE_LEN) {
-            t = t.substring(0, MAX_VOICE_LEN)
-            val cut = t.lastIndexOf(' ').coerceAtLeast(0)
-            t = t.substring(0, cut) + "…"
-        }
-        return t
+        return VoiceTextLimits.truncateForSpeech(t)
     }
 }
 

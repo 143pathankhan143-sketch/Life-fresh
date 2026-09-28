@@ -119,6 +119,51 @@ class VoiceSetSourceGuardTest {
     }
 
     @Test
+    fun theVoiceLayerNeverTrimsAReplyToAShortLimit() {
+        // The 700-character trim made normal CRM answers stop in the middle.
+        // Speak everything (chunked) - trim only absurd input, via the pure,
+        // tested VoiceTextLimits.
+        val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
+        // A numeric cap declaration is what must never come back (comments may
+        // still explain the old bug).
+        assertFalse(
+            "a small character cap must never return",
+            Regex("=\\s*[0-9_]*700\\b").containsMatchIn(tts) ||
+                tts.contains("MAX_VOICE_LEN")
+        )
+        assertTrue(
+            "cleanForVoice must use the tested limit object",
+            tts.contains("VoiceTextLimits.truncateForSpeech")
+        )
+        assertTrue(
+            "the limit must be far above a real answer",
+            VoiceTextLimits.MAX_SPEAKABLE_CHARS >= 4_000
+        )
+        // Every cloud/speech entry point must go through cleanForVoice (no
+        // private copy of an older, smaller trim).
+        for (file in listOf(
+            "app/src/main/java/com/example/ai/chat/voice/AiVoicePlayer.kt",
+            "app/src/main/java/com/example/ai/chat/voice/GeminiTtsClient.kt",
+            "app/src/main/java/com/example/ai/chat/voice/GroqTtsClient.kt"
+        )) {
+            val src = read(file)
+            assertTrue("$file must not define its own trim", !src.contains("MAX_VOICE_LEN"))
+        }
+    }
+
+    @Test
+    fun orpheusNeverPlaysHalfAnAnswer() {
+        val groq = read("app/src/main/java/com/example/ai/chat/voice/GroqTtsClient.kt")
+        // If any 200-char piece fails, the whole chunk must go to the device
+        // engine instead - playing the pieces that succeeded would cut the
+        // sentence off in the middle (the same class of bug as the 700-char cap).
+        assertTrue(
+            "a failed piece must return an empty list (device fallback), not a partial one",
+            groq.contains("Never play HALF an answer")
+        )
+    }
+
+    @Test
     fun theDeviceEngineDefendsAgainstASilentEngine() {
         val tts = read("app/src/main/java/com/example/ai/chat/voice/AiTts.kt")
         // The exact bug: TextToSpeech.speak() returning ERROR without any

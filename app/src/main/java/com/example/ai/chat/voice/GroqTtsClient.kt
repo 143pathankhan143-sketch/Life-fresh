@@ -89,10 +89,10 @@ object GroqTtsClient {
             if (!currentCoroutineContext().isActive) break
             val file = runAttempt(context, key, voice, piece)
             if (file == null) {
-                // A later piece failing after earlier ones played would cut the
-                // reply in half; the caller speaks the whole text on the device
-                // engine instead when the FIRST piece fails.
-                return if (out.isEmpty()) emptyList() else out
+                // Never play HALF an answer: if ANY piece fails, play nothing and
+                // let the caller speak this whole chunk on the device engine.
+                // (Nothing was played yet - the caller plays after this returns.)
+                return emptyList()
             }
             out.add(file)
         }

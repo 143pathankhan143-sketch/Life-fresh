@@ -202,6 +202,27 @@ AI chat normal chalti rehti hai (text aata rehta hai).
    nahi jaan sakte ki "shuru bhi hua tha ya nahi". Half-broken engine ko detect karne ka
    koi zariya nahi.
 
+### 9.1b 🐞 ASLI 3rd reason — reply 700 characters par KAT jaati thi (device par confirm hua)
+
+User ne device par dekha: jawab "Reports & summaries:" tak bola, uske baad **khamosh**.
+Wajah: `AiTts.cleanForVoice()` har reply ko **700 characters** par trim kar deta tha
+(purane "ek hi utterance" design ka bacha hua cap) aur aakhir me "…" laga deta tha
+(jo scrub ho jaata hai, isliye chup-chaap kat jaati thi).
+
+Ginti: us reply ki length **805 characters** thi, aur cut point **669** par tha —
+yaani 136 characters ("Weekly summary ... Agar koi specific kaam chahiye, bas bata dijiye!")
+kabhi bolne bheje hi nahi jaate the. Chat chalti rehti thi, isliye lagta tha "voice mar gayi".
+
+**Fix (is commit me):**
+- Naya pure object `VoiceTextLimits` (`MAX_SPEAKABLE_CHARS = 8000`, tested): reply **poori**
+  bolne ke liye jaati hai; trim sirf pathological input par, aur tab "…" bhi bola jaata hai.
+- Lambi reply ka hisaab ab **chunking** se hota hai (`AiVoicePlayer.splitForTts` +
+  `AiTts.splitForEngine`), trimming se nahi.
+- `GroqTtsClient`: 200-char pieces me se **koi bhi** fail ho to aadha jawab play nahi hoga —
+  poora chunk device engine par chala jayega (wahi "aadhi baat" wala bug class).
+- Naye tests: `VoiceTextLimitsTest` (6 — asli 805-char reply fixture ke saath) +
+  2 source guards (`theVoiceLayerNeverTrimsAReplyToAShortLimit`, `orpheusNeverPlaysHalfAnAnswer`).
+
 ### 9.2 Dusra (alag) reason jo same dikhta hai — Bolo mode band + speaker off
 
 `AIScreen` me auto-speak sirf tab chalta hai jab `voiceReplyOn == true` aur `boloModeOn == false`.
@@ -311,7 +332,7 @@ ban jaata hai. Ye "do jawab ke baad chup" ka dusra pura reason hai.
   public hain, to wo safe hain.
 
 **H. Verification (sandbox)**
-- **119 pure tests green** (11 suites): voice command parser + confirm gate + voice loop +
+- **127 pure tests green** (12 suites): voice command parser + confirm gate + voice loop +
   navigator + locale/R8 guards + voice-set policy (5) + source guards (5) + Orpheus chunker (5),
   aur AI failure policy + AI model list — sab pass, 0 fail.
 - Android-only files (AiTts/AiVoicePlayer/GeminiTtsClient/GroqTtsClient/VoiceAppController):

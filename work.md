@@ -293,9 +293,12 @@ poori session chup rehti hai aur app ko pata bhi nahi chalta. Dusra reason: bolo
 - Option A: best installed Android voice. Option B: `GroqTtsClient` (Orpheus, English-only)
   + `OrpheusChunker` (200-char rule).
 - TTS models: 3.8 lite → 3.8 → 3.1 preview (legacy); dead 2.5 preview + `take(2)` hata.
-- Sandbox: **119 pure tests green**; Android-only files: 0 syntax error, 0 my-symbol unresolved.
+- Sandbox: **127 pure tests green**; Android-only files: 0 syntax error, 0 my-symbol unresolved.
 - Build fix: hidden `setOnServiceDisconnectedListener` hata (release build fail hua tha) +
   naya guard test `theDeviceEngineUsesOnlyPublicSdkApis`.
+- 🐞 **Reply 700-char par kat jaati thi (device par mila)**: `cleanForVoice` ka purana cap
+  normal 805-char answer ka tail ("Weekly summary ... bas bata dijiye!") bol hi nahi raha tha.
+  Fix: `VoiceTextLimits` (8000, pure+tested) + Groq partial-play ban + 8 naye tests.
 - Option C (downloadable offline voice) = apna milestone (M6 ke baad), plan me documented.
 
 **Status:** code shipped on this branch; device test (I-3-9/I-3-10) user ke phone par baaki hai.
