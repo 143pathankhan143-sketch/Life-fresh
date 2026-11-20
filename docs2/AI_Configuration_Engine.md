@@ -379,16 +379,68 @@ The AI Configuration Engine provides a secure, predictable, and local configurat
   `daily_ai_usage_prefs` SharedPreferences (`custom_groq_api_key`) and read
   at runtime through `AIConfig.customGroqApiKeyProvider`
   (set in `LifeFreshApplication`), never from BuildConfig.
+* **Voice set (2026-09-27)**: exactly TWO cloud voices — `Kore` ("Mahila",
+  female) and `Orus` ("Purush", male) — defined once in `VoiceIds` (pure
+  Kotlin) and used by `GeminiTtsClient.VOICES`, the parser and the tests. The
+  28 removed studio voices and the old "auto" option must never return; any
+  older stored name is normalised to `Kore` (`GeminiTtsClient.normaliseVoice`),
+  so an existing install keeps speaking instead of sending a 400.
+* **Spoken voice switching**: "male awaz lagao" / "mahila awaz lagao" (and the
+  same words in Hindi, Tamil, Urdu) change the voice — `MainActivity` passes
+  `knownVoices` and enables `VoiceCapabilities.CURRENT` (M2 + SET_VOICE), and
+  `VoiceAppController.executeCommand` writes the preference, confirms in the
+  NEW voice and settles the turn. A bare "awaz badlo" speaks
+  `vc_voice_hint` instead of asking a pointless yes/no.
+* **TTS models**: `AIConfig.GEMINI_TTS_MODELS` = `gemini-3.8-flash-lite-tts`
+  then `gemini-3.8-flash-tts` (both free of charge on the free tier, verified
+  2026-09-27) with `gemini-3.1-flash-tts-preview` kept last as a legacy safety
+  net. The retired 2.5 preview id and the old `take(2)` hack are gone.
+* **Groq Orpheus fallback**: `GroqTtsClient` speaks English replies through
+  Groq's `canopylabs/orpheus-v1-english` for users who have a Groq key but no
+  Gemini key (Groq hosts English + Saudi Arabic only, so Hindi/Tamil/Urdu keep
+  using Gemini or the device engine). Groq's `input` is limited to 200
+  characters, so `OrpheusChunker` (pure, tested) splits a long reply into
+  ordered pieces.
+* **Device engine reliability**: `AiTts` checks `speak()`'s return value,
+  tracks `onStart`, watches for an utterance that never starts, rebuilds a dead
+  engine, splits long replies into engine-sized chunks, and picks the best
+  installed voice for the app language. `AiVoicePlayer` only stops the device
+  engine when it is really speaking (the stop-then-speak race that used to
+  silence the voice after one or two answers).
 * **Key testing**: `AIServiceRepository.testGroqKey` probes
   `GET https://api.groq.com/openai/v1/models` with the Bearer key
   (401/403 => invalid), then runs a tiny "Say 'Connected'" chat
   completion on the first usable model.
-* **Model list**: `AIConfig.GROQ_TEXT_MODELS` - ONLY current *Production*
-  text models from https://console.groq.com/docs/models
-  (as of 2026-09: `openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
-  `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`). Deprecated or
-  preview models must never be added. `GroqProvider` retries the next
-  model on 404/503, fails fast on auth errors, and stops on 429.
+* **Model list**: `AIConfig.GROQ_TEXT_MODELS` - ONLY models that are alive on
+  the free/developer tier, in *weak -> strong* order, because a voice agent
+  needs the least crowded model that answers, not the smartest one
+  (verified 2026-09-27, https://console.groq.com/docs/models):
+  `openai/gpt-oss-20b` -> `qwen/qwen3.8-27b` -> `openai/gpt-oss-120b`.
+* **Retired ids are data, not comments**: `AIConfig.GROQ_RETIRED_MODEL_IDS`
+  holds every decommissioned Groq id (19 as of 2026-09-27; e.g.
+  `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`, shut down for
+  free/developer tiers on 2026-08-16, now Enterprise-only). They must NEVER be
+  re-added. `AIConfigModelListTest` proves the live list and the retired list
+  can not overlap, so a re-added dead id fails the build instead of wasting a
+  request on every chat turn.
+* **Reasoning effort**: `AIConfig.groqReasoningEffort(model)` returns `"low"`
+  only for `gpt-oss*` and `qwen3.6/3.8-27b`; `GroqProvider` sends
+  `reasoning_effort` ONLY when it is non-null, because the parameter is an
+  HTTP 400 on any other model. `"low"` also stops hidden reasoning from eating
+  `max_tokens` and returning an empty message with `finish_reason=length`.
+  Output cap: `AIConfig.GROQ_MAX_COMPLETION_TOKENS` (8192, 8K TPM free tier).
+* **Gemini list**: `AIConfig.GEMINI_TEXT_MODELS` = `gemini-3.5-flash-lite`
+  then `gemini-3.5-flash` (lowest-contention first, both stable; 2.0 shut down
+  2026-06-01 and 2.5 is closed to new projects since 2026-09-18). Two entries
+  mean two separate free-tier quotas before a turn can fail, while
+  `GeminiProvider` still retries one model quickly before rotating.
+* **Failure handling**: a 400 is *not* an auth failure. Groq answers 400
+  `model_decommissioned` for a retired id, so `AIFailurePolicy.kindFor(code,
+  errorText)` inspects the body and rotates to the next model instead of
+  ending the request with "API Key Invalid". Only 401/402/403 fail fast;
+  429 / 5xx retry the same model once (Retry-After <= 1.5s) and then rotate;
+  the router adds one automatic full-chain retry pass before showing the busy
+  message (`AIFailurePolicy`, `AIProviderRouter`).
 * **Quota**: any BYOK key (Gemini OR Groq) counts as unlimited
   (`AIQuotaManager.isUnlimited`); the router keeps Gemini primary with
   Groq as the fast fallback.

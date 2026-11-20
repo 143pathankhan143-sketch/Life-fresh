@@ -105,7 +105,11 @@ fun SettingsApiKeysScreen(
 
     // AI Voice - natural cloud voice (Gemini free tier) + voice picker
     var naturalTts by remember { mutableStateOf(AIQuotaManager.isNaturalTtsEnabled(context)) }
-    var ttsVoice by remember { mutableStateOf(AIQuotaManager.getTtsVoiceName(context)) }
+    // Normalised on load: an install that had picked one of the removed
+    // voices (Charon, "auto", ...) shows the female voice instead of a blank.
+    var ttsVoice by remember {
+        mutableStateOf(GeminiTtsClient.normaliseVoice(AIQuotaManager.getTtsVoiceName(context)))
+    }
     var showVoicePicker by remember { mutableStateOf(false) }
     var isTestingVoice by remember { mutableStateOf(false) }
 
@@ -278,7 +282,7 @@ fun SettingsApiKeysScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.settings_ai_voice_pick) + ": " +
-                            if (ttsVoice == "auto") stringResource(R.string.ai_voice_auto) else ttsVoice,
+                            stringResource(GeminiTtsClient.voiceLabelRes(ttsVoice)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
@@ -530,7 +534,10 @@ fun SettingsApiKeysScreen(
                         .heightIn(max = 380.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // Exactly two voices (female / male) and nothing else: an
+                    // illiterate user cannot pick from a list of thirty.
                     GeminiTtsClient.VOICES.forEach { v ->
+                        val selected = GeminiTtsClient.normaliseVoice(ttsVoice) == v
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -540,15 +547,33 @@ fun SettingsApiKeysScreen(
                                     AIQuotaManager.setTtsVoiceName(context, v)
                                     showVoicePicker = false
                                 }
-                                .padding(vertical = 9.dp, horizontal = 8.dp),
+                                .padding(vertical = 7.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = v == ttsVoice, onClick = null)
+                            RadioButton(selected = selected, onClick = null)
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                text = if (v == "auto") stringResource(R.string.ai_voice_auto) else v,
-                                style = MaterialTheme.typography.bodyLarge
+                                text = stringResource(GeminiTtsClient.voiceLabelRes(v)),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
                             )
+                            // Test each voice right here - the user hears the
+                            // difference before choosing.
+                            TextButton(
+                                onClick = {
+                                    ttsVoice = v
+                                    AIQuotaManager.setTtsVoiceName(context, v)
+                                    coroutineScope.launch {
+                                        AiVoicePlayer.testSpeak(
+                                            context,
+                                            context.getString(R.string.ai_tts_test_sample)
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.testTag("btn_ai_voice_test_$v")
+                            ) {
+                                Text(stringResource(R.string.settings_ai_voice_test))
+                            }
                         }
                     }
                 }

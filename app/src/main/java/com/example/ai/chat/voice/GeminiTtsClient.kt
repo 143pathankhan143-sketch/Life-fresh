@@ -7,6 +7,7 @@ import com.example.ai.chat.config.AIConfig
 import com.example.data.AppLanguage
 import com.example.data.AppLanguageManager
 import com.example.data.security.AIQuotaManager
+import com.example.voice.VoiceIds
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -43,18 +44,35 @@ object GeminiTtsClient {
 
     private const val TAG = "GeminiTtsClient"
 
-    /** Prebuilt Gemini TTS voices. "auto" is kept for UI but maps to Kore (stable). */
-    val VOICES: List<String> = listOf(
-        "auto",
-        "Kore", "Charon", "Puck", "Zephyr", "Fenrir", "Leda", "Aoede",
-        "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel",
-        "Algieba", "Despina", "Erinome", "Algenib", "Rasalgethi",
-        "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux",
-        "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix",
-        "Sadachbia", "Sadaltager", "Sulafat"
-    )
+    /**
+     * The two voices the app offers (user decision 2026-09-27): one female, one
+     * male. The other 28 studio voices were removed - an illiterate user cannot
+     * choose from a list of 30, and the wrong pick sounds worse than the default.
+     * Both are Gemini prebuilt studio voices, free of charge on the free tier.
+     */
+    val VOICES: List<String> = VoiceIds.ALL
 
-    private const val STABLE_DEFAULT_VOICE = "Kore"
+    private const val STABLE_DEFAULT_VOICE = VoiceIds.FEMALE
+
+    /** Localized picker label for an offered voice ("Mahila" / "Purush"). */
+    fun voiceLabelRes(voice: String): Int =
+        if (normaliseVoice(voice) == VoiceIds.MALE) {
+            com.example.R.string.ai_voice_male
+        } else {
+            com.example.R.string.ai_voice_female
+        }
+
+    /**
+     * Maps any stored or requested name to one of the two offered voices.
+     * This is also the migration guard: an install that had picked one of the
+     * removed studio voices - or the old automatic mode - falls back to the
+     * female voice instead of sending an unknown name and going silent.
+     */
+    fun normaliseVoice(name: String): String = VoiceIds.normalise(name)
+
+    /** True when the requested name is one the app actually offers. */
+    fun isOfferedVoice(name: String): Boolean =
+        VOICES.any { it.equals(name.trim(), ignoreCase = true) }
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
@@ -64,10 +82,9 @@ object GeminiTtsClient {
 
     fun isConfigured(): Boolean = AIConfig.geminiApiKey.isNotBlank()
 
-    fun stableVoice(context: Context): String {
-        val v = AIQuotaManager.getTtsVoiceName(context)
-        return if (v.isBlank() || v.equals("auto", true)) STABLE_DEFAULT_VOICE else v
-    }
+    /** The voice to speak with right now (always one of [VOICES]). */
+    fun stableVoice(context: Context): String =
+        normaliseVoice(AIQuotaManager.getTtsVoiceName(context))
 
     /**
      * Synthesizes [rawText] into a playable audio file in cacheDir.
@@ -82,9 +99,10 @@ object GeminiTtsClient {
         val text = AiTts.cleanForVoice(rawText)
         if (text.isBlank()) return null
         val voice = stableVoice(context)
-        // Fast path: try the first (newest) model with the chosen voice.
-        // If that fails, try the next model once. No 6-way storm.
-        val models = AIConfig.GEMINI_TTS_MODELS.take(2)
+        // Fast path: try the first (newest, cheapest) model with the chosen
+        // voice, then the next one. The list itself is already short, so no
+        // retry storm - and no retired entry is ever tried.
+        val models = AIConfig.GEMINI_TTS_MODELS
         for (model in models) {
             val file = runAttemptCancellable(context, model, key, text, voice)
             if (file != null) return file
@@ -148,8 +166,10 @@ object GeminiTtsClient {
 
     private fun buildBody(text: String, voice: String, context: Context): JSONObject {
         val speech = JSONObject()
-        // Always pin a concrete voice - "auto" was random gender each time.
-        val v = if (voice.isBlank() || voice.equals("auto", true)) STABLE_DEFAULT_VOICE else voice
+        // Always pin one of the two offered voices - the old automatic mode
+        // picked a random gender each time, and a removed voice name is an
+        // HTTP 400 from the API.
+        val v = normaliseVoice(voice)
         speech.put(
             "voiceConfig",
             JSONObject().put(
